@@ -17,7 +17,7 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 
 ## App status
 
-- Phase A complete: Next.js App Router + Tailwind + static Orbit shell (`components/orbit/AgendaShell.tsx`). UI reference: `ui-prototype.html`.
+- Phase A complete: Next.js App Router + Tailwind + static Orbit shell (`components/orbit/AgendaShell.tsx`). UI reference: `prototype/ui-prototype.html`.
 - Next: Phase B (Drizzle schema).
 
 <!-- BEGIN:nextjs-agent-rules -->

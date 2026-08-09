@@ -1,12 +1,13 @@
 # Orbit MVP Spec
 
-Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`orbit_granular_build_818e0513.plan.md`](../orbit_granular_build_818e0513.plan.md).
+Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`.cursor/plans/orbit_granular_build_818e051.plan.md`](../.cursor/plans/orbit_granular_build_818e051.plan.md).
 
 ## 1. Product
 
 Orbit is a **household-first** coordination app for day-to-day to-dos and recurring monthly obligations. Solo use works via a Personal Space; sharing is a first-class path, not an afterthought.
 
-UI reference: [`ui-prototype.html`](../ui-prototype.html) (agenda + Spaces sidebar) and [`ui-spaces.html`](../ui-spaces.html) (all Spaces directory). Warm paper, Instrument Sans + IBM Plex Mono. Nav: **Upcoming → Daily → Monthlies → custom Sections**. No Shared tab. Spaces listed in the sidebar with **View all** / full directory for many Spaces.
+UI reference: [`prototype/ui-prototype.html`](../prototype/ui-prototype.html) (agenda + Spaces sidebar) and [`prototype/ui-spaces.html`](../prototype/ui-spaces.html) (all Spaces directory). Warm paper, Instrument Sans + IBM Plex Mono. Nav: **Upcoming → Daily → Monthlies → custom Sections**. No Shared tab. Spaces listed in the sidebar with **View all** / full directory for many Spaces.
+
 
 ## 2. Stack (locked)
 
