@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit — Agenda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --ink: #1c1917;
+      --muted: #78716c;
+      --line: #e7e0d4;
+      --panel: #fffdf9;
+      --accent: #c2410c;
+      --teal: #0f766e;
+      --blue: #1d4ed8;
+      --sidebar: #f3ece0;
+      --sidebar-w: 15.5rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Instrument Sans", sans-serif;
+      color: var(--ink);
+      background:
+        repeating-linear-gradient(-12deg, transparent, transparent 40px, rgba(231,224,212,0.45) 40px, rgba(231,224,212,0.45) 41px),
+        linear-gradient(180deg, #faf6ef 0%, var(--bg) 40%, #efe8da 100%);
+      min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* —— Sidebar —— */
+    .sidebar {
+      background: color-mix(in srgb, var(--sidebar) 88%, #fff);
+      border-right: 1px solid var(--line);
+      padding: 1.25rem 0.9rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+    .brand {
+      padding: 0 0.45rem;
+    }
+    .brand .mark {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+    }
+    .brand .mark span { color: var(--accent); }
+    .brand .hint {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    .nav-block { display: flex; flex-direction: column; gap: 0.2rem; }
+    .nav-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0 0.5rem 0.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .nav-label a {
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      font-size: 0.62rem;
+    }
+    .nav-label a:hover { text-decoration: underline; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 0.45rem 0.55rem;
+      border-radius: 4px;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .nav-item:hover { background: rgba(255,253,249,0.7); }
+    .nav-item.active {
+      background: var(--panel);
+      box-shadow: inset 0 0 0 1px var(--line);
+      font-weight: 600;
+    }
+    .nav-item .dot {
+      width: 0.45rem; height: 0.45rem; border-radius: 50%;
+      background: var(--line); flex-shrink: 0;
+    }
+    .nav-item.active .dot { background: var(--accent); }
+    .nav-item .meta {
+      margin-left: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+    .nav-item.sub {
+      padding-left: 1.35rem;
+      font-weight: 450;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .nav-item.sub.active { color: var(--ink); }
+
+    .sidebar-foot {
+      margin-top: auto;
+      padding: 0.75rem 0.45rem 0;
+      border-top: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .ghost-link {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-align: left;
+      padding: 0.4rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .ghost-link:hover { color: var(--ink); background: rgba(255,253,249,0.6); }
+
+    /* —— Main —— */
+    .main {
+      max-width: 720px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem 1.5rem 4rem;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 0.35rem;
+    }
+    h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; }
+    .sub { color: var(--muted); margin-top: 0.35rem; font-size: 0.95rem; }
+    .menu-btn {
+      display: none;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 0.45rem 0.7rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .section-tabs {
+      display: flex; gap: 0.35rem; margin: 0 0 1.1rem;
+      border-bottom: 1px solid var(--line); padding-bottom: 0.15rem;
+      flex-wrap: wrap;
+    }
+    .section-tabs button {
+      border: none; background: transparent;
+      font-size: 0.875rem; font-weight: 500; color: var(--muted);
+      padding: 0.55rem 0.75rem; cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .section-tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .day-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted); padding: 0.85rem 1rem 0.35rem;
+    }
+    .row {
+      display: grid; grid-template-columns: 4.5rem 1fr auto;
+      gap: 0.75rem; align-items: center;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--line);
+    }
+    .row:hover { background: #faf6ef; }
+    .when {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .when.soon { color: var(--accent); font-weight: 500; }
+    .name { font-weight: 560; font-size: 0.95rem; }
+    .tags { margin-top: 0.2rem; font-size: 0.75rem; color: var(--muted); }
+    .check {
+      width: 1.05rem; height: 1.05rem; border: 1.5px solid var(--line);
+      border-radius: 3px; background: #fff;
+    }
+    .badge {
+      font-size: 0.68rem; font-weight: 600; padding: 0.2rem 0.45rem;
+      border: 1px solid var(--line); border-radius: 2px; white-space: nowrap;
+    }
+    .badge.edit { border-color: #99f6e4; background: #f0fdfa; color: var(--teal); }
+    .badge.view { border-color: #bfdbfe; background: #eff6ff; color: var(--blue); }
+    .badge.mine { background: #fff7ed; border-color: #fed7aa; color: var(--accent); }
+
+    .compose {
+      margin-top: 0.85rem; display: flex; gap: 0.5rem;
+    }
+    .compose input {
+      flex: 1; border: 1px solid var(--line); background: var(--panel);
+      padding: 0.7rem 0.85rem; font: inherit; border-radius: 4px;
+    }
+    .compose button {
+      border: none; background: var(--ink); color: #fff;
+      padding: 0 1rem; font-weight: 600; font-size: 0.85rem;
+      border-radius: 4px; cursor: pointer;
+    }
+    .compose[hidden] { display: none; }
+
+    .share-bar {
+      margin-top: 1.25rem; padding: 0.9rem 1rem;
+      border: 1px dashed var(--line); border-radius: 4px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 0.75rem; flex-wrap: wrap; font-size: 0.85rem;
+      background: color-mix(in srgb, var(--panel) 70%, transparent);
+    }
+    .avatars { display: flex; gap: 0.35rem; align-items: center; }
+    .avatars span {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      display: grid; place-items: center; font-size: 0.65rem; font-weight: 700;
+      background: var(--ink); color: #fff;
+    }
+    .avatars em { font-style: normal; color: var(--muted); font-size: 0.75rem; margin-left: 0.25rem; }
+
+    .view[hidden] { display: none; }
+    .empty-note {
+      padding: 1.5rem 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .proto-label {
+      position: fixed; bottom: 0.75rem; right: 0.75rem;
+      background: var(--ink); color: #fff; font-size: 0.7rem;
+      padding: 0.35rem 0.6rem; border-radius: 4px; opacity: 0.85;
+      z-index: 20;
+    }
+    .backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(28,25,23,0.25);
+      z-index: 30;
+    }
+
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: fixed;
+        left: 0; top: 0;
+        width: min(18rem, 88vw);
+        z-index: 40;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+        box-shadow: 8px 0 32px rgba(28,25,23,0.08);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .backdrop.open { display: block; }
+      .menu-btn { display: inline-flex; }
+      .main { padding: 1.25rem 1.1rem 4rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop" id="backdrop" hidden></div>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Spaces and sections">
+      <div class="brand">
+        <div class="mark">Or<span>bit</span></div>
+        <div class="hint">Household agenda</div>
+      </div>
+
+      <div class="nav-block">
+        <div class="nav-label">
+          <span>Spaces</span>
+          <a href="ui-spaces.html">View all</a>
+        </div>
+        <button type="button" class="nav-item active" data-space="home" aria-current="page">
+          <span class="dot"></span>
+          Home
+          <span class="meta">3</span>
+        </button>
+        <button type="button" class="nav-item" data-space="personal">
+          <span class="dot"></span>
+          Personal
+          <span class="meta">1</span>
+        </button>
+        <button type="button" class="nav-item" data-space="cabin">
+          <span class="dot"></span>
+          Cabin weekend
+          <span class="meta">2</span>
+        </button>
+      </div>
+
+      <div class="nav-block">
+        <div class="nav-label"><span>In this Space</span></div>
+        <button type="button" class="nav-item sub active" data-section="upcoming">Upcoming</button>
+        <button type="button" class="nav-item sub" data-section="daily">Daily</button>
+        <button type="button" class="nav-item sub" data-section="monthlies">Monthlies</button>
+        <button type="button" class="nav-item sub" data-section="shopping">Shopping</button>
+        <button type="button" class="nav-item sub" data-section="trip">Trip notes</button>
+      </div>
+
+      <div class="sidebar-foot">
+        <a class="ghost-link" href="ui-spaces.html">Browse all Spaces</a>
+        <button type="button" class="ghost-link">New Space…</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <header>
+          <div class="eyebrow">Active Space · Home</div>
+          <h1 id="view-title">Upcoming</h1>
+          <p class="sub" id="view-sub">Monthlies and dated items in this Space.</p>
+        </header>
+        <button type="button" class="menu-btn" id="menu-btn" aria-label="Open navigation">Spaces</button>
+      </div>
+
+      <div class="section-tabs" role="tablist" aria-label="Sections">
+        <button type="button" class="active" data-section="upcoming">Upcoming</button>
+        <button type="button" data-section="daily">Daily</button>
+        <button type="button" data-section="monthlies">Monthlies</button>
+        <button type="button" data-section="shopping">Shopping</button>
+        <button type="button" data-section="trip">Trip notes</button>
+      </div>
+
+      <!-- Upcoming -->
+      <div class="view" data-view="upcoming">
+        <div class="panel">
+          <div class="day-label">In 4 days · Fri Aug 1</div>
+          <div class="row">
+            <div class="when soon">Aug 1</div>
+            <div>
+              <div class="name">Pay rent</div>
+              <div class="tags">Monthly · reminder emailed · Alex assigned</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+
+          <div class="day-label">In 8 days · Tue Aug 5</div>
+          <div class="row">
+            <div class="when soon">Aug 5</div>
+            <div>
+              <div class="name">Pay internet</div>
+              <div class="tags">Monthly · shared with Alex</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+
+          <div class="day-label">Today · open to-dos</div>
+          <div class="row">
+            <div class="when">—</div>
+            <div>
+              <div class="name">Email landlord about parking</div>
+              <div class="tags">Overdue · Daily</div>
+            </div>
+            <span class="badge mine">Yours</span>
+          </div>
+          <div class="row">
+            <div class="when">Aug 20</div>
+            <div>
+              <div class="name">Dog meds refill</div>
+              <div class="tags">Monthly · private</div>
+            </div>
+            <span class="badge mine">Yours</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily -->
+      <div class="view" data-view="daily" hidden>
+        <div class="panel">
+          <div class="day-label">Open</div>
+          <div class="row">
+            <div class="check" aria-hidden="true"></div>
+            <div>
+              <div class="name">Email landlord about parking</div>
+              <div class="tags">Overdue</div>
+            </div>
+            <span class="badge mine">Yours</span>
+          </div>
+          <div class="row">
+            <div class="check" aria-hidden="true"></div>
+            <div>
+              <div class="name">Buy dishwasher pods</div>
+              <div class="tags">Alex can edit</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+          <div class="day-label">Completed · hidden by default</div>
+          <div class="empty-note">Show completed to reopen finished Daily Tasks.</div>
+        </div>
+      </div>
+
+      <!-- Monthlies -->
+      <div class="view" data-view="monthlies" hidden>
+        <div class="panel">
+          <div class="day-label">This cycle</div>
+          <div class="row">
+            <div class="when soon">1st</div>
+            <div>
+              <div class="name">Pay rent</div>
+              <div class="tags">Next due Aug 1 · Alex</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+          <div class="row">
+            <div class="when soon">5th</div>
+            <div>
+              <div class="name">Pay internet</div>
+              <div class="tags">Next due Aug 5</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+          <div class="row">
+            <div class="when">20th</div>
+            <div>
+              <div class="name">Dog meds refill</div>
+              <div class="tags">Next due Aug 20</div>
+            </div>
+            <span class="badge mine">Yours</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom: shopping -->
+      <div class="view" data-view="shopping" hidden>
+        <div class="panel">
+          <div class="day-label">Shopping · tasks</div>
+          <div class="row">
+            <div class="check" aria-hidden="true"></div>
+            <div>
+              <div class="name">Dishwasher pods</div>
+              <div class="tags">No due date</div>
+            </div>
+            <span class="badge view">View only (Sam)</span>
+          </div>
+          <div class="row">
+            <div class="check" aria-hidden="true"></div>
+            <div>
+              <div class="name">Coffee filters</div>
+              <div class="tags">No due date</div>
+            </div>
+            <span class="badge edit">Can edit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom: trip notes -->
+      <div class="view" data-view="trip" hidden>
+        <div class="panel">
+          <div class="day-label">Trip notes · mixed</div>
+          <div class="row" style="grid-template-columns: 1fr;">
+            <div>
+              <div class="name">Cabin packing</div>
+              <div class="tags">Note · plain text</div>
+              <p style="margin-top:0.55rem;font-size:0.9rem;color:var(--muted);line-height:1.45;">
+                Keys with Maya. Bring dog bed. Checkout Sunday 11am - trash to curb Saturday night.
+              </p>
+            </div>
+          </div>
+          <div class="day-label">Checklist</div>
+          <div class="row">
+            <div class="check" aria-hidden="true"></div>
+            <div>
+              <div class="name">Confirm ferry tickets</div>
+              <div class="tags">Due Fri</div>
+            </div>
+            <span class="badge mine">Yours</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compose" id="compose">
+        <input type="text" id="compose-input" placeholder="Add to Daily…" />
+        <button type="button">Add</button>
+      </div>
+
+      <div class="share-bar">
+        <div><strong>Home</strong> · 3 people · you manage access</div>
+        <div class="avatars">
+          <span>J</span><span style="background:#0f766e">A</span><span style="background:#1d4ed8">S</span>
+          <em>+ Invite</em>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="proto-label">Prototype · Agenda + sidebar</div>
+
+  <script>
+    const titles = {
+      upcoming: ["Upcoming", "Monthlies and dated items in this Space."],
+      daily: ["Daily", "Day-to-day to-dos. Completed stay done until you reopen them."],
+      monthlies: ["Monthlies", "Recurring monthly obligations for this household."],
+      shopping: ["Shopping", "Custom tasks Section in Home."],
+      trip: ["Trip notes", "Mixed Section — notes plus a checklist."],
+    };
+
+    const composePlaceholders = {
+      upcoming: null,
+      daily: "Add to Daily…",
+      monthlies: "Add a Monthly…",
+      shopping: "Add to Shopping…",
+      trip: "Add a checklist item…",
+    };
+
+    function setSection(id) {
+      document.querySelectorAll(".view").forEach((el) => {
+        el.hidden = el.dataset.view !== id;
+      });
+      document.querySelectorAll("[data-section]").forEach((el) => {
+        el.classList.toggle("active", el.dataset.section === id);
+      });
+      const [title, sub] = titles[id] || ["Orbit", ""];
+      document.getElementById("view-title").textContent = title;
+      document.getElementById("view-sub").textContent = sub;
+
+      const compose = document.getElementById("compose");
+      const input = document.getElementById("compose-input");
+      const ph = composePlaceholders[id];
+      if (!ph) {
+        compose.hidden = true;
+      } else {
+        compose.hidden = false;
+        input.placeholder = ph;
+      }
+    }
+
+    document.querySelectorAll("[data-section]").forEach((el) => {
+      el.addEventListener("click", () => setSection(el.dataset.section));
+    });
+
+    document.querySelectorAll("[data-space]").forEach((el) => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll("[data-space]").forEach((s) => {
+          s.classList.toggle("active", s === el);
+          if (s === el) s.setAttribute("aria-current", "page");
+          else s.removeAttribute("aria-current");
+        });
+        const name = el.childNodes[2]?.textContent?.trim() || el.textContent.trim();
+        document.querySelector(".eyebrow").textContent = "Active Space · " + name.split("\n")[0].trim();
+      });
+    });
+
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("backdrop");
+    const menuBtn = document.getElementById("menu-btn");
+    function closeNav() {
+      sidebar.classList.remove("open");
+      backdrop.classList.remove("open");
+      backdrop.hidden = true;
+    }
+    function openNav() {
+      sidebar.classList.add("open");
+      backdrop.classList.add("open");
+      backdrop.hidden = false;
+    }
+    menuBtn.addEventListener("click", openNav);
+    backdrop.addEventListener("click", closeNav);
+
+    setSection("upcoming");
+  </script>
+</body>
+</html>

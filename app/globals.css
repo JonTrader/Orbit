@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f1e8;
+  --ink: #1c1917;
+  --muted: #78716c;
+  --line: #e7e0d4;
+  --panel: #fffdf9;
+  --accent: #c2410c;
+  --teal: #0f766e;
+  --blue: #1d4ed8;
+  --sidebar: #f3ece0;
+  --sidebar-w: 15.5rem;
+  --bg-top: #faf6ef;
+  --bg-bottom: #efe8da;
+  --row-hover: #faf6ef;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-panel: var(--panel);
+  --color-accent: var(--accent);
+  --color-teal: var(--teal);
+  --color-blue: var(--blue);
+  --color-sidebar: var(--sidebar);
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+body {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(
+      -12deg,
+      transparent,
+      transparent 40px,
+      rgba(231, 224, 212, 0.45) 40px,
+      rgba(231, 224, 212, 0.45) 41px
+    ),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 40%, var(--bg-bottom) 100%);
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
