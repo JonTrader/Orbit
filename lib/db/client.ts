@@ -2,6 +2,8 @@ import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 
+import { requireEnv } from "@/lib/env";
+
 import * as schema from "./schema";
 
 // The Neon serverless driver talks WebSocket outside the edge runtime.
@@ -26,9 +28,11 @@ let cached: DbClient | undefined;
 /** Application client bound to `DATABASE_URL`. Tests use their own client. */
 export function getDb(): OrbitDb {
   if (!cached) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is not set");
-    cached = createDbClient(url);
+    // `next build` imports the auth config, which builds its adapter from this
+    // client, so the build gets a pool it never connects with.
+    cached = createDbClient(
+      requireEnv("DATABASE_URL", "postgres://build@localhost/orbit"),
+    );
   }
   return cached.db;
 }

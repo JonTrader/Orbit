@@ -126,18 +126,28 @@ const sqlList = (values: readonly string[]) =>
 
 /* ------------------------------------------------------- Spaces and members */
 
-export const space = pgTable("space", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  /** IANA zone that defines due calendar days and Reminder timing (ADR 0003). */
-  timezone: text("timezone").notNull(),
-  isPersonal: boolean("is_personal").notNull().default(false),
-  createdBy: text("created_by").references(() => user.id, {
-    onDelete: "set null",
-  }),
-  createdAt,
-  updatedAt,
-});
+export const space = pgTable(
+  "space",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /** IANA zone that defines due calendar days and Reminder timing (ADR 0003). */
+    timezone: text("timezone").notNull(),
+    isPersonal: boolean("is_personal").notNull().default(false),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    // A user gets exactly one Personal Space, created on first login. Extra
+    // Spaces they create are not personal, so they are outside this index.
+    uniqueIndex("space_personal_creator_unique")
+      .on(t.createdBy)
+      .where(sql`${t.isPersonal}`),
+  ],
+);
 
 export const spaceMember = pgTable(
   "space_member",

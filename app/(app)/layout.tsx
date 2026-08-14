@@ -1,0 +1,24 @@
+import type { ReactNode } from "react";
+
+import { getDb } from "@/lib/db/client";
+import { ensurePersonalSpace } from "@/lib/onboarding";
+import { readCreatorTimeZone, requireVerifiedSession } from "@/lib/session";
+
+/**
+ * Onboarding gate for the app shell. Pages re-check the session themselves,
+ * because a layout does not re-render on client navigation.
+ */
+export default async function AppLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const session = await requireVerifiedSession();
+
+  await ensurePersonalSpace(getDb(), {
+    userId: session.user.id,
+    timezone: await readCreatorTimeZone(),
+  });
+
+  return children;
+}

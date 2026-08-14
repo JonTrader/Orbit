@@ -8,6 +8,13 @@
       "when": 1786600539653,
       "tag": "0000_orbit_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786629938073,
+      "tag": "0001_personal_space_per_user",
+      "breakpoints": true
     }
   ]
 }

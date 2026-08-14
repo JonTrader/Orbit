@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "space_personal_creator_unique" ON "space" USING btree ("created_by") WHERE "space"."is_personal";

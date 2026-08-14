@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { SignOutButton } from "@/components/auth/SignOutButton";
+
 const SECTIONS = [
   { id: "upcoming", label: "Upcoming", sub: "Monthlies and dated items in this Space." },
   { id: "daily", label: "Daily", sub: "Day-to-day to-dos for this Space." },
@@ -16,7 +18,12 @@ const SPACES = [
   { id: "home", name: "Home", meta: "3" },
 ] as const;
 
-export function AgendaShell() {
+export interface AgendaShellUser {
+  name: string;
+  email: string;
+}
+
+export function AgendaShell({ user }: { user?: AgendaShellUser }) {
   const [activeSpaceId, setActiveSpaceId] = useState<(typeof SPACES)[number]["id"]>("personal");
   const [activeSection, setActiveSection] = useState<SectionId>("upcoming");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -129,6 +136,15 @@ export function AgendaShell() {
           >
             New Space…
           </button>
+          {user ? (
+            <div className="mt-2 flex flex-col gap-1 border-t border-line pt-2">
+              <div className="px-2 text-[0.78rem] font-medium">{user.name}</div>
+              <div className="truncate px-2 font-mono text-[0.62rem] text-muted">
+                {user.email}
+              </div>
+              <SignOutButton />
+            </div>
+          ) : null}
         </div>
       </aside>
 

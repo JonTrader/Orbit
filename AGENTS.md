@@ -33,8 +33,9 @@ Stack (locked in the test plan): Vitest + real Neon Postgres via `DATABASE_URL_T
 ### Running the suite
 
 ```
-npm test        # everything
-npm run test:db # Phase B db suite only
+npm test          # everything
+npm run test:db   # Phase B db suite only
+npm run test:auth # Phase C auth suite only
 npm run test:watch
 ```
 
@@ -58,7 +59,13 @@ When adding tests, uncomment the matching job in that file (do not invent a seco
 - Phase B complete: Drizzle schema (`lib/db/schema.ts`), migrations (`drizzle/`), seed helper (`lib/db/seed.ts`), Vitest harness (`tests/`). Diagrams and constraint catalogue: [`docs/data-model.md`](./docs/data-model.md).
   - Task vs Monthly separation is enforced **in the database**, not only in services: `section` carries a `unique(id, space_id, kind)`, and `task` / `monthly` / `note` each mirror `section_kind` behind a composite foreign key plus a `CHECK` restricting the legal kinds. Inserting a Task into Monthlies (or a Monthly anywhere else, or a row pointing at another Space's Section) raises a constraint error.
   - Services must set `sectionKind` alongside `sectionId` when writing Tasks, Monthlies, and Notes.
-- Next: Phase C (Better Auth; the `user` / `session` / `account` / `verification` tables already exist).
+- Phase C complete: Better Auth (`lib/auth.ts`, `app/api/auth/[...all]`), Resend verification and password-reset mail (`lib/email/`, `emails/`), auth pages under `app/(auth)/`, protected shell under `app/(app)/`, Personal Space onboarding (`lib/onboarding.ts`), suite in `tests/auth/`.
+  - The gate lives in `lib/auth-access.ts` / `lib/session.ts`: `requireVerifiedSession()` redirects to `/sign-in` when there is no session and to `/verify-email` when an email/password user has not verified. OAuth counts as verified, so a Google or Microsoft account row satisfies the gate on its own (spec §3).
+  - `(app)/layout.tsx` runs onboarding; pages re-check the session themselves because a layout does not re-render on client navigation.
+  - One Personal Space per user is enforced **in the database** (`space_personal_creator_unique`, migration `0001`), so `ensurePersonalSpace()` is safe to call on every request.
+  - The creator's IANA zone reaches the server through the `orbit_tz` cookie that the auth pages set (`components/auth/TimeZoneCookie.tsx`); it falls back to UTC (ADR 0003).
+  - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs the message in dev and throws in production.
+- Next: Phase D (domain services + authz over the Phase B schema).
 
 
 <!-- BEGIN:nextjs-agent-rules -->
