@@ -14,6 +14,23 @@
   --bg-top: #faf6ef;
   --bg-bottom: #efe8da;
   --row-hover: #faf6ef;
+
+  /* Auth · The pad */
+  --auth-linen: #d8ddd2;
+  --auth-pad: #f6efc4;
+  --auth-pad-rule: #d7c98a;
+  --auth-pad-margin: #e39a96;
+  --auth-ink: #2a2723;
+  --auth-clay: #b85c38;
+  --auth-muted: #6d675c;
+  --auth-panel: #f4f1ea;
+
+  /* Auth · Burner */
+  --auth-stone: #1a1815;
+  --auth-butcher: #f0e6d4;
+  --auth-copper: #c56a3c;
+  --auth-copper-hot: #e08958;
+  --auth-ash: #a3988a;
 }
 
 @theme inline {
@@ -43,6 +60,85 @@ body {
     ),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 40%, var(--bg-bottom) 100%);
   min-height: 100vh;
+}
+
+@keyframes auth-burner-idle {
+  0%,
+  100% {
+    box-shadow: 0 0 28px color-mix(in srgb, var(--auth-copper) 18%, transparent);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 56px color-mix(in srgb, var(--auth-copper-hot) 32%, transparent);
+    opacity: 1;
+  }
+}
+
+.auth-burner-glow {
+  animation: auth-burner-idle 8s ease-in-out infinite;
+}
+
+/* Auth pending · orbital tick (product-literal wait mark) */
+@keyframes auth-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-orbit {
+  position: relative;
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  flex-shrink: 0;
+  vertical-align: -0.12em;
+}
+
+.auth-orbit__path {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.28;
+  transform: scaleY(0.55);
+}
+
+.auth-orbit__track {
+  position: absolute;
+  inset: 0;
+  transform: scaleY(0.55);
+}
+
+.auth-orbit__arm {
+  position: absolute;
+  inset: 0;
+  animation: auth-orbit-spin 0.85s linear infinite;
+}
+
+.auth-orbit__bit {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 0.3em;
+  height: 0.3em;
+  margin-left: -0.15em;
+  margin-top: -0.05em;
+  border-radius: 50%;
+  background: currentColor;
+  /* Undo track squash so the traveling bit stays round on the ellipse. */
+  transform: scaleY(calc(1 / 0.55));
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.auth-pad :focus-visible,
+.auth-burner :focus-visible {
+  outline: 2px solid var(--auth-clay);
+  outline-offset: 2px;
+}
+
+.auth-burner :focus-visible {
+  outline-color: var(--auth-copper-hot);
+  outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {

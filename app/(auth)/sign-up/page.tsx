@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { AuthPadShell } from "@/components/auth/AuthPadShell";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignUpForm } from "@/components/auth/SignUpForm";
-import { AuthCard, Divider } from "@/components/auth/ui";
+import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
 import { SIGN_IN_PATH } from "@/lib/auth-paths";
 import { redirectIfVerified } from "@/lib/session";
 
@@ -13,23 +13,23 @@ export default async function SignUpPage() {
   await redirectIfVerified();
 
   return (
-    <AuthCard
-      title="Create your account"
-      intro="You start with a Personal Space holding Daily and Monthlies. Invite the household later."
-      footer={
-        <>
-          Already have an account?{" "}
-          <Link href={SIGN_IN_PATH} className="font-semibold text-accent">
-            Sign in
-          </Link>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <SignUpForm />
-        <Divider label="or" />
-        <OAuthButtons />
-      </div>
-    </AuthCard>
+    <AuthPadShell>
+      <AuthCard
+        title="Create your account"
+        intro="You start with a Personal Space. Invite the household onto the same list later."
+        footer={
+          <span>
+            Already have an account?{" "}
+            <AuthLink href={SIGN_IN_PATH}>Sign in</AuthLink>
+          </span>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <SignUpForm />
+          <Divider label="or" />
+          <OAuthButtons />
+        </div>
+      </AuthCard>
+    </AuthPadShell>
   );
 }

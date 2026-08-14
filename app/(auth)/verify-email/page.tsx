@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { AuthPadShell } from "@/components/auth/AuthPadShell";
 import { ResendVerification } from "@/components/auth/ResendVerification";
-import { AuthCard } from "@/components/auth/ui";
+import { AuthCard, AuthLink } from "@/components/auth/ui";
 import { SIGN_IN_PATH } from "@/lib/auth-paths";
 import { getAppSession } from "@/lib/session";
 
@@ -20,20 +20,24 @@ export default async function VerifyEmailPage({
   const address = email ?? session?.user.email;
 
   return (
-    <AuthCard
-      title="Verify your email"
-      intro={
-        address
-          ? `We sent a link to ${address}. Open it to unlock Orbit.`
-          : "Open the link we emailed you to unlock Orbit."
-      }
-      footer={
-        <Link href={SIGN_IN_PATH} className="hover:text-ink">
-          Back to sign in
-        </Link>
-      }
-    >
-      <ResendVerification email={address} />
-    </AuthCard>
+    <AuthPadShell>
+      <AuthCard
+        title="Verify your email"
+        intro="Open the link to unlock your Spaces."
+        footer={
+          <AuthLink href={SIGN_IN_PATH} tone="muted">
+            Back to sign in
+          </AuthLink>
+        }
+      >
+        {address ? (
+          <p className="mb-4 text-[0.95rem] leading-relaxed text-(--auth-muted)">
+            Sent to <em className="not-italic font-bold text-(--auth-ink)">{address}</em>.
+            If it is not in the inbox, look in spam. The link lasts a day.
+          </p>
+        ) : null}
+        <ResendVerification email={address} />
+      </AuthCard>
+    </AuthPadShell>
   );
 }
