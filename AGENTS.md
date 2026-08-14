@@ -65,6 +65,7 @@ When adding tests, uncomment the matching job in that file (do not invent a seco
   - One Personal Space per user is enforced **in the database** (`space_personal_creator_unique`, migration `0001`), so `ensurePersonalSpace()` is safe to call on every request.
   - The creator's IANA zone reaches the server through the `orbit_tz` cookie that the auth pages set (`components/auth/TimeZoneCookie.tsx`); it falls back to UTC (ADR 0003).
   - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs the message in dev and throws in production.
+  - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireVerifiedSession()`.
 - Next: Phase D (domain services + authz over the Phase B schema).
 
 

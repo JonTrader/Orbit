@@ -7,7 +7,10 @@ export const SIGN_IN_PATH = "/sign-in";
 export const SIGN_UP_PATH = "/sign-up";
 export const VERIFY_EMAIL_PATH = "/verify-email";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
+/** Email-token landing after a forgot-password link. Usable while signed out. */
 export const RESET_PASSWORD_PATH = "/reset-password";
+/** Signed-in change-password page (requires a verified session). */
+export const CHANGE_PASSWORD_PATH = "/change-password";
 
 export function verifyEmailPath(email?: string): string {
   return email
