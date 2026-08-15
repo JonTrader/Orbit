@@ -78,6 +78,23 @@ describe("seed helper", () => {
     ).rejects.toThrow();
   });
 
+  it("allows only one Personal Space per user", async () => {
+    const user = await createUser();
+    await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: user.id,
+      isPersonal: true,
+    });
+
+    await expect(
+      createSpaceWithSystemSections(testDb, {
+        name: "Second Personal Space",
+        ownerUserId: user.id,
+        isPersonal: true,
+      }),
+    ).rejects.toThrow();
+  });
+
   it("allows only one Daily and one Monthlies per Space", async () => {
     const seeded = await createSpaceWithSystemSections(testDb, {
       name: "Home",
