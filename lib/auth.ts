@@ -3,13 +3,13 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 
 import { getDb, schema } from "@/lib/db/client";
+import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "@/lib/email/auth-emails";
 import { requireEnv } from "@/lib/env";
 import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
-import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
 
 // Better Auth degrades quietly when these are missing: an unset secret falls
 // back to a published default outside production, and an unset base URL takes
@@ -18,6 +18,13 @@ import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
 const baseURL = requireEnv("BETTER_AUTH_URL", "http://localhost:3000");
 const secret = requireEnv("BETTER_AUTH_SECRET");
 const configuredOAuthProviders = getConfiguredOAuthProviderIds();
+const trustedOrigins = [
+  baseURL,
+  ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+].filter((origin, index, origins) => origins.indexOf(origin) === index);
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const microsoftClientId = process.env.MICROSOFT_CLIENT_ID;
@@ -27,6 +34,12 @@ export const auth = betterAuth({
   baseURL,
   secret,
   database: drizzleAdapter(getDb(), { provider: "pg", schema }),
+  rateLimit: {
+    // Memory storage resets across Vercel instances. The table keeps the
+    // sensitive endpoint limits shared across serverless invocations.
+    storage: "database",
+  },
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
     // Spec §3: email/password users verify before they can use the app.

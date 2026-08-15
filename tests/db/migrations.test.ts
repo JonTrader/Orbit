@@ -19,7 +19,13 @@ const ORBIT_TABLES = [
   "notification_log",
 ];
 
-const BETTER_AUTH_TABLES = ["user", "session", "account", "verification"];
+const BETTER_AUTH_TABLES = [
+  "user",
+  "session",
+  "account",
+  "verification",
+  "rate_limit",
+];
 
 describe("migrations", () => {
   let appliedAfterFirstRun: number;

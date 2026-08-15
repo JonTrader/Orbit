@@ -15,6 +15,13 @@
       "when": 1786629938073,
       "tag": "0001_personal_space_per_user",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786817320490,
+      "tag": "0002_wakeful_scalphunter",
+      "breakpoints": true
     }
   ]
 }

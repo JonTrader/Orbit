@@ -30,6 +30,7 @@ describe("better auth configuration", () => {
   beforeAll(async () => {
     process.env.BETTER_AUTH_SECRET ??= "orbit-test-secret-value-0123456789";
     process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS ??= "https://preview.orbit.test";
     process.env.GOOGLE_CLIENT_ID ??= "google-test-client";
     process.env.GOOGLE_CLIENT_SECRET ??= "google-test-secret";
     process.env.MICROSOFT_CLIENT_ID ??= "microsoft-test-client";
@@ -45,6 +46,16 @@ describe("better auth configuration", () => {
   it("requires a verified address before an email/password session (spec §3)", () => {
     expect(auth.options.emailAndPassword?.enabled).toBe(true);
     expect(auth.options.emailAndPassword?.requireEmailVerification).toBe(true);
+  });
+
+  it("uses database-backed rate limits and explicitly trusts the app origin", () => {
+    expect(auth.options.rateLimit?.storage).toBe("database");
+    expect(auth.options.trustedOrigins).toEqual(
+      expect.arrayContaining([
+        "http://localhost:3000",
+        "https://preview.orbit.test",
+      ]),
+    );
   });
 
   it("offers email/password plus Google and Microsoft (ADR 0002)", () => {
