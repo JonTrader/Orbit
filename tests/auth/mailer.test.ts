@@ -53,15 +53,24 @@ describe("outbound mail", () => {
     });
   });
 
-  it("logs the message instead of sending it without credentials", async () => {
+  it("logs delivery metadata without the email body", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { sendEmail } = await loadMailer();
 
-    await sendEmail(MESSAGE);
+    await sendEmail({
+      ...MESSAGE,
+      text: "Reset here: https://orbit.test/reset-password#token=secret-token",
+    });
 
+    const output = warn.mock.calls[0][0];
     expect(send).not.toHaveBeenCalled();
-    expect(warn.mock.calls[0][0]).toContain("RESEND_API_KEY");
+    expect(output).toContain("RESEND_API_KEY");
+    expect(output).toContain(MESSAGE.to);
+    expect(output).toContain(MESSAGE.subject);
+    expect(output).toContain("email not sent");
+    expect(output).not.toContain("Reset here");
+    expect(output).not.toContain("secret-token");
   });
 
   it("refuses to boot in production without credentials", async () => {

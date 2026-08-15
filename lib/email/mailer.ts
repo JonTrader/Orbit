@@ -43,8 +43,9 @@ const wait = (ms: number) =>
  * Single seam for every outbound Orbit email (verification, password reset,
  * later Invites and Reminders). Tests mock this module rather than Resend.
  *
- * Outside production a missing `RESEND_API_KEY` / `EMAIL_FROM` logs the message
- * instead of sending it, so local sign-up still works.
+ * Outside production a missing `RESEND_API_KEY` / `EMAIL_FROM` logs delivery
+ * metadata instead of sending it, so local sign-up still reports what happened
+ * without exposing email contents.
  */
 export async function sendEmail(email: OutboundEmail): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -61,8 +62,8 @@ export async function sendEmail(email: OutboundEmail): Promise<void> {
     }
 
     console.warn(
-      `[email] ${missing.join(" and ")} not set - logging instead of sending\n` +
-        `  to: ${email.to}\n  subject: ${email.subject}\n${email.text}`,
+      `[email] ${missing.join(" and ")} not set - email not sent\n` +
+        `  to: ${email.to}\n  subject: ${email.subject}`,
     );
     return;
   }
