@@ -83,7 +83,7 @@ Quick-add targets the selected Section. Compose disabled (or not shown) on Upcom
 
 ## 7. Data model (logical)
 
-Plus Better Auth user/session/account tables.
+As built: [`docs/data-model.md`](./data-model.md). Plus Better Auth user/session/account tables.
 
 - `space` — name, timezone, …
 - `space_member` — userId, spaceId, role
