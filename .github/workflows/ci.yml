@@ -1,4 +1,6 @@
 # Orbit CI. Grow this file with the test plan:
+#   Node 24 (npm 11) is required: npm 10 `npm ci` rejects npm-11 lockfiles
+#   (see AGENTS.md CI section). Keep this in sync with local dev.
 #   Phase B: done - `test` runs against repo secret DATABASE_URL_TEST (Neon ci branch)
 #   Phase G: uncomment `e2e`
 #   Phase J: make these required checks; document secrets in README
@@ -23,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run lint
@@ -34,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -45,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
@@ -58,7 +60,7 @@ jobs:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
   #       with:
-  #         node-version: 20
+  #         node-version: 24
   #         cache: npm
   #     - run: npm ci
   #     - run: npx playwright install --with-deps chromium
