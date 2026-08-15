@@ -8,6 +8,7 @@ import {
   sendVerificationEmail,
 } from "@/lib/email/auth-emails";
 import { requireEnv } from "@/lib/env";
+import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
 
 // Better Auth degrades quietly when these are missing: an unset secret falls
 // back to a published default outside production, and an unset base URL takes
@@ -15,6 +16,11 @@ import { requireEnv } from "@/lib/env";
 // verification and password-reset links.
 const baseURL = requireEnv("BETTER_AUTH_URL", "http://localhost:3000");
 const secret = requireEnv("BETTER_AUTH_SECRET");
+const configuredOAuthProviders = getConfiguredOAuthProviderIds();
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const microsoftClientId = process.env.MICROSOFT_CLIENT_ID;
+const microsoftClientSecret = process.env.MICROSOFT_CLIENT_SECRET;
 
 export const auth = betterAuth({
   baseURL,
@@ -41,17 +47,25 @@ export const auth = betterAuth({
     },
   },
   socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    },
-    microsoft: {
-      clientId: process.env.MICROSOFT_CLIENT_ID ?? "",
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
-      // Personal and work accounts both sign in; households are not a tenant.
-      tenantId: "common",
-      prompt: "select_account",
-    },
+    ...(configuredOAuthProviders.includes("google")
+      ? {
+          google: {
+            clientId: googleClientId!,
+            clientSecret: googleClientSecret!,
+          },
+        }
+      : {}),
+    ...(configuredOAuthProviders.includes("microsoft")
+      ? {
+          microsoft: {
+            clientId: microsoftClientId!,
+            clientSecret: microsoftClientSecret!,
+            // Personal and work accounts both sign in; households are not a tenant.
+            tenantId: "common",
+            prompt: "select_account",
+          },
+        }
+      : {}),
   },
   // Must stay last: it writes Set-Cookie for Server Actions.
   plugins: [nextCookies()],
