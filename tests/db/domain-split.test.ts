@@ -161,6 +161,25 @@ describe("Task vs Monthly separation", () => {
         .set({ sectionId: sections.monthlies.id, sectionKind: "monthlies" })
         .where(eq(task.id, row.id)),
     ).rejects.toThrow();
+
+    const [monthlyRow] = await testDb
+      .insert(monthly)
+      .values({
+        spaceId: space.id,
+        sectionId: sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Rent",
+        dueDayOfMonth: 1,
+        nextDueOn: "2026-09-01",
+      })
+      .returning();
+
+    await expect(
+      testDb
+        .update(monthly)
+        .set({ sectionId: sections.daily.id, sectionKind: "daily" })
+        .where(eq(monthly.id, monthlyRow.id)),
+    ).rejects.toThrow();
   });
 
   it("rejects rows that point at a Section in another Space", async () => {
