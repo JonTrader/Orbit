@@ -1,0 +1,26 @@
+import type { Metadata } from "next";
+
+import { AuthBurnerShell } from "@/components/auth/AuthBurnerShell";
+import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
+import { AuthCard, AuthLink } from "@/components/auth/ui";
+import { SIGN_IN_PATH } from "@/lib/auth-paths";
+
+export const metadata: Metadata = { title: "Forgot password · Orbit" };
+
+export default function ForgotPasswordPage() {
+  return (
+    <AuthBurnerShell>
+      <AuthCard
+        title="Forgot password"
+        intro="We will email a link so you can choose a new one."
+        footer={
+          <AuthLink href={SIGN_IN_PATH} tone="muted">
+            Back to sign in
+          </AuthLink>
+        }
+      >
+        <ForgotPasswordForm />
+      </AuthCard>
+    </AuthBurnerShell>
+  );
+}

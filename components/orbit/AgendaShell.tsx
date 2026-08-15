@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+
+import { SignOutButton } from "@/components/auth/SignOutButton";
+import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
 
 const SECTIONS = [
   { id: "upcoming", label: "Upcoming", sub: "Monthlies and dated items in this Space." },
@@ -16,7 +20,12 @@ const SPACES = [
   { id: "home", name: "Home", meta: "3" },
 ] as const;
 
-export function AgendaShell() {
+export interface AgendaShellUser {
+  name: string;
+  email: string;
+}
+
+export function AgendaShell({ user }: { user?: AgendaShellUser }) {
   const [activeSpaceId, setActiveSpaceId] = useState<(typeof SPACES)[number]["id"]>("personal");
   const [activeSection, setActiveSection] = useState<SectionId>("upcoming");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -129,6 +138,21 @@ export function AgendaShell() {
           >
             New Space…
           </button>
+          {user ? (
+            <div className="mt-2 flex flex-col gap-1 border-t border-line pt-2">
+              <div className="px-2 text-[0.78rem] font-medium">{user.name}</div>
+              <div className="truncate px-2 font-mono text-[0.62rem] text-muted">
+                {user.email}
+              </div>
+              <Link
+                href={CHANGE_PASSWORD_PATH}
+                className="rounded px-2 py-1.5 text-left text-[0.8rem] font-medium text-muted hover:bg-panel/60 hover:text-ink"
+              >
+                Change password
+              </Link>
+              <SignOutButton />
+            </div>
+          ) : null}
         </div>
       </aside>
 

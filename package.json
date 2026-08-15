@@ -10,16 +10,19 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "vitest run tests/db",
+    "test:auth": "vitest run tests/auth",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "better-auth": "^1.6.27",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "resend": "^6.19.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {
