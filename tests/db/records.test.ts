@@ -4,7 +4,12 @@ import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { invite, notificationLog, notificationPreference } from "@/lib/db/schema";
+import {
+  invite,
+  monthly,
+  notificationLog,
+  notificationPreference,
+} from "@/lib/db/schema";
 
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -152,6 +157,50 @@ describe("notification_preference", () => {
         emailEnabled: false,
       }),
     ).resolves.toBeDefined();
+  });
+
+  it("rejects days_before outside the 0-30 range", async () => {
+    const member = await createUser();
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: member.id,
+    });
+
+    for (const daysBefore of [-1, 31]) {
+      await expect(
+        testDb.insert(notificationPreference).values({
+          userId: member.id,
+          spaceId: space.id,
+          daysBefore,
+        }),
+      ).rejects.toThrow();
+    }
+  });
+});
+
+describe("monthly", () => {
+  beforeAll(migrateTestDb);
+  beforeEach(truncateAll);
+
+  it("rejects due_day_of_month outside the 1-31 range", async () => {
+    const owner = await createUser();
+    const { space, sections } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+
+    for (const dueDayOfMonth of [0, 32]) {
+      await expect(
+        testDb.insert(monthly).values({
+          spaceId: space.id,
+          sectionId: sections.monthlies.id,
+          sectionKind: "monthlies",
+          title: "Rent",
+          dueDayOfMonth,
+          nextDueOn: "2026-09-01",
+        }),
+      ).rejects.toThrow();
+    }
   });
 });
 
