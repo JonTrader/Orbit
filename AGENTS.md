@@ -52,6 +52,8 @@ When adding tests, uncomment the matching job in that file (do not invent a seco
 - Phase G: `e2e` job (`npx playwright install --with-deps chromium` then `npm run test:e2e`)
 - Phase J: mark checks required; document secrets and how to run tests in README
 
+CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10 and npm 11 handle optional peer dependencies differently: npm 10 auto-installs vite 8's optional `esbuild` peer and its `npm ci` rejects locks that lack the 27-entry `node_modules/vitest/node_modules/esbuild` subtree (`Missing: esbuild@0.28.2 from lock file`); npm 11 omits that subtree and accepts the lock either way, and plain `npm install` on npm 11 prunes the subtree if a lock contains it. So committed locks here are npm 11 output by design, and a failing `npx npm@10 ci` is expected version skew, not a defect to repair. Never commit a lock produced with peer/optional resolution disabled (`--legacy-peer-deps`, `--omit=optional`). If the CI Node version ever changes, re-verify the lock with that version's npm before pushing.
+
 ## App status
 
 - Phase A complete: Next.js App Router + Tailwind + static Orbit shell (`components/orbit/AgendaShell.tsx`). UI reference: `prototype/ui-prototype.html`.
