@@ -53,6 +53,7 @@ jobs:
       - run: npm test
         env:
           DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_TEST_CONFIRMATION: dedicated-neon-branch
 
   # e2e:
   #   runs-on: ubuntu-latest
