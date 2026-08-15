@@ -9,6 +9,7 @@ import {
 } from "@/lib/email/auth-emails";
 import { requireEnv } from "@/lib/env";
 import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
+import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
 
 // Better Auth degrades quietly when these are missing: an unset secret falls
 // back to a published default outside production, and an unset base URL takes
@@ -34,7 +35,7 @@ export const auth = betterAuth({
     // sessions an attacker already holds.
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
-      await sendPasswordResetEmail(user, url);
+      await sendPasswordResetEmail(user, resetPasswordFragmentUrl(url));
     },
   },
   emailVerification: {

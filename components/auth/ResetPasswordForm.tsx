@@ -1,22 +1,69 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import { SIGN_IN_PATH } from "@/lib/auth-paths";
-
-import { Field, FormMessage, SubmitButton } from "./ui";
+import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "@/lib/auth-paths";
+import { AuthLink, Field, FormMessage, SubmitButton } from "./ui";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-export function ResetPasswordForm({ token }: { token: string }) {
+function createResetTokenStore() {
+  let token: string | null = null;
+  let initialized = false;
+
+  return {
+    getSnapshot() {
+      if (!initialized && typeof window !== "undefined") {
+        token = new URLSearchParams(window.location.hash.slice(1)).get("token");
+        initialized = true;
+      }
+      return token;
+    },
+    getServerSnapshot: () => null,
+    subscribe(listener: () => void) {
+      const onHashChange = () => {
+        token = new URLSearchParams(window.location.hash.slice(1)).get("token");
+        initialized = true;
+        window.history.replaceState(null, "", window.location.pathname);
+        listener();
+      };
+      window.addEventListener("hashchange", onHashChange);
+      return () => window.removeEventListener("hashchange", onHashChange);
+    },
+    scrubUrl() {
+      window.history.replaceState(null, "", window.location.pathname);
+    },
+  };
+}
+
+export function ResetPasswordForm() {
   const router = useRouter();
+  const resetTokenStore = useMemo(() => createResetTokenStore(), []);
+  const token = useSyncExternalStore(
+    resetTokenStore.subscribe,
+    resetTokenStore.getSnapshot,
+    resetTokenStore.getServerSnapshot,
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    // Keep the bearer token in the external store only. It never enters a
+    // request for the page, browser history, referrer, or a copied URL.
+    resetTokenStore.scrubUrl();
+  }, [resetTokenStore]);
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!token) return;
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
 
@@ -46,6 +93,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
       setPending(false);
       setError(NETWORK_ERROR_MESSAGE);
     }
+  }
+
+  if (!token) {
+    return (
+      <div className="flex flex-col gap-3">
+        <FormMessage>That reset link is missing or expired.</FormMessage>
+        <AuthLink href={FORGOT_PASSWORD_PATH}>Send a new one</AuthLink>
+      </div>
+    );
   }
 
   return (

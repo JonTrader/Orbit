@@ -77,8 +77,8 @@ describe("better auth configuration", () => {
     );
   });
 
-  it("routes password reset mail through the Resend seam", async () => {
-    const url = "http://localhost:3000/reset-password?token=def";
+  it("routes password reset mail through a fragment URL", async () => {
+    const url = "http://localhost:3000/api/auth/reset-password/def";
 
     await auth.options.emailAndPassword?.sendResetPassword?.({
       user,
@@ -90,7 +90,9 @@ describe("better auth configuration", () => {
       expect.objectContaining({
         to: user.email,
         subject: "Reset your Orbit password",
-        text: expect.stringContaining(url),
+        text: expect.stringContaining(
+          "http://localhost:3000/reset-password#token=def",
+        ),
       }),
     );
   });
