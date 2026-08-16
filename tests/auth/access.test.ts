@@ -4,7 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   CREDENTIAL_PROVIDER_ID,
-  hasFederatedAccount,
+  hasCredentialAccount,
   resolveAppAccess,
 } from "@/lib/auth-access";
 import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
@@ -29,16 +29,15 @@ describe("resolveAppAccess", () => {
     expect(
       resolveAppAccess({
         session: session(false),
-        hasFederatedAccount: false,
       }),
     ).toEqual({ allowed: false, redirectTo: VERIFY_EMAIL_PATH });
   });
 
-  it("treats an OAuth user as verified even without a verified flag", () => {
-    const input = session(false);
-    expect(
-      resolveAppAccess({ session: input, hasFederatedAccount: true }),
-    ).toEqual({ allowed: true, session: input });
+  it("allows an OAuth user after the account hook marks it verified", () => {
+    expect(resolveAppAccess({ session: { user: { emailVerified: true } } })).toEqual({
+      allowed: true,
+      session: { user: { emailVerified: true } },
+    });
   });
 
   it("lets a verified user through", () => {
@@ -50,41 +49,31 @@ describe("resolveAppAccess", () => {
   });
 });
 
-describe("hasFederatedAccount", () => {
+describe("hasCredentialAccount", () => {
   beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
-  async function addAccount(userId: string, providerId: string) {
+  it("is true for an email/password account", async () => {
+    const user = await createUser();
     await testDb.insert(account).values({
       id: randomUUID(),
-      accountId: `${providerId}-${userId}`,
-      providerId,
-      userId,
+      accountId: user.id,
+      providerId: CREDENTIAL_PROVIDER_ID,
+      userId: user.id,
     });
-  }
 
-  it("is false for a user with only email/password credentials", async () => {
-    const user = await createUser({ emailVerified: false });
-    await addAccount(user.id, CREDENTIAL_PROVIDER_ID);
-
-    expect(await hasFederatedAccount(testDb, user.id)).toBe(false);
+    expect(await hasCredentialAccount(testDb, user.id)).toBe(true);
   });
 
-  it("is true once Google or Microsoft vouched for the address", async () => {
-    const google = await createUser({ emailVerified: false });
-    await addAccount(google.id, "google");
-    const microsoft = await createUser({ emailVerified: false });
-    await addAccount(microsoft.id, "microsoft");
+  it("is false for an OAuth-only account", async () => {
+    const user = await createUser();
+    await testDb.insert(account).values({
+      id: randomUUID(),
+      accountId: "google-account",
+      providerId: "google",
+      userId: user.id,
+    });
 
-    expect(await hasFederatedAccount(testDb, google.id)).toBe(true);
-    expect(await hasFederatedAccount(testDb, microsoft.id)).toBe(true);
-  });
-
-  it("does not leak another user's provider account", async () => {
-    const owner = await createUser();
-    const other = await createUser();
-    await addAccount(owner.id, "google");
-
-    expect(await hasFederatedAccount(testDb, other.id)).toBe(false);
+    expect(await hasCredentialAccount(testDb, user.id)).toBe(false);
   });
 });

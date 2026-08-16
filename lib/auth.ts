@@ -51,6 +51,20 @@ export const auth = betterAuth({
       await sendPasswordResetEmail(user, resetPasswordFragmentUrl(url));
     },
   },
+  databaseHooks: {
+    account: {
+      create: {
+        after: async (data, context) => {
+          // Better Auth marks OAuth users verified through the provider. Persist
+          // that fact so app-gate requests do not need another account query.
+          if (data.providerId === "credential" || !context) return;
+          await context.context.internalAdapter.updateUser(data.userId, {
+            emailVerified: true,
+          });
+        },
+      },
+    },
+  },
   emailVerification: {
     sendOnSignUp: true,
     // A blocked sign-in attempt gets a fresh link instead of a dead end.

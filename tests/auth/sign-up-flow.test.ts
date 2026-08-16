@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { hasFederatedAccount, resolveAppAccess } from "@/lib/auth-access";
-import { VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
+import { resolveAppAccess } from "@/lib/auth-access";
+import { APP_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
 import { section, session, user } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/mailer";
 import { ensurePersonalSpace } from "@/lib/onboarding";
@@ -88,12 +88,30 @@ describe("email/password sign-up", () => {
     // The gate keeps that user out of the app shell.
     const access = resolveAppAccess({
       session: { user: created },
-      hasFederatedAccount: await hasFederatedAccount(testDb, created.id),
     });
     expect(access).toEqual({
       allowed: false,
       redirectTo: VERIFY_EMAIL_PATH,
     });
+  });
+
+  it("resends to a known address without revealing whether an address exists", async () => {
+    await auth.api.signUpEmail({ body: CREDENTIALS });
+    vi.mocked(sendEmail).mockClear();
+
+    const known = await auth.api.sendVerificationEmail({
+      body: { email: CREDENTIALS.email, callbackURL: APP_PATH },
+    });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+
+    vi.mocked(sendEmail).mockClear();
+    const unknown = await auth.api.sendVerificationEmail({
+      body: { email: "nobody@orbit.test", callbackURL: APP_PATH },
+    });
+
+    expect(unknown).toEqual(known);
+    expect(unknown).toEqual({ status: true });
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("opens the app and onboards a Personal Space once the link is used", async () => {

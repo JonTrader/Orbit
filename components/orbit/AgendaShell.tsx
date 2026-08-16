@@ -23,6 +23,7 @@ const SPACES = [
 export interface AgendaShellUser {
   name: string;
   email: string;
+  canChangePassword: boolean;
 }
 
 export function AgendaShell({ user }: { user?: AgendaShellUser }) {
@@ -144,12 +145,14 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
               <div className="truncate px-2 font-mono text-[0.62rem] text-muted">
                 {user.email}
               </div>
-              <Link
-                href={CHANGE_PASSWORD_PATH}
-                className="rounded px-2 py-1.5 text-left text-[0.8rem] font-medium text-muted hover:bg-panel/60 hover:text-ink"
-              >
-                Change password
-              </Link>
+              {user.canChangePassword ? (
+                <Link
+                  href={CHANGE_PASSWORD_PATH}
+                  className="rounded px-2 py-1.5 text-left text-[0.8rem] font-medium text-muted hover:bg-panel/60 hover:text-ink"
+                >
+                  Change password
+                </Link>
+              ) : null}
               <SignOutButton />
             </div>
           ) : null}

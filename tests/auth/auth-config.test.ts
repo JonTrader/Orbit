@@ -58,6 +58,25 @@ describe("better auth configuration", () => {
     );
   });
 
+  it("marks federated accounts verified at account creation", async () => {
+    const updateUser = vi.fn();
+    const after = auth.options.databaseHooks?.account?.create?.after;
+
+    await after?.(
+      { userId: "user_1", providerId: "google" } as never,
+      { context: { internalAdapter: { updateUser } } } as never,
+    );
+    await after?.(
+      { userId: "user_1", providerId: "credential" } as never,
+      { context: { internalAdapter: { updateUser } } } as never,
+    );
+
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    expect(updateUser).toHaveBeenCalledWith("user_1", {
+      emailVerified: true,
+    });
+  });
+
   it("offers email/password plus Google and Microsoft (ADR 0002)", () => {
     expect(Object.keys(auth.options.socialProviders ?? {}).sort()).toEqual([
       "google",

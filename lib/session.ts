@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { auth } from "@/lib/auth";
 import {
-  hasFederatedAccount,
+  hasCredentialAccount,
   resolveAppAccess,
   type AppAccess,
 } from "@/lib/auth-access";
@@ -24,12 +24,7 @@ export const getAppSession = cache(
 
 async function evaluateAppAccess(): Promise<AppAccess<AppSession>> {
   const session = await getAppSession();
-  const federated =
-    session && !session.user.emailVerified
-      ? await hasFederatedAccount(getDb(), session.user.id)
-      : false;
-
-  return resolveAppAccess({ session, hasFederatedAccount: federated });
+  return resolveAppAccess({ session });
 }
 
 /** Redirects rather than returning for unauthenticated or unverified users. */
@@ -37,6 +32,15 @@ export async function requireVerifiedSession(): Promise<AppSession> {
   const access = await evaluateAppAccess();
   if (!access.allowed) redirect(access.redirectTo);
   return access.session;
+}
+
+/** Allows only users with a local password to reach password-management pages. */
+export async function requireCredentialSession(): Promise<AppSession> {
+  const session = await requireVerifiedSession();
+  if (!(await hasCredentialAccount(getDb(), session.user.id))) {
+    redirect(APP_PATH);
+  }
+  return session;
 }
 
 /** Keeps signed-in users off the sign-in and sign-up pages. */
