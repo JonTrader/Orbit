@@ -39,7 +39,7 @@ npm run test:auth # Phase C auth suite only
 npm run test:watch
 ```
 
-`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` refuses to start when the variable is missing or equal to `DATABASE_URL`. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`.
+`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` requires the `DATABASE_URL_TEST_CONFIRMATION=dedicated-neon-branch` acknowledgement, refuses a missing or application-equal URL, and refuses a URL on the same database host as `DATABASE_URL`. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Do not run full suites concurrently against the same branch; the CI test job uses a shared concurrency group because push and pull-request workflows otherwise race while resetting the schema.
 
 Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`.
 
@@ -49,7 +49,7 @@ Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editi
 
 When adding tests, uncomment the matching job in that file (do not invent a second workflow):
 
-- Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production)
+- Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production) and serializes all database test jobs with the `orbit-database-tests` concurrency group
 - Phase G: `e2e` job (`npx playwright install --with-deps chromium` then `npm run test:e2e`)
 - Phase J: mark checks required; document secrets and how to run tests in README
 
