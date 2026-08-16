@@ -29,13 +29,6 @@ const TRANSIENT_ERRORS = new Set([
 const MAX_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = [250, 1_000];
 
-let cached: { apiKey: string; client: Resend } | undefined;
-
-function getResend(apiKey: string): Resend {
-  if (cached?.apiKey !== apiKey) cached = { apiKey, client: new Resend(apiKey) };
-  return cached.client;
-}
-
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -71,10 +64,11 @@ export async function sendEmail(email: OutboundEmail): Promise<void> {
   // Stable across retries so a response we never saw cannot become a second
   // copy of the same verification link.
   const idempotencyKey = crypto.randomUUID();
-  let lastMessage = "";
+  const resend = new Resend(apiKey);
+  let lastError: { name: string; message: string } | undefined;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const { error } = await getResend(apiKey).emails.send(
+    const { error } = await resend.emails.send(
       {
         from,
         to: email.to,
@@ -87,7 +81,7 @@ export async function sendEmail(email: OutboundEmail): Promise<void> {
 
     if (!error) return;
 
-    lastMessage = error.message;
+    lastError = error;
     const backoff = RETRY_BACKOFF_MS[attempt];
     if (!TRANSIENT_ERRORS.has(error.name) || backoff === undefined) break;
     await wait(backoff);
@@ -96,7 +90,8 @@ export async function sendEmail(email: OutboundEmail): Promise<void> {
   // The throw below is swallowed by whoever called us, so say it here while
   // the recipient and subject are still in hand.
   console.error(
-    `[email] giving up on "${email.subject}" to ${email.to}: ${lastMessage}`,
+    `[email] delivery failed after ${MAX_ATTEMPTS} attempts - ` +
+      `to: ${email.to}, subject: ${email.subject}, error: ${lastError?.name ?? "unknown"}`,
   );
-  throw new Error(`Resend rejected the email: ${lastMessage}`);
+  throw new Error(`Resend rejected the email: ${lastError?.message ?? "Unknown error"}`);
 }

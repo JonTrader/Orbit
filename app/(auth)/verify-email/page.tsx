@@ -30,12 +30,6 @@ export default async function VerifyEmailPage({
           </AuthLink>
         }
       >
-        {address ? (
-          <p className="mb-4 text-[0.95rem] leading-relaxed text-(--auth-muted)">
-            Sent to <em className="not-italic font-bold text-(--auth-ink)">{address}</em>.
-            If it is not in the inbox, look in spam. The link lasts a day.
-          </p>
-        ) : null}
         <ResendVerification email={address} />
       </AuthCard>
     </AuthPadShell>

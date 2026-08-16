@@ -110,7 +110,7 @@ describe("outbound mail", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it("reports the failure itself, since the caller discards the throw", async () => {
+  it("logs safe failure metadata since the caller discards the throw", async () => {
     send.mockResolvedValue({
       data: null,
       error: { name: "validation_error", message: "Invalid `to` field" },
@@ -121,5 +121,7 @@ describe("outbound mail", () => {
     await expect(sendEmail(MESSAGE)).rejects.toThrow();
     expect(error.mock.calls[0][0]).toContain(MESSAGE.to);
     expect(error.mock.calls[0][0]).toContain(MESSAGE.subject);
+    expect(error.mock.calls[0][0]).toContain("validation_error");
+    expect(error.mock.calls[0][0]).not.toContain("Invalid `to` field");
   });
 });
