@@ -1,6 +1,6 @@
 # Orbit MVP Spec
 
-Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`.cursor/plans/orbit_granular_build_818e051.plan.md`](../.cursor/plans/orbit_granular_build_818e051.plan.md).
+Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`Orbit_Granular_Build.md`](../Orbit_Granular_Build.md).
 
 ## 1. Product
 
