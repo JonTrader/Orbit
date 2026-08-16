@@ -5,8 +5,8 @@
 1. [`CONTEXT.md`](./CONTEXT.md) - vocabulary only  
 2. [`docs/spec.md`](./docs/spec.md) - MVP requirements (stack, API shape, product rules)  
 3. [`docs/adr/`](./docs/adr/) - hard decisions  
-4. [`.cursor/plans/orbit_granular_build_818e051.plan.md`](./.cursor/plans/orbit_granular_build_818e051.plan.md) - one phase per conversation (copy that phase's handoff prompt)  
-5. [`.cursor/plans/orbit_full_test_plan_c8f79c43.plan.md`](./.cursor/plans/orbit_full_test_plan_c8f79c43.plan.md) - what to test for the phase you are implementing
+4. [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md) - one phase per conversation (copy that phase's handoff prompt)
+5. [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md) - what to test for the phase you are implementing
 
 ## Domain language
 
@@ -18,7 +18,7 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 
 ## Testing (required per phase)
 
-Source of truth: [`.cursor/plans/orbit_full_test_plan_c8f79c43.plan.md`](./.cursor/plans/orbit_full_test_plan_c8f79c43.plan.md).
+Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
 When implementing **any** build phase (A–J):
 

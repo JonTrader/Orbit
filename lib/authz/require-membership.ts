@@ -1,0 +1,82 @@
+import { and, eq } from "drizzle-orm";
+
+import type { OrbitDb } from "@/lib/db/client";
+import { spaceMember, type SpaceRole } from "@/lib/db/schema";
+
+/** The minimum Space role a caller must have for an operation. */
+export type MinimumMembershipRole = SpaceRole;
+
+export type MembershipErrorCode = "NOT_MEMBER" | "INSUFFICIENT_ROLE";
+
+/**
+ * Raised when a caller is not allowed to access a Space operation.
+ *
+ * Both cases are authorization failures and intentionally expose a 403 status
+ * for the API layer. The code lets that layer distinguish a missing Member
+ * from an insufficient role without duplicating the membership lookup.
+ */
+export class MembershipError extends Error {
+  readonly name = "MembershipError";
+  readonly status = 403 as const;
+
+  constructor(
+    readonly code: MembershipErrorCode,
+    message: string,
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+const ROLE_RANK: Record<SpaceRole, number> = {
+  "read-only": 0,
+  editor: 1,
+  owner: 2,
+};
+
+export interface RequireMembershipInput {
+  userId: string;
+  spaceId: string;
+  minimumRole?: MinimumMembershipRole;
+}
+
+/**
+ * Returns the caller's Member row when they meet the minimum role for a Space.
+ *
+ * Membership is the only access boundary for Space-owned data. Every service
+ * that reads or mutates a Space should call this function before its query.
+ * The default minimum is read-only, so a caller must still be a Member to
+ * perform a read.
+ */
+export async function requireMembership(
+  db: OrbitDb,
+  input: RequireMembershipInput,
+): Promise<typeof spaceMember.$inferSelect> {
+  const minimumRole = input.minimumRole ?? "read-only";
+  const [membership] = await db
+    .select()
+    .from(spaceMember)
+    .where(
+      and(
+        eq(spaceMember.spaceId, input.spaceId),
+        eq(spaceMember.userId, input.userId),
+      ),
+    )
+    .limit(1);
+
+  if (!membership) {
+    throw new MembershipError(
+      "NOT_MEMBER",
+      "User is not a Member of this Space",
+    );
+  }
+
+  if (ROLE_RANK[membership.role] < ROLE_RANK[minimumRole]) {
+    throw new MembershipError(
+      "INSUFFICIENT_ROLE",
+      `The ${minimumRole} role is required for this Space operation`,
+    );
+  }
+
+  return membership;
+}
