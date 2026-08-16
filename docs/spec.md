@@ -1,6 +1,6 @@
 # Orbit MVP Spec
 
-Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`.cursor/plans/orbit_granular_build_818e051.plan.md`](../.cursor/plans/orbit_granular_build_818e051.plan.md).
+Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`Orbit_Granular_Build.md`](../Orbit_Granular_Build.md).
 
 ## 1. Product
 
@@ -116,4 +116,4 @@ Push/in-app notifications; native mobile app; RRULE/complex recurrence; per-sect
 
 ## 10. Env
 
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_*`, `MICROSOFT_CLIENT_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `BETTER_AUTH_TRUSTED_ORIGINS`, `GOOGLE_CLIENT_*`, `MICROSOFT_CLIENT_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`

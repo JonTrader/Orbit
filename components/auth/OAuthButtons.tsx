@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
+import type { OAuthProviderId } from "@/lib/oauth-providers";
 
 import { useAuthTheme } from "./theme";
 import { AuthPendingMark, FormMessage, oauthButtonClass } from "./ui";
@@ -48,8 +49,17 @@ function MicrosoftMark() {
   );
 }
 
-export function OAuthButtons({ callbackURL = "/" }: { callbackURL?: string }) {
+export function OAuthButtons({
+  providers,
+  callbackURL = "/",
+}: {
+  providers: readonly OAuthProviderId[];
+  callbackURL?: string;
+}) {
   const theme = useAuthTheme();
+  const visibleProviders = PROVIDERS.filter((provider) =>
+    providers.includes(provider.id),
+  );
   const [pending, setPending] = useState<ProviderId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +83,11 @@ export function OAuthButtons({ callbackURL = "/" }: { callbackURL?: string }) {
     }
   }
 
+  if (visibleProviders.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-2">
-      {PROVIDERS.map((provider) => {
+      {visibleProviders.map((provider) => {
         const busy = pending === provider.id;
 
         return (

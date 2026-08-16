@@ -5,12 +5,14 @@ import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
 import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth-paths";
+import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
 import { redirectIfVerified } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Sign in · Orbit" };
 
 export default async function SignInPage() {
   await redirectIfVerified();
+  const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
     <AuthPadShell>
@@ -28,8 +30,12 @@ export default async function SignInPage() {
       >
         <div className="flex flex-col gap-4">
           <SignInForm />
-          <Divider label="or" />
-          <OAuthButtons />
+          {oauthProviders.length > 0 ? (
+            <>
+              <Divider label="or" />
+              <OAuthButtons providers={oauthProviders} />
+            </>
+          ) : null}
         </div>
       </AuthCard>
     </AuthPadShell>

@@ -52,12 +52,12 @@ function lastEmailedHref(): string {
   return match[1].replace(/&amp;/g, "&");
 }
 
-/** Reset tokens ride in the path, not the query: `/reset-password/<token>`. */
+/** Reset tokens ride in the URL fragment, never the page request. */
 function lastEmailedResetToken(): string {
   const url = new URL(lastEmailedUrl());
-  const match = url.pathname.match(/\/reset-password\/([^/]+)$/);
-  if (!match) throw new Error(`Not a reset link: ${url.href}`);
-  return match[1];
+  const token = new URLSearchParams(url.hash.slice(1)).get("token");
+  if (!token) throw new Error(`Not a reset link: ${url.href}`);
+  return token;
 }
 
 /**
@@ -133,16 +133,13 @@ describe("password reset", () => {
 
     const link = new URL(lastEmailedUrl());
     const token = lastEmailedResetToken();
-    expect(link.pathname).toBe(`/api/auth/reset-password/${token}`);
+    expect(link.pathname).toBe(RESET_PASSWORD_PATH);
+    expect(link.search).toBe("");
+    expect(link.hash).toBe(`#token=${encodeURIComponent(token)}`);
 
-    // Clicking the button lands on the app's reset page with the token in hand.
-    const response = await auth.handler(
-      new Request(lastEmailedHref(), { method: "GET" }),
-    );
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe(
-      `${link.origin}${RESET_PASSWORD_PATH}?token=${token}`,
-    );
+    // The token is available to the client form, but never part of the page
+    // request or the URL query string.
+    expect(new URL(lastEmailedHref()).search).toBe("");
   });
 
   it("sets a password the user can sign in with", async () => {

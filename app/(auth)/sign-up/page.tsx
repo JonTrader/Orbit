@@ -5,12 +5,14 @@ import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
 import { SIGN_IN_PATH } from "@/lib/auth-paths";
+import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
 import { redirectIfVerified } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Create an account · Orbit" };
 
 export default async function SignUpPage() {
   await redirectIfVerified();
+  const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
     <AuthPadShell>
@@ -26,8 +28,12 @@ export default async function SignUpPage() {
       >
         <div className="flex flex-col gap-4">
           <SignUpForm />
-          <Divider label="or" />
-          <OAuthButtons />
+          {oauthProviders.length > 0 ? (
+            <>
+              <Divider label="or" />
+              <OAuthButtons providers={oauthProviders} />
+            </>
+          ) : null}
         </div>
       </AuthCard>
     </AuthPadShell>

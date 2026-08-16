@@ -4,12 +4,12 @@ import { AuthBurnerShell } from "@/components/auth/AuthBurnerShell";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { AuthCard, AuthLink } from "@/components/auth/ui";
 import { APP_PATH } from "@/lib/auth-paths";
-import { requireVerifiedSession } from "@/lib/session";
+import { requireCredentialSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Change password · Orbit" };
 
 export default async function ChangePasswordPage() {
-  await requireVerifiedSession();
+  await requireCredentialSession();
 
   return (
     <AuthBurnerShell>

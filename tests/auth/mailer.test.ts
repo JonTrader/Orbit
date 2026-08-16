@@ -53,15 +53,24 @@ describe("outbound mail", () => {
     });
   });
 
-  it("logs the message instead of sending it without credentials", async () => {
+  it("logs delivery metadata without the email body", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { sendEmail } = await loadMailer();
 
-    await sendEmail(MESSAGE);
+    await sendEmail({
+      ...MESSAGE,
+      text: "Reset here: https://orbit.test/reset-password#token=secret-token",
+    });
 
+    const output = warn.mock.calls[0][0];
     expect(send).not.toHaveBeenCalled();
-    expect(warn.mock.calls[0][0]).toContain("RESEND_API_KEY");
+    expect(output).toContain("RESEND_API_KEY");
+    expect(output).toContain(MESSAGE.to);
+    expect(output).toContain(MESSAGE.subject);
+    expect(output).toContain("email not sent");
+    expect(output).not.toContain("Reset here");
+    expect(output).not.toContain("secret-token");
   });
 
   it("refuses to boot in production without credentials", async () => {
@@ -101,7 +110,7 @@ describe("outbound mail", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it("reports the failure itself, since the caller discards the throw", async () => {
+  it("logs safe failure metadata since the caller discards the throw", async () => {
     send.mockResolvedValue({
       data: null,
       error: { name: "validation_error", message: "Invalid `to` field" },
@@ -112,5 +121,7 @@ describe("outbound mail", () => {
     await expect(sendEmail(MESSAGE)).rejects.toThrow();
     expect(error.mock.calls[0][0]).toContain(MESSAGE.to);
     expect(error.mock.calls[0][0]).toContain(MESSAGE.subject);
+    expect(error.mock.calls[0][0]).toContain("validation_error");
+    expect(error.mock.calls[0][0]).not.toContain("Invalid `to` field");
   });
 });

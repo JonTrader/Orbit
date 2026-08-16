@@ -30,6 +30,7 @@ describe("better auth configuration", () => {
   beforeAll(async () => {
     process.env.BETTER_AUTH_SECRET ??= "orbit-test-secret-value-0123456789";
     process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS ??= "https://preview.orbit.test";
     process.env.GOOGLE_CLIENT_ID ??= "google-test-client";
     process.env.GOOGLE_CLIENT_SECRET ??= "google-test-secret";
     process.env.MICROSOFT_CLIENT_ID ??= "microsoft-test-client";
@@ -45,6 +46,36 @@ describe("better auth configuration", () => {
   it("requires a verified address before an email/password session (spec §3)", () => {
     expect(auth.options.emailAndPassword?.enabled).toBe(true);
     expect(auth.options.emailAndPassword?.requireEmailVerification).toBe(true);
+    expect(auth.options.emailAndPassword?.minPasswordLength).toBe(8);
+  });
+
+  it("uses database-backed rate limits and explicitly trusts the app origin", () => {
+    expect(auth.options.rateLimit?.storage).toBe("database");
+    expect(auth.options.trustedOrigins).toEqual(
+      expect.arrayContaining([
+        "http://localhost:3000",
+        "https://preview.orbit.test",
+      ]),
+    );
+  });
+
+  it("marks federated accounts verified at account creation", async () => {
+    const updateUser = vi.fn();
+    const after = auth.options.databaseHooks?.account?.create?.after;
+
+    await after?.(
+      { userId: "user_1", providerId: "google" } as never,
+      { context: { internalAdapter: { updateUser } } } as never,
+    );
+    await after?.(
+      { userId: "user_1", providerId: "credential" } as never,
+      { context: { internalAdapter: { updateUser } } } as never,
+    );
+
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    expect(updateUser).toHaveBeenCalledWith("user_1", {
+      emailVerified: true,
+    });
   });
 
   it("offers email/password plus Google and Microsoft (ADR 0002)", () => {
@@ -77,8 +108,8 @@ describe("better auth configuration", () => {
     );
   });
 
-  it("routes password reset mail through the Resend seam", async () => {
-    const url = "http://localhost:3000/reset-password?token=def";
+  it("routes password reset mail through a fragment URL", async () => {
+    const url = "http://localhost:3000/api/auth/reset-password/def";
 
     await auth.options.emailAndPassword?.sendResetPassword?.({
       user,
@@ -90,7 +121,9 @@ describe("better auth configuration", () => {
       expect.objectContaining({
         to: user.email,
         subject: "Reset your Orbit password",
-        text: expect.stringContaining(url),
+        text: expect.stringContaining(
+          "http://localhost:3000/reset-password#token=def",
+        ),
       }),
     );
   });
