@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
 
+import { expectPostgresConstraint } from "../setup/assertions";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
@@ -71,11 +72,32 @@ describe("seed helper", () => {
       ownerUserId: owner.id,
     });
 
-    await expect(
+    await expectPostgresConstraint(
       testDb
         .insert(spaceMember)
         .values({ spaceId: seeded.space.id, userId: other.id, role: "owner" }),
-    ).rejects.toThrow();
+      "23505",
+      "space_member_single_owner_unique",
+    );
+  });
+
+  it("allows only one Personal Space per user", async () => {
+    const user = await createUser();
+    await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: user.id,
+      isPersonal: true,
+    });
+
+    await expectPostgresConstraint(
+      createSpaceWithSystemSections(testDb, {
+        name: "Second Personal Space",
+        ownerUserId: user.id,
+        isPersonal: true,
+      }),
+      "23505",
+      "space_personal_creator_unique",
+    );
   });
 
   it("allows only one Daily and one Monthlies per Space", async () => {
@@ -83,7 +105,7 @@ describe("seed helper", () => {
       name: "Home",
     });
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(section).values({
         spaceId: seeded.space.id,
         name: "Daily",
@@ -91,6 +113,8 @@ describe("seed helper", () => {
         isSystem: true,
         sortOrder: 2,
       }),
-    ).rejects.toThrow();
+      "23505",
+      "section_space_system_kind_unique",
+    );
   });
 });

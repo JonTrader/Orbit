@@ -43,6 +43,11 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # All test jobs use the same destructive Neon branch. Serialize them
+    # across refs so push and pull_request workflows cannot reset it together.
+    concurrency:
+      group: orbit-database-tests
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,9 +58,13 @@ jobs:
       - run: npm test
         env:
           DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_TEST_CONFIRMATION: dedicated-neon-branch
 
   # e2e:
   #   runs-on: ubuntu-latest
+  #   concurrency:
+  #     group: orbit-database-tests
+  #     cancel-in-progress: false
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4

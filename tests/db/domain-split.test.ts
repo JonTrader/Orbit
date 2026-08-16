@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { monthly, note, section, task } from "@/lib/db/schema";
 
+import { expectPostgresConstraint } from "../setup/assertions";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
@@ -72,37 +73,43 @@ describe("Task vs Monthly separation", () => {
     const { space, sections } = await seedSpace();
 
     // Honest attempt: claim the Monthlies kind.
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(task).values({
         spaceId: space.id,
         sectionId: sections.monthlies.id,
         sectionKind: "monthlies",
         title: "Rent",
       }),
-    ).rejects.toThrow();
+      "23514",
+      "task_section_kind_allowed",
+    );
 
     // Sneaky attempt: point at Monthlies while claiming a legal kind.
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(task).values({
         spaceId: space.id,
         sectionId: sections.monthlies.id,
         sectionKind: "daily",
         title: "Rent",
       }),
-    ).rejects.toThrow();
+      "23503",
+      "task_section_kind_fk",
+    );
   });
 
   it("rejects a Task in a notes Section", async () => {
     const { space } = await seedSpace();
     const notes = await addCustomSection(space.id, "Ideas", "notes");
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(task).values({
         spaceId: space.id,
         sectionId: notes.id,
         sectionKind: "notes",
         title: "Not a note",
       }),
-    ).rejects.toThrow();
+      "23514",
+      "task_section_kind_allowed",
+    );
   });
 
   it("accepts a Monthly in the Monthlies Section", async () => {
@@ -126,20 +133,38 @@ describe("Task vs Monthly separation", () => {
     const custom = await addCustomSection(space.id, "Errands", "tasks");
 
     for (const target of [
-      { sectionId: sections.daily.id, sectionKind: "daily" as const },
-      { sectionId: custom.id, sectionKind: "tasks" as const },
+      {
+        sectionId: sections.daily.id,
+        sectionKind: "daily" as const,
+        code: "23514" as const,
+        constraint: "monthly_section_kind_allowed",
+      },
+      {
+        sectionId: custom.id,
+        sectionKind: "tasks" as const,
+        code: "23514" as const,
+        constraint: "monthly_section_kind_allowed",
+      },
       // Sneaky: legal kind value pointing at a Daily section.
-      { sectionId: sections.daily.id, sectionKind: "monthlies" as const },
+      {
+        sectionId: sections.daily.id,
+        sectionKind: "monthlies" as const,
+        code: "23503" as const,
+        constraint: "monthly_section_kind_fk",
+      },
     ]) {
-      await expect(
+      await expectPostgresConstraint(
         testDb.insert(monthly).values({
           spaceId: space.id,
-          ...target,
+          sectionId: target.sectionId,
+          sectionKind: target.sectionKind,
           title: "Rent",
           dueDayOfMonth: 1,
           nextDueOn: "2026-09-01",
         }),
-      ).rejects.toThrow();
+        target.code,
+        target.constraint,
+      );
     }
   });
 
@@ -155,26 +180,51 @@ describe("Task vs Monthly separation", () => {
       })
       .returning();
 
-    await expect(
+    await expectPostgresConstraint(
       testDb
         .update(task)
         .set({ sectionId: sections.monthlies.id, sectionKind: "monthlies" })
         .where(eq(task.id, row.id)),
-    ).rejects.toThrow();
+      "23514",
+      "task_section_kind_allowed",
+    );
+
+    const [monthlyRow] = await testDb
+      .insert(monthly)
+      .values({
+        spaceId: space.id,
+        sectionId: sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Rent",
+        dueDayOfMonth: 1,
+        nextDueOn: "2026-09-01",
+      })
+      .returning();
+
+    await expectPostgresConstraint(
+      testDb
+        .update(monthly)
+        .set({ sectionId: sections.daily.id, sectionKind: "daily" })
+        .where(eq(monthly.id, monthlyRow.id)),
+      "23514",
+      "monthly_section_kind_allowed",
+    );
   });
 
   it("rejects rows that point at a Section in another Space", async () => {
     const home = await seedSpace();
     const other = await seedSpace();
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(task).values({
         spaceId: home.space.id,
         sectionId: other.sections.daily.id,
         sectionKind: "daily",
         title: "Cross-space leak",
       }),
-    ).rejects.toThrow();
+      "23503",
+      "task_section_kind_fk",
+    );
   });
 
   it("keeps Notes out of task-only Sections", async () => {
@@ -193,19 +243,21 @@ describe("Task vs Monthly separation", () => {
       .returning();
     expect(row.body).toContain("Warm white");
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(note).values({
         spaceId: space.id,
         sectionId: sections.daily.id,
         sectionKind: "daily",
         title: "Not allowed",
       }),
-    ).rejects.toThrow();
+      "23514",
+      "note_section_kind_allowed",
+    );
   });
 
   it("rejects a system Section kind marked as custom", async () => {
     const { space } = await seedSpace();
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(section).values({
         spaceId: space.id,
         name: "Sneaky Monthlies",
@@ -213,6 +265,8 @@ describe("Task vs Monthly separation", () => {
         isSystem: false,
         sortOrder: 5,
       }),
-    ).rejects.toThrow();
+      "23514",
+      "section_system_kind_match",
+    );
   });
 });
