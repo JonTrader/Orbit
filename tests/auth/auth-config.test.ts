@@ -46,6 +46,7 @@ describe("better auth configuration", () => {
   it("requires a verified address before an email/password session (spec §3)", () => {
     expect(auth.options.emailAndPassword?.enabled).toBe(true);
     expect(auth.options.emailAndPassword?.requireEmailVerification).toBe(true);
+    expect(auth.options.emailAndPassword?.minPasswordLength).toBe(8);
   });
 
   it("uses database-backed rate limits and explicitly trusts the app origin", () => {

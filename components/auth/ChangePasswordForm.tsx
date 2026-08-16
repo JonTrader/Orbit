@@ -5,10 +5,9 @@ import { useState, type FormEvent } from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
 import { APP_PATH } from "@/lib/auth-paths";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 
 import { Field, FormMessage, SubmitButton } from "./ui";
-
-const MIN_PASSWORD_LENGTH = 8;
 
 const ERROR_MESSAGES: Record<string, string> = {
   INVALID_PASSWORD: "That current password is not correct.",

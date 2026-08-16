@@ -67,7 +67,7 @@ CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10
   - One Personal Space per user is enforced **in the database** (`space_personal_creator_unique`, migration `0001`), so `ensurePersonalSpace()` is safe to call on every request.
   - The creator's IANA zone reaches the server through the `orbit_tz` cookie that the auth pages set (`components/auth/TimeZoneCookie.tsx`); it falls back to UTC (ADR 0003).
   - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs delivery metadata only in dev and throws in production.
-  - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireCredentialSession()` so OAuth-only users cannot reach it. The app shell hides the Change password link for users without a credential account. Reset tokens are moved into the URL fragment before mail is sent, read client-side, and scrubbed with `history.replaceState`; the reset page also sets `Referrer-Policy: no-referrer`.
+  - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireCredentialSession()` so OAuth-only users cannot reach it. The app shell hides the Change password link for users without a credential account. Password forms and Better Auth share `MIN_PASSWORD_LENGTH` from `lib/password-policy.ts`. Reset tokens are moved into the URL fragment before mail is sent, read client-side, and scrubbed with `history.replaceState`; the reset page also sets `Referrer-Policy: no-referrer`.
 - Next: Phase D (domain services + authz over the Phase B schema).
 
 

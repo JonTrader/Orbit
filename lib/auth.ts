@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/auth-emails";
 import { requireEnv } from "@/lib/env";
 import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 
 // Better Auth degrades quietly when these are missing: an unset secret falls
 // back to a published default outside production, and an unset base URL takes
@@ -44,6 +45,7 @@ export const auth = betterAuth({
     enabled: true,
     // Spec §3: email/password users verify before they can use the app.
     requireEmailVerification: true,
+    minPasswordLength: MIN_PASSWORD_LENGTH,
     // A reset is how someone takes an account back, so it has to end whatever
     // sessions an attacker already holds.
     revokeSessionsOnPasswordReset: true,
