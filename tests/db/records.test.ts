@@ -4,8 +4,14 @@ import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { invite, notificationLog, notificationPreference } from "@/lib/db/schema";
+import {
+  invite,
+  monthly,
+  notificationLog,
+  notificationPreference,
+} from "@/lib/db/schema";
 
+import { expectPostgresConstraint } from "../setup/assertions";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
@@ -57,7 +63,7 @@ describe("invite", () => {
       .returning();
     expect(editorInvite.role).toBe("editor");
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(invite).values({
         spaceId: space.id,
         email: "usurper@orbit.test",
@@ -65,7 +71,9 @@ describe("invite", () => {
         token: randomUUID(),
         expiresAt,
       }),
-    ).rejects.toThrow();
+      "23514",
+      "invite_role_not_owner",
+    );
   });
 
   it("allows only one pending Invite per email per Space", async () => {
@@ -84,9 +92,11 @@ describe("invite", () => {
       .values({ ...values, token: randomUUID() })
       .returning();
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(invite).values({ ...values, token: randomUUID() }),
-    ).rejects.toThrow();
+      "23505",
+      "invite_space_email_pending_unique",
+    );
 
     // Once accepted, the Space can invite that email again.
     await testDb
@@ -134,15 +144,15 @@ describe("notification_preference", () => {
       .insert(notificationPreference)
       .values({ userId: member.id, spaceId: homeSpace.space.id });
 
-    await expect(
-      testDb
-        .insert(notificationPreference)
-        .values({
-          userId: member.id,
-          spaceId: homeSpace.space.id,
-          daysBefore: 1,
-        }),
-    ).rejects.toThrow();
+    await expectPostgresConstraint(
+      testDb.insert(notificationPreference).values({
+        userId: member.id,
+        spaceId: homeSpace.space.id,
+        daysBefore: 1,
+      }),
+      "23505",
+      "notification_preference_user_space_unique",
+    );
 
     // The same user keeps a separate preference in another Space.
     await expect(
@@ -152,6 +162,54 @@ describe("notification_preference", () => {
         emailEnabled: false,
       }),
     ).resolves.toBeDefined();
+  });
+
+  it("rejects days_before outside the 0-30 range", async () => {
+    const member = await createUser();
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: member.id,
+    });
+
+    for (const daysBefore of [-1, 31]) {
+      await expectPostgresConstraint(
+        testDb.insert(notificationPreference).values({
+          userId: member.id,
+          spaceId: space.id,
+          daysBefore,
+        }),
+        "23514",
+        "notification_preference_days_before_range",
+      );
+    }
+  });
+});
+
+describe("monthly", () => {
+  beforeAll(migrateTestDb);
+  beforeEach(truncateAll);
+
+  it("rejects due_day_of_month outside the 1-31 range", async () => {
+    const owner = await createUser();
+    const { space, sections } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+
+    for (const dueDayOfMonth of [0, 32]) {
+      await expectPostgresConstraint(
+        testDb.insert(monthly).values({
+          spaceId: space.id,
+          sectionId: sections.monthlies.id,
+          sectionKind: "monthlies",
+          title: "Rent",
+          dueDayOfMonth,
+          nextDueOn: "2026-09-01",
+        }),
+        "23514",
+        "monthly_due_day_range",
+      );
+    }
   });
 });
 
@@ -180,9 +238,11 @@ describe("notification_log", () => {
     const [row] = await testDb.insert(notificationLog).values(entry).returning();
     expect(row.sentAt).toBeInstanceOf(Date);
 
-    await expect(
+    await expectPostgresConstraint(
       testDb.insert(notificationLog).values(entry),
-    ).rejects.toThrow();
+      "23505",
+      "notification_log_idempotency_key_unique",
+    );
 
     // A different period for the same Monthly is a new send.
     await expect(
