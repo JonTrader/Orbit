@@ -53,7 +53,7 @@ flowchart TB
 - **Editor**: content + custom Sections; not membership.
 - **Owner**: invites, roles, remove, ownership transfer, Space delete/settings.
 - **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can resend. Pending Invite is not a Member until accept.
-- Ownership transfer required before Owner leaves a Space that still has Members. Cannot delete/leave last remaining Space.
+- Ownership transfer required before Owner leaves a Space that still has Members. If the Owner is the only Member, the empty Space must be deleted instead of left ownerless. Cannot delete/leave last remaining Space.
 - Optional **Assignee** on Task/Monthly: any Member of that Space (including read-only). Assignment ≠ edit permission.
 
 ## 5. Content model

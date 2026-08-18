@@ -9,6 +9,11 @@ export interface OutboundEmail {
   text: string;
 }
 
+export interface SendEmailOptions {
+  /** Reused by callers that need idempotency across separate send attempts. */
+  idempotencyKey?: string;
+}
+
 // Better Auth invokes the verification and reset callbacks through
 // `runInBackgroundOrAwait`, which logs whatever they throw and answers the
 // request anyway. A missing key would therefore surface as a signed-up user
@@ -40,7 +45,10 @@ const wait = (ms: number) =>
  * metadata instead of sending it, so local sign-up still reports what happened
  * without exposing email contents.
  */
-export async function sendEmail(email: OutboundEmail): Promise<void> {
+export async function sendEmail(
+  email: OutboundEmail,
+  options: SendEmailOptions = {},
+): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
 
@@ -61,9 +69,9 @@ export async function sendEmail(email: OutboundEmail): Promise<void> {
     return;
   }
 
-  // Stable across retries so a response we never saw cannot become a second
-  // copy of the same verification link.
-  const idempotencyKey = crypto.randomUUID();
+  // Auth mail gets a key for this call; domain services can provide a stable
+  // key when retries across separate calls must address the same email.
+  const idempotencyKey = options.idempotencyKey ?? crypto.randomUUID();
   const resend = new Resend(apiKey);
   let lastError: { name: string; message: string } | undefined;
 

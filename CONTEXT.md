@@ -30,7 +30,7 @@ _Avoid_: Pending member, guest, share link (MVP uses email invites, not link mem
 Space-level roles. All sections in a Space inherit the member's role. Read-only is view-only (no complete/reopen/create/edit/delete). Editor mutates content and custom Sections. Owner alone invites, changes roles, removes Members, and transfers ownership. A Space has a single Owner at a time.
 
 **Ownership transfer**:
-Owner action that makes another Member the Owner; the former Owner becomes an Editor (unless removed). Required before an Owner can leave a Space that still has other Members.
+Owner action that makes another Member the Owner; the former Owner becomes an Editor (unless removed). Required before an Owner can leave a Space that still has other Members. An Owner-only Space must be deleted instead of left ownerless.
 
 
 **Assignee**:

@@ -269,4 +269,17 @@ describe("Task vs Monthly separation", () => {
       "section_system_kind_match",
     );
   });
+
+  it("rejects direct Section kind changes", async () => {
+    const { sections } = await seedSpace();
+
+    await expectPostgresConstraint(
+      testDb
+        .update(section)
+        .set({ kind: "tasks" })
+        .where(eq(section.id, sections.daily.id)),
+      "23514",
+      "section_kind_immutable",
+    );
+  });
 });
