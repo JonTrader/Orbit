@@ -68,8 +68,10 @@ CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10
   - The creator's IANA zone reaches the server through the `orbit_tz` cookie that the auth pages set (`components/auth/TimeZoneCookie.tsx`); it falls back to UTC (ADR 0003).
   - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs the message in dev and throws in production.
   - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireVerifiedSession()`.
-- Next: Phase D (domain services + authz over the Phase B schema).
+- Phase D complete: domain services + authz live under `lib/services/` and `lib/authz/`; service errors carry stable domain error codes for the API boundary.
   - Reminder delivery serializes the candidate check, email send, and `notification_log` write with a transaction-scoped PostgreSQL advisory lock; the same candidate key is passed to Resend for cross-call idempotency.
+- Phase E in progress: E1 complete. `lib/api/validation.ts` parses JSON bodies and query parameters through Zod; `lib/api/errors.ts` exposes the stable `{ error: { code, message, issues? } }` JSON envelope, maps authz/domain errors to HTTP statuses, and hides unexpected error details. Route Handlers should use `apiErrorResponse` at their catch boundary.
+- Next: Phase E2 (Spaces CRUD and timezone patch).
 
 
 <!-- BEGIN:nextjs-agent-rules -->
