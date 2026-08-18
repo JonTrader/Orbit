@@ -2,12 +2,8 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
-import {
-  section,
-  spaceMember,
-  task,
-  type SectionKind,
-} from "@/lib/db/schema";
+import { section, task, type SectionKind } from "@/lib/db/schema";
+import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type TaskSectionKind = "daily" | "tasks" | "mixed";
 export type TaskErrorCode =
@@ -103,7 +99,12 @@ export async function createTask(
     input.spaceId,
     input.sectionId,
   );
-  await validateAssignee(db, input.spaceId, input.assigneeId);
+  await assertAssigneeIsMember(
+    db,
+    input.spaceId,
+    input.assigneeId,
+    (message) => new TaskError("INVALID_ASSIGNEE", message),
+  );
 
   const [created] = await db
     .insert(task)
@@ -133,7 +134,12 @@ export async function updateTask(
   if (input.title !== undefined) updates.title = normalizeTaskTitle(input.title);
   if (input.dueOn !== undefined) updates.dueOn = input.dueOn;
   if (input.assigneeId !== undefined) {
-    await validateAssignee(db, input.spaceId, input.assigneeId);
+    await assertAssigneeIsMember(
+      db,
+      input.spaceId,
+      input.assigneeId,
+      (message) => new TaskError("INVALID_ASSIGNEE", message),
+    );
     updates.assigneeId = input.assigneeId;
   }
 
@@ -281,32 +287,6 @@ async function findTaskSection(
   }
 
   return result as typeof section.$inferSelect & { kind: TaskSectionKind };
-}
-
-async function validateAssignee(
-  db: OrbitDb,
-  spaceId: string,
-  assigneeId: string | null | undefined,
-): Promise<void> {
-  if (assigneeId == null) return;
-
-  const [membership] = await db
-    .select({ id: spaceMember.id })
-    .from(spaceMember)
-    .where(
-      and(
-        eq(spaceMember.spaceId, spaceId),
-        eq(spaceMember.userId, assigneeId),
-      ),
-    )
-    .limit(1);
-
-  if (!membership) {
-    throw new TaskError(
-      "INVALID_ASSIGNEE",
-      "Assignee must be a Member of this Space",
-    );
-  }
 }
 
 function isTaskSectionKind(kind: SectionKind): kind is TaskSectionKind {

@@ -245,6 +245,7 @@ describe("Reminder notification service", () => {
         subject: "Orbit Reminder: Take out <recycling> is due",
         html: expect.stringContaining("&lt;recycling&gt;"),
       }),
+      { idempotencyKey: "daily_nudge:00000000-0000-0000-0000-000000000001:2026-08-10" },
     );
     await expect(
       testDb
@@ -252,6 +253,47 @@ describe("Reminder notification service", () => {
         .from(notificationLog)
         .where(eq(notificationLog.id, first!.id)),
     ).resolves.toHaveLength(1);
+  });
+
+  it("serializes concurrent sends for one candidate", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const seeded = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const candidate = {
+      spaceId: seeded.space.id,
+      kind: "daily_nudge" as const,
+      entityId: "00000000-0000-0000-0000-000000000002",
+      period: "2026-08-10",
+      recipientUserId: owner.id,
+      recipientEmail: owner.email,
+      title: "Concurrent task",
+      dueOn: "2026-08-10",
+    };
+    let releaseEmail!: () => void;
+    let markEmailStarted!: () => void;
+    const emailStarted = new Promise<void>((resolve) => {
+      markEmailStarted = resolve;
+    });
+    const allowEmail = new Promise<void>((resolve) => {
+      releaseEmail = resolve;
+    });
+    sendEmail.mockImplementationOnce(async () => {
+      markEmailStarted();
+      await allowEmail;
+    });
+
+    const first = sendReminder(testDb, { candidate });
+    await emailStarted;
+    const second = sendReminder(testDb, { candidate });
+    releaseEmail();
+
+    const [firstLog, secondLog] = await Promise.all([first, second]);
+
+    expect(firstLog?.id).toBeDefined();
+    expect(secondLog?.id).toBe(firstLog?.id);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it("scans, sends, and logs candidates through the callable batch service", async () => {

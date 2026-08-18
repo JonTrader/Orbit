@@ -53,6 +53,14 @@ describe("outbound mail", () => {
     });
   });
 
+  it("uses a caller-supplied idempotency key across sends", async () => {
+    const { sendEmail } = await loadMailer();
+
+    await sendEmail(MESSAGE, { idempotencyKey: "reminder:test-key" });
+
+    expect(idempotencyKeyOf(0)).toBe("reminder:test-key");
+  });
+
   it("logs delivery metadata without the email body", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

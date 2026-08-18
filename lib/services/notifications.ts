@@ -1,5 +1,10 @@
-import { and, asc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 
+import {
+  calendarDateInTimeZone,
+  formatCalendarDate,
+  type CalendarDate,
+} from "@/lib/calendar-date";
 import type { OrbitDb } from "@/lib/db/client";
 import {
   monthly,
@@ -142,38 +147,48 @@ export async function sendReminder(
 ): Promise<typeof notificationLog.$inferSelect | null> {
   const candidate = input.candidate;
   const idempotencyKey = `${candidate.kind}:${candidate.entityId}:${candidate.period}`;
-  const [existing] = await db
-    .select()
-    .from(notificationLog)
-    .where(eq(notificationLog.idempotencyKey, idempotencyKey))
-    .limit(1);
-  if (existing) return existing;
 
-  const email = reminderEmail(candidate);
-  await sendEmail(email);
+  return db.transaction(async (tx) => {
+    // Keep the check, delivery, and log write serialized for this candidate.
+    // A hash collision only serializes unrelated candidates; it cannot cause
+    // an incorrect log match because the database key is checked below.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${idempotencyKey})::bigint)`,
+    );
 
-  const [logged] = await db
-    .insert(notificationLog)
-    .values({
-      spaceId: candidate.spaceId,
-      kind: candidate.kind,
-      entityId: candidate.entityId,
-      period: candidate.period,
-      recipientUserId: candidate.recipientUserId,
-      recipientEmail: candidate.recipientEmail,
-      idempotencyKey,
-    })
-    .onConflictDoNothing({ target: notificationLog.idempotencyKey })
-    .returning();
+    const [existing] = await tx
+      .select()
+      .from(notificationLog)
+      .where(eq(notificationLog.idempotencyKey, idempotencyKey))
+      .limit(1);
+    if (existing) return existing;
 
-  if (logged) return logged;
+    const email = reminderEmail(candidate);
+    await sendEmail(email, { idempotencyKey });
 
-  const [raceWinner] = await db
-    .select()
-    .from(notificationLog)
-    .where(eq(notificationLog.idempotencyKey, idempotencyKey))
-    .limit(1);
-  return raceWinner ?? null;
+    const [logged] = await tx
+      .insert(notificationLog)
+      .values({
+        spaceId: candidate.spaceId,
+        kind: candidate.kind,
+        entityId: candidate.entityId,
+        period: candidate.period,
+        recipientUserId: candidate.recipientUserId,
+        recipientEmail: candidate.recipientEmail,
+        idempotencyKey,
+      })
+      .onConflictDoNothing({ target: notificationLog.idempotencyKey })
+      .returning();
+
+    if (logged) return logged;
+
+    const [raceWinner] = await tx
+      .select()
+      .from(notificationLog)
+      .where(eq(notificationLog.idempotencyKey, idempotencyKey))
+      .limit(1);
+    return raceWinner ?? null;
+  });
 }
 
 /** Scans and sends all candidates, returning the writes made or found. */
@@ -254,23 +269,6 @@ function reminderEmail(candidate: ReminderCandidate): {
   return { to: candidate.recipientEmail, subject, html, text };
 }
 
-type CalendarDate = { year: number; month: number; day: number };
-
-function calendarDateInTimeZone(now: Date, timezone: string): CalendarDate {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, Number(part.value)]),
-  );
-  return { year: values.year, month: values.month, day: values.day };
-}
-
 function addDays(date: CalendarDate, days: number): CalendarDate {
   const result = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
   return {
@@ -278,14 +276,6 @@ function addDays(date: CalendarDate, days: number): CalendarDate {
     month: result.getUTCMonth() + 1,
     day: result.getUTCDate(),
   };
-}
-
-function formatCalendarDate(date: CalendarDate): string {
-  return [date.year, date.month, date.day]
-    .map((value, index) =>
-      index === 0 ? String(value) : String(value).padStart(2, "0"),
-    )
-    .join("-");
 }
 
 function escapeHtml(value: string): string {

@@ -197,6 +197,24 @@ describe("Section services", () => {
     ).rejects.toMatchObject({ code: "INVALID_REORDER" });
   });
 
+  it("rejects an empty reorder when custom Sections exist", async () => {
+    const { space, editor } = await seedSpace();
+    await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      name: "Errands",
+      kind: "tasks",
+    });
+
+    await expect(
+      reorderCustomSections(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionIds: [],
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_REORDER" });
+  });
+
   it("rejects custom Section mutations by read-only Members", async () => {
     const { space, editor, readOnly } = await seedSpace();
     const custom = await createCustomSection(testDb, {

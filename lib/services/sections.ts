@@ -132,15 +132,13 @@ export async function reorderCustomSections(
   await requireMembership(db, { ...input, minimumRole: "editor" });
   assertUniqueSectionIds(input.sectionIds);
 
-  const allRequestedRows = input.sectionIds.length
-    ? await db
-        .select({ id: section.id, isSystem: section.isSystem })
-        .from(section)
-        .where(eq(section.spaceId, input.spaceId))
-    : [];
+  const allSpaceRows = await db
+    .select({ id: section.id, isSystem: section.isSystem })
+    .from(section)
+    .where(eq(section.spaceId, input.spaceId));
   const requestedIds = new Set(input.sectionIds);
-  const customRows = allRequestedRows.filter((row) => !row.isSystem);
-  const systemRequested = allRequestedRows.some(
+  const customRows = allSpaceRows.filter((row) => !row.isSystem);
+  const systemRequested = allSpaceRows.some(
     (row) => row.isSystem && requestedIds.has(row.id),
   );
 

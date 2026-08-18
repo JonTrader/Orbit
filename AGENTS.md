@@ -41,7 +41,7 @@ npm run test:watch
 
 `DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` requires the `DATABASE_URL_TEST_CONFIRMATION=dedicated-neon-branch` acknowledgement, refuses a missing or application-equal URL, and refuses a URL on the same database host as `DATABASE_URL`. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Do not run full suites concurrently against the same branch; the CI test job uses a shared concurrency group because push and pull-request workflows otherwise race while resetting the schema.
 
-Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`.
+Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`. `tests/db/migrations.test.ts` also verifies that the handwritten Section immutability and `updated_at` triggers are present after migration.
 
 ## CI
 
@@ -69,6 +69,7 @@ CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10
   - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs the message in dev and throws in production.
   - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireVerifiedSession()`.
 - Next: Phase D (domain services + authz over the Phase B schema).
+  - Reminder delivery serializes the candidate check, email send, and `notification_log` write with a transaction-scoped PostgreSQL advisory lock; the same candidate key is passed to Resend for cross-call idempotency.
 
 
 <!-- BEGIN:nextjs-agent-rules -->

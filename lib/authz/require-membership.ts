@@ -34,10 +34,32 @@ const ROLE_RANK: Record<SpaceRole, number> = {
   owner: 2,
 };
 
-export interface RequireMembershipInput {
+export interface MembershipLookupInput {
   userId: string;
   spaceId: string;
+}
+
+export interface RequireMembershipInput extends MembershipLookupInput {
   minimumRole?: MinimumMembershipRole;
+}
+
+/** Finds a Member row without applying a minimum role requirement. */
+export async function findMembership(
+  db: OrbitDb,
+  input: MembershipLookupInput,
+): Promise<typeof spaceMember.$inferSelect | undefined> {
+  const [membership] = await db
+    .select()
+    .from(spaceMember)
+    .where(
+      and(
+        eq(spaceMember.spaceId, input.spaceId),
+        eq(spaceMember.userId, input.userId),
+      ),
+    )
+    .limit(1);
+
+  return membership;
 }
 
 /**
@@ -53,16 +75,7 @@ export async function requireMembership(
   input: RequireMembershipInput,
 ): Promise<typeof spaceMember.$inferSelect> {
   const minimumRole = input.minimumRole ?? "read-only";
-  const [membership] = await db
-    .select()
-    .from(spaceMember)
-    .where(
-      and(
-        eq(spaceMember.spaceId, input.spaceId),
-        eq(spaceMember.userId, input.userId),
-      ),
-    )
-    .limit(1);
+  const membership = await findMembership(db, input);
 
   if (!membership) {
     throw new MembershipError(

@@ -1,8 +1,14 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/authz/require-membership";
+import {
+  calendarDateInTimeZone,
+  formatCalendarDate,
+  type CalendarDate,
+} from "@/lib/calendar-date";
 import type { OrbitDb } from "@/lib/db/client";
-import { monthly, section, space, spaceMember } from "@/lib/db/schema";
+import { monthly, section, space } from "@/lib/db/schema";
+import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type MonthlyErrorCode =
   | "INVALID_ASSIGNEE"
@@ -80,7 +86,12 @@ export async function createMonthly(
   const dueDayOfMonth = validateDueDay(input.dueDayOfMonth);
   const monthliesSection = await findMonthliesSection(db, input.spaceId);
   const timezone = await findSpaceTimezone(db, input.spaceId);
-  await validateAssignee(db, input.spaceId, input.assigneeId);
+  await assertAssigneeIsMember(
+    db,
+    input.spaceId,
+    input.assigneeId,
+    (message) => new MonthlyError("INVALID_ASSIGNEE", message),
+  );
 
   const [created] = await db
     .insert(monthly)
@@ -122,7 +133,12 @@ export async function updateMonthly(
     );
   }
   if (input.assigneeId !== undefined) {
-    await validateAssignee(db, input.spaceId, input.assigneeId);
+    await assertAssigneeIsMember(
+      db,
+      input.spaceId,
+      input.assigneeId,
+      (message) => new MonthlyError("INVALID_ASSIGNEE", message),
+    );
     updates.assigneeId = input.assigneeId;
   }
 
@@ -260,32 +276,6 @@ async function findSpaceTimezone(
   return result.timezone;
 }
 
-async function validateAssignee(
-  db: OrbitDb,
-  spaceId: string,
-  assigneeId: string | null | undefined,
-): Promise<void> {
-  if (assigneeId == null) return;
-
-  const [membership] = await db
-    .select({ id: spaceMember.id })
-    .from(spaceMember)
-    .where(
-      and(
-        eq(spaceMember.spaceId, spaceId),
-        eq(spaceMember.userId, assigneeId),
-      ),
-    )
-    .limit(1);
-
-  if (!membership) {
-    throw new MonthlyError(
-      "INVALID_ASSIGNEE",
-      "Assignee must be a Member of this Space",
-    );
-  }
-}
-
 function normalizeMonthlyTitle(title: string): string {
   const normalized = title.trim();
   if (!normalized) {
@@ -303,8 +293,6 @@ function validateDueDay(dueDayOfMonth: number): number {
   }
   return dueDayOfMonth;
 }
-
-type CalendarDate = { year: number; month: number; day: number };
 
 function nextDueOnForDueDay(
   dueDayOfMonth: number,
@@ -334,26 +322,6 @@ function advanceNextDueOn(nextDueOn: string, dueDayOfMonth: number): string {
   });
 }
 
-function calendarDateInTimeZone(now: Date, timezone: string): CalendarDate {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, Number(part.value)]),
-  );
-
-  return {
-    year: values.year,
-    month: values.month,
-    day: values.day,
-  };
-}
-
 function parseCalendarDate(value: string): CalendarDate {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
@@ -380,10 +348,4 @@ function nextMonth(year: number, month: number): { year: number; month: number }
 
 function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-function formatCalendarDate(date: CalendarDate): string {
-  return [date.year, date.month, date.day]
-    .map((value, index) => (index === 0 ? String(value) : String(value).padStart(2, "0")))
-    .join("-");
 }

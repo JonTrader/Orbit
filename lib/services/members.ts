@@ -361,8 +361,9 @@ export async function transferOwnership(
 }
 
 /**
- * Lets a non-Owner leave when another Space remains. Owners must transfer
- * ownership first, and no Member may leave their last remaining Space.
+ * Lets a non-Owner leave when another Space remains. An Owner must transfer
+ * ownership before leaving a Space with other Members; an empty Space must be
+ * deleted instead. No Member may leave their last remaining Space.
  */
 export async function leaveSpace(
   db: OrbitDb,

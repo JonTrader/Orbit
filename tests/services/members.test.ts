@@ -14,6 +14,7 @@ import {
   transferOwnership,
   updateMemberRole,
 } from "@/lib/services/members";
+import { deleteSpace } from "@/lib/services/spaces";
 
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -270,6 +271,28 @@ describe("Member and Invite services", () => {
     await expect(
       leaveSpace(testDb, { userId: owner.id, spaceId: space.id }),
     ).rejects.toMatchObject({ code: "LAST_SPACE" });
+  });
+
+  it("requires an Owner to delete, rather than leave, an empty non-last Space", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const home = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: owner.id,
+    });
+
+    await expect(
+      leaveSpace(testDb, { userId: owner.id, spaceId: home.space.id }),
+    ).rejects.toMatchObject({ code: "OWNER_CANNOT_LEAVE" });
+    await expect(
+      deleteSpace(testDb, { userId: owner.id, spaceId: home.space.id }),
+    ).resolves.toMatchObject({ id: home.space.id });
+    await expect(
+      listMembers(testDb, { userId: owner.id, spaceId: other.space.id }),
+    ).resolves.toMatchObject([{ userId: owner.id, role: "owner" }]);
   });
 
   it("lets a former Owner leave after transfer when another Space remains", async () => {

@@ -183,7 +183,7 @@ flowchart TB
 **Members / Invites**
 
 - Invite default role read-only; `expiresAt` ≈ now+7d; accept creates Member; expired reject; resend refreshes expiry.
-- Ownership transfer; Owner cannot leave with Members without transfer; cannot delete/leave last Space.
+- Ownership transfer; Owner cannot leave with Members without transfer; an Owner-only Space must be deleted instead of left ownerless; cannot delete/leave last Space.
 
 **Reminders (service only, D9)**
 
