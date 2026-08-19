@@ -70,8 +70,9 @@ CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10
   - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireVerifiedSession()`.
 - Phase D complete: domain services + authz live under `lib/services/` and `lib/authz/`; service errors carry stable domain error codes for the API boundary.
   - Reminder delivery serializes the candidate check, email send, and `notification_log` write with a transaction-scoped PostgreSQL advisory lock; the same candidate key is passed to Resend for cross-call idempotency.
-- Phase E in progress: E1 complete. `lib/api/validation.ts` parses JSON bodies and query parameters through Zod; `lib/api/errors.ts` exposes the stable `{ error: { code, message, issues? } }` JSON envelope, maps authz/domain errors to HTTP statuses, and hides unexpected error details. Route Handlers should use `apiErrorResponse` at their catch boundary.
-- Next: Phase E2 (Spaces CRUD and timezone patch).
+- Phase E in progress: E1 and E2 complete. `lib/api/validation.ts` parses JSON bodies and query parameters through Zod; `lib/api/errors.ts` exposes the stable `{ error: { code, message, issues? } }` JSON envelope, maps authz/domain errors to HTTP statuses, and hides unexpected error details. Route Handlers should use `apiErrorResponse` at their catch boundary.
+  - `lib/api/auth.ts` authenticates Route Handler requests with Better Auth and blocks unverified sessions. E2 exposes `/api/v1/spaces` collection CRUD plus owner-only timezone patches at `/api/v1/spaces/[spaceId]`.
+- Next: Phase E3 (Sections under Space).
 
 
 <!-- BEGIN:nextjs-agent-rules -->

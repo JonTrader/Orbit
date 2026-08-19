@@ -1,4 +1,8 @@
 export {
+  requireApiSession,
+  type ApiSession,
+} from "./auth";
+export {
   ApiError,
   apiErrorResponse,
   forbiddenError,
