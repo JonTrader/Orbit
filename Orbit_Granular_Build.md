@@ -10,13 +10,13 @@ todos:
     status: completed
   - id: C-auth
     content: "Phase C: Better Auth email/password + Google + Microsoft + verify + Personal Space"
-    status: pending
+    status: completed
   - id: D-services
     content: "Phase D: Domain services + authz (Task vs Monthly invariants)"
-    status: pending
+    status: completed
   - id: E-api
-    content: "Phase E: /api/v1 Route Handlers"
-    status: pending
+    content: "Phase E: /api/v1 Route Handlers (E1–E3 done; E4 next)"
+    status: in-progress
   - id: F-actions
     content: "Phase F: Web-only Server Actions"
     status: pending
