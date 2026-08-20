@@ -3,6 +3,7 @@ import { asc, and, desc, eq } from "drizzle-orm";
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { section, type SectionKind } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 
 export type CustomSectionKind = "tasks" | "notes" | "mixed";
 export type SectionErrorCode =
@@ -12,15 +13,11 @@ export type SectionErrorCode =
   | "SECTION_NOT_FOUND"
   | "SYSTEM_SECTION";
 
-export class SectionError extends Error {
+export class SectionError extends DomainError<SectionErrorCode> {
   readonly name = "SectionError";
 
-  constructor(
-    readonly code: SectionErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: SectionErrorCode, message: string) {
+    super(code, message);
   }
 }
 

@@ -34,6 +34,7 @@ flowchart TB
 ```
 
 - **`/api/v1` Route Handlers**: mobile-ready CRUD (spaces, sections, tasks, monthlies, notes, members/invites, reminder prefs). Zod at the boundary. Auth via Better Auth session (bearer later for mobile).
+  - Invite API: `GET /api/v1/spaces/{spaceId}/invites` lists pending Invites for the Owner; `POST /api/v1/spaces/{spaceId}/invites` creates one; `POST /api/v1/invites/{inviteId}/resend` refreshes expiry; `POST /api/v1/invites/accept` accepts by token. Invite cancellation is out of MVP.
 - **Server Actions**: web UX only (quick-add, complete, section reorder, invite + revalidate). Same `lib/services/*` - no duplicated logic ([ADR 0005](./adr/0005-dual-api-surface.md)).
 
 ## 3. Accounts
@@ -49,10 +50,11 @@ flowchart TB
 - Users may create more Spaces (creator = Owner).
 - **Active Space**: one at a time; all main views scoped to it.
 - Roles (Space-level only): **owner** | **editor** | **read-only**. Single Owner per Space.
-- **Read-only**: view only (no complete/reopen/create/edit/delete).
+- **Read-only**: view only (no complete/reopen/create/edit/delete, and no membership changes).
 - **Editor**: content + custom Sections; not membership.
 - **Owner**: invites, roles, remove, ownership transfer, Space delete/settings.
-- **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can resend. Pending Invite is not a Member until accept.
+- Exception: every Member may update their own per-Space notification preferences, because those settings are personal and do not mutate shared content.
+- **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can list pending Invites and resend. Pending Invite is not a Member until accept. Invite cancellation is out of MVP.
 - Ownership transfer required before Owner leaves a Space that still has Members. If the Owner is the only Member, the empty Space must be deleted instead of left ownerless. Cannot delete/leave last remaining Space.
 - Optional **Assignee** on Task/Monthly: any Member of that Space (including read-only). Assignment ≠ edit permission.
 
@@ -78,6 +80,7 @@ Quick-add targets the selected Section. Compose disabled (or not shown) on Upcom
 - **Monthly**: N days before due (default **3**); preference per user per Space.
 - **Daily**: nudge for incomplete Tasks that are **due today or overdue**.
 - Recipient: **Assignee if set, else Space Owner**; respect per-user-per-Space opt-out.
+- Preference updates are allowed for any Member (including read-only), because they affect only that user's own settings.
 - Idempotent via `notification_log` (no double-send on retry).
 - Also: invite email, auth verification, password reset.
 

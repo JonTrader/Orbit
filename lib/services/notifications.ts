@@ -1,21 +1,22 @@
 import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 
-import {
-  calendarDateInTimeZone,
-  formatCalendarDate,
-  type CalendarDate,
-} from "@/lib/calendar-date";
 import type { OrbitDb } from "@/lib/db/client";
 import {
   monthly,
   notificationLog,
-  notificationPreference,
   space,
   spaceMember,
   task,
   user,
 } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/mailer";
+
+import {
+  calendarDateInTimeZone,
+  formatCalendarDate,
+  type CalendarDate,
+} from "@/lib/calendar-date";
+import { findPreference } from "./notification-preferences";
 
 const DEFAULT_MONTHLY_DAYS_BEFORE = 3;
 
@@ -234,24 +235,6 @@ async function findRecipient(
     )
     .limit(1);
   return owner ?? null;
-}
-
-async function findPreference(
-  db: OrbitDb,
-  spaceId: string,
-  userId: string,
-): Promise<typeof notificationPreference.$inferSelect | undefined> {
-  const [preference] = await db
-    .select()
-    .from(notificationPreference)
-    .where(
-      and(
-        eq(notificationPreference.spaceId, spaceId),
-        eq(notificationPreference.userId, userId),
-      ),
-    )
-    .limit(1);
-  return preference;
 }
 
 function reminderEmail(candidate: ReminderCandidate): {

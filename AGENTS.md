@@ -16,6 +16,15 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 Household-first coordination: Daily Tasks vs Monthlies as separate domains, Space-level sharing/RBAC, Upcoming as a read-only view, email Reminders via Inngest + Resend. Dual API: `/api/v1` Route Handlers + web Server Actions over shared domain services.
 
+## Service layout
+
+- `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
+- `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
+
+## ID conventions
+
+App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
+
 ## Testing (required per phase)
 
 Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
@@ -43,9 +52,20 @@ npm run test:watch
 
 Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`. `tests/db/migrations.test.ts` also verifies that the handwritten Section immutability and `updated_at` triggers are present after migration.
 
+### API test helpers
+
+API Route Handler tests share Vitest mocks and request helpers:
+
+- `tests/setup/api-mocks.ts` - `vi.mock` for `@/lib/auth` and `@/lib/db/client`. Import this **first** in any API test file so the mocks are registered before Route Handler imports.
+- `tests/setup/api.ts` - shared helpers: `authenticateAs`, `unauthenticate`, `jsonRequest`, `responseJson`, route context builders, `ErrorBody`, and `apiTestLifecycle`.
+- Each API test file still owns its `beforeAll`/`beforeEach` wiring via `apiTestLifecycle()`.
+
 ## CI
 
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on push to `main`/`master` and on pull requests. Today: `lint` + `build` + `test`.
+
+- CI actions are pinned to majors that ship a Node 24 runtime (`actions/checkout@v5`, `actions/setup-node@v5`). The v4 majors run on the deprecated Node 20 runtime and GitHub flags them on every run.
+- The `test` job injects test-only env vars on top of the database URL: dummy `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Modules such as `lib/auth.ts` require config at import time outside the build phase, so the vars must be present even though auth is mocked in most tests. Keep them fake; never real credentials. API tests that import `@/lib/api` (the barrel re-exports `requireApiSession`, which loads the real auth chain) need these exported locally too. Tests that only exercise errors/validation helpers import `@/lib/api/errors` and `@/lib/api/validation` directly instead, so they never touch auth.
 
 When adding tests, uncomment the matching job in that file (do not invent a second workflow):
 
@@ -55,21 +75,9 @@ When adding tests, uncomment the matching job in that file (do not invent a seco
 
 CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10 and npm 11 handle optional peer dependencies differently: npm 10 auto-installs vite 8's optional `esbuild` peer and its `npm ci` rejects locks that lack the 27-entry `node_modules/vitest/node_modules/esbuild` subtree (`Missing: esbuild@0.28.2 from lock file`); npm 11 omits that subtree and accepts the lock either way, and plain `npm install` on npm 11 prunes the subtree if a lock contains it. So committed locks here are npm 11 output by design, and a failing `npx npm@10 ci` is expected version skew, not a defect to repair. Never commit a lock produced with peer/optional resolution disabled (`--legacy-peer-deps`, `--omit=optional`). If the CI Node version ever changes, re-verify the lock with that version's npm before pushing.
 
-## App status
+## Project status
 
-- Phase A complete: Next.js App Router + Tailwind + static Orbit shell (`components/orbit/AgendaShell.tsx`). UI reference: `prototype/ui-prototype.html`.
-- Phase B complete: Drizzle schema (`lib/db/schema.ts`), migrations (`drizzle/`), seed helper (`lib/db/seed.ts`), Vitest harness (`tests/`). Diagrams and constraint catalogue: [`docs/data-model.md`](./docs/data-model.md).
-  - Task vs Monthly separation is enforced **in the database**, not only in services: `section` carries a `unique(id, space_id, kind)`, and `task` / `monthly` / `note` each mirror `section_kind` behind a composite foreign key plus a `CHECK` restricting the legal kinds. Inserting a Task into Monthlies (or a Monthly anywhere else, or a row pointing at another Space's Section) raises a constraint error.
-  - Services must set `sectionKind` alongside `sectionId` when writing Tasks, Monthlies, and Notes.
-- Phase C complete: Better Auth (`lib/auth.ts`, `app/api/auth/[...all]`), Resend verification and password-reset mail (`lib/email/`, `emails/`), auth pages under `app/(auth)/`, protected shell under `app/(app)/`, Personal Space onboarding (`lib/onboarding.ts`), suite in `tests/auth/`.
-  - The gate lives in `lib/auth-access.ts` / `lib/session.ts`: `requireVerifiedSession()` redirects to `/sign-in` when there is no session and to `/verify-email` when an email/password user has not verified. OAuth counts as verified, so a Google or Microsoft account row satisfies the gate on its own (spec §3).
-  - `(app)/layout.tsx` runs onboarding; pages re-check the session themselves because a layout does not re-render on client navigation.
-  - One Personal Space per user is enforced **in the database** (`space_personal_creator_unique`, migration `0001`), so `ensurePersonalSpace()` is safe to call on every request.
-  - The creator's IANA zone reaches the server through the `orbit_tz` cookie that the auth pages set (`components/auth/TimeZoneCookie.tsx`); it falls back to UTC (ADR 0003).
-  - All outbound mail goes through `sendEmail()` in `lib/email/mailer.ts`. Tests mock that module. Without `RESEND_API_KEY` / `EMAIL_FROM` it logs the message in dev and throws in production.
-  - Password pages: email-token reset at `/reset-password` (usable signed out); signed-in change-password at `/change-password`, gated by `requireVerifiedSession()`.
-- Next: Phase D (domain services + authz over the Phase B schema).
-  - Reminder delivery serializes the candidate check, email send, and `notification_log` write with a transaction-scoped PostgreSQL advisory lock; the same candidate key is passed to Resend for cross-call idempotency.
+Completed phases and the current handoff prompt are tracked in [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md).
 
 
 <!-- BEGIN:nextjs-agent-rules -->

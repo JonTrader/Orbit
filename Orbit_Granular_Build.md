@@ -10,13 +10,13 @@ todos:
     status: completed
   - id: C-auth
     content: "Phase C: Better Auth email/password + Google + Microsoft + verify + Personal Space"
-    status: pending
+    status: completed
   - id: D-services
     content: "Phase D: Domain services + authz (Task vs Monthly invariants)"
-    status: pending
+    status: completed
   - id: E-api
-    content: "Phase E: /api/v1 Route Handlers"
-    status: pending
+    content: "Phase E: /api/v1 Route Handlers (E1-E7 complete: Tasks, Monthlies, Notes, Members, Invites, preferences)"
+    status: completed
   - id: F-actions
     content: "Phase F: Web-only Server Actions"
     status: pending
@@ -256,14 +256,14 @@ Stop at Phase D acceptance. Do not start Phase E.
 | **E4** | Tasks (+ complete/reopen/move as supported) |
 | **E5** | Monthlies (+ complete) |
 | **E6** | Notes |
-| **E7** | Members/invites + notification preferences |
+| **E7** | Members/invites (pending list, create/resend/accept; no cancellation) + notification preferences |
 
 **Acceptance**
 
-- [ ] Authenticated CRUD works for happy paths
-- [ ] Authz errors for read-only / non-members
-- [ ] Handlers only call services (no inline business rules)
-- [ ] Tests: Phase E section of `Orbit_Test_Plan.md` green (thin API; do not re-test full D matrix)
+- [x] Authenticated CRUD works for happy paths
+- [x] Authz errors for read-only / non-members
+- [x] Handlers only call services (no inline business rules)
+- [x] Tests: Phase E section of `Orbit_Test_Plan.md` green (thin API; do not re-test full D matrix)
 
 **Out of scope:** Server Actions, pixel UI
 

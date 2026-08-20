@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import type { OrbitDb } from "@/lib/db/client";
 import { spaceMember, type SpaceRole } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 
 /** The minimum Space role a caller must have for an operation. */
 export type MinimumMembershipRole = SpaceRole;
@@ -15,16 +16,12 @@ export type MembershipErrorCode = "NOT_MEMBER" | "INSUFFICIENT_ROLE";
  * for the API layer. The code lets that layer distinguish a missing Member
  * from an insufficient role without duplicating the membership lookup.
  */
-export class MembershipError extends Error {
+export class MembershipError extends DomainError<MembershipErrorCode> {
   readonly name = "MembershipError";
   readonly status = 403 as const;
 
-  constructor(
-    readonly code: MembershipErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: MembershipErrorCode, message: string) {
+    super(code, message);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   inviteMember,
   leaveSpace,
   listMembers,
+  listPendingInvites,
   MemberError,
   removeMember,
   resendInvite,
@@ -56,6 +57,63 @@ describe("Member and Invite services", () => {
     expect(readOnly.expiresAt.getTime()).toBeLessThanOrEqual(
       Date.now() + 7 * 24 * 60 * 60 * 1_000 + 100,
     );
+  });
+
+  it("lists pending Invites for a Space, scoped and Owner-only", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const readOnly = await createUser({ email: "read-only@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const otherSpace = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: editor.id, role: "editor" },
+      { spaceId: space.id, userId: readOnly.id, role: "read-only" },
+    ]);
+
+    const pendingHome = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+    });
+    const acceptedHome = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "accepted@orbit.test",
+    });
+    await testDb
+      .update(invite)
+      .set({ acceptedAt: new Date() })
+      .where(eq(invite.id, acceptedHome.id));
+    await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: otherSpace.space.id,
+      email: "other@orbit.test",
+    });
+
+    const pending = await listPendingInvites(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+    });
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({
+      id: pendingHome.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+      acceptedAt: null,
+    });
+
+    await expect(
+      listPendingInvites(testDb, { userId: editor.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      listPendingInvites(testDb, { userId: readOnly.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
   });
 
   it("accepts a matching Invite and creates the Member only then", async () => {
@@ -348,6 +406,51 @@ describe("Member and Invite services", () => {
     await expect(
       listMembers(testDb, { userId: member.id, spaceId: other.space.id }),
     ).resolves.toMatchObject([{ userId: member.id, role: "owner" }]);
+  });
+
+  it("rejects a duplicate pending Invite for the same Space and email", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+
+    await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+    });
+
+    await expect(
+      inviteMember(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        email: "Pending@Orbit.Test",
+      }),
+    ).rejects.toMatchObject({
+      code: "INVITE_ALREADY_PENDING",
+      message: "An Invite is already pending for that email in this Space",
+    });
+
+    const accepted = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "accepted@orbit.test",
+    });
+    await testDb
+      .update(invite)
+      .set({ acceptedAt: new Date() })
+      .where(eq(invite.id, accepted.id));
+    await expect(
+      inviteMember(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        email: "accepted@orbit.test",
+      }),
+    ).resolves.toMatchObject({
+      email: "accepted@orbit.test",
+      acceptedAt: null,
+    });
   });
 
   it("rejects owner-only actions for invalid roles and missing Members", async () => {
