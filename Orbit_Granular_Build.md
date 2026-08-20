@@ -15,8 +15,8 @@ todos:
     content: "Phase D: Domain services + authz (Task vs Monthly invariants)"
     status: completed
   - id: E-api
-    content: "Phase E: /api/v1 Route Handlers (E1-E6 done: Tasks, Monthlies, Notes APIs; E7 next)"
-    status: in-progress
+    content: "Phase E: /api/v1 Route Handlers (E1-E7 complete: Tasks, Monthlies, Notes, Members, Invites, preferences)"
+    status: completed
   - id: F-actions
     content: "Phase F: Web-only Server Actions"
     status: pending
