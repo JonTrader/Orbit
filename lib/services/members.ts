@@ -17,6 +17,7 @@ export type MemberErrorCode =
   | "EXPIRED_INVITE"
   | "INVALID_EMAIL"
   | "INVALID_ROLE"
+  | "INVITE_ALREADY_PENDING"
   | "INVITE_NOT_FOUND"
   | "LAST_SPACE"
   | "MEMBER_NOT_FOUND"
@@ -81,6 +82,24 @@ export async function inviteMember(
   await requireMembership(db, { ...input, minimumRole: "owner" });
   const email = normalizeEmail(input.email);
   const role = validateInviteRole(input.role ?? "read-only");
+
+  const [existingPending] = await db
+    .select({ id: invite.id })
+    .from(invite)
+    .where(
+      and(
+        eq(invite.spaceId, input.spaceId),
+        eq(invite.email, email),
+        isNull(invite.acceptedAt),
+      ),
+    )
+    .limit(1);
+  if (existingPending) {
+    throw new MemberError(
+      "INVITE_ALREADY_PENDING",
+      "An Invite is already pending for that email in this Space",
+    );
+  }
 
   const [existingUser] = await db
     .select({ id: user.id })
@@ -219,6 +238,20 @@ export async function acceptInvite(
 
     return created;
   });
+}
+
+/** Lists pending Invites for a Space; Owner-only. */
+export async function listPendingInvites(
+  db: OrbitDb,
+  input: MemberAccessInput,
+): Promise<(typeof invite.$inferSelect)[]> {
+  await requireMembership(db, { ...input, minimumRole: "owner" });
+
+  return db
+    .select()
+    .from(invite)
+    .where(and(eq(invite.spaceId, input.spaceId), isNull(invite.acceptedAt)))
+    .orderBy(asc(invite.createdAt), asc(invite.id));
 }
 
 /** Lists Members with the user fields needed by the share surface. */

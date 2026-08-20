@@ -256,14 +256,14 @@ Stop at Phase D acceptance. Do not start Phase E.
 | **E4** | Tasks (+ complete/reopen/move as supported) |
 | **E5** | Monthlies (+ complete) |
 | **E6** | Notes |
-| **E7** | Members/invites + notification preferences |
+| **E7** | Members/invites (pending list, create/resend/accept; no cancellation) + notification preferences |
 
 **Acceptance**
 
-- [ ] Authenticated CRUD works for happy paths
-- [ ] Authz errors for read-only / non-members
-- [ ] Handlers only call services (no inline business rules)
-- [ ] Tests: Phase E section of `Orbit_Test_Plan.md` green (thin API; do not re-test full D matrix)
+- [x] Authenticated CRUD works for happy paths
+- [x] Authz errors for read-only / non-members
+- [x] Handlers only call services (no inline business rules)
+- [x] Tests: Phase E section of `Orbit_Test_Plan.md` green (thin API; do not re-test full D matrix)
 
 **Out of scope:** Server Actions, pixel UI
 

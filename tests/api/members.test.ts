@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -41,10 +42,11 @@ import {
   POST as transferOwnershipRoute,
 } from "@/app/api/v1/spaces/[spaceId]/members/[userId]/transfer/route";
 import {
+  GET as listPendingInvitesRoute,
   POST as createInviteRoute,
 } from "@/app/api/v1/spaces/[spaceId]/invites/route";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { spaceMember } from "@/lib/db/schema";
+import { invite, spaceMember } from "@/lib/db/schema";
 
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -255,6 +257,75 @@ describe("Members and Invites API", () => {
     expect(finalMembers.some((member) => member.userId === readOnly.id)).toBe(false);
   });
 
+  it("lists pending Invites for Owners, scoped to the Space", async () => {
+    const { editor, owner, readOnly, space } = await seedSpace();
+    const otherSpace = await createSpaceWithSystemSections(testDb, {
+      name: "Other Space",
+      ownerUserId: owner.id,
+    });
+    authenticateAs(owner.id);
+
+    const homePendingResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: "pending@orbit.test",
+      }),
+      spaceContext(space.id),
+    );
+    expect(homePendingResponse.status).toBe(201);
+    const homePending = await responseJson<InviteBody>(homePendingResponse);
+
+    const homeAcceptedResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: "accepted@orbit.test",
+      }),
+      spaceContext(space.id),
+    );
+    expect(homeAcceptedResponse.status).toBe(201);
+    const homeAccepted = await responseJson<InviteBody>(homeAcceptedResponse);
+    await testDb
+      .update(invite)
+      .set({ acceptedAt: new Date() })
+      .where(eq(invite.id, homeAccepted.id));
+
+    await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${otherSpace.space.id}/invites`, {
+        email: "other@orbit.test",
+      }),
+      spaceContext(otherSpace.space.id),
+    );
+
+    const listResponse = await listPendingInvitesRoute(
+      new Request(`http://localhost/api/v1/spaces/${space.id}/invites`),
+      spaceContext(space.id),
+    );
+    expect(listResponse.status).toBe(200);
+    const pending = await responseJson<InviteBody[]>(listResponse);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({
+      id: homePending.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+      acceptedAt: null,
+    });
+
+    authenticateAs(editor.id);
+    const editorListResponse = await listPendingInvitesRoute(
+      new Request(`http://localhost/api/v1/spaces/${space.id}/invites`),
+      spaceContext(space.id),
+    );
+    expect(editorListResponse.status).toBe(403);
+    await expect(responseJson<ErrorBody>(editorListResponse)).resolves.toMatchObject({
+      error: { code: "INSUFFICIENT_ROLE" },
+    });
+
+    authenticateAs(readOnly.id);
+    const readOnlyListResponse = await listPendingInvitesRoute(
+      new Request(`http://localhost/api/v1/spaces/${space.id}/invites`),
+      spaceContext(space.id),
+    );
+    expect(readOnlyListResponse.status).toBe(403);
+  });
+
   it("supports ownership transfer and leaving a Space", async () => {
     const { editor, owner, space } = await seedSpace();
     await createSpaceWithSystemSections(testDb, {
@@ -405,6 +476,33 @@ describe("Members and Invites API", () => {
     expect(invalidTokenResponse.status).toBe(400);
     await expect(responseJson<ErrorBody>(invalidTokenResponse)).resolves.toMatchObject({
       error: { code: "VALIDATION_ERROR" },
+    });
+  });
+
+  it("returns 409 when creating a duplicate pending Invite", async () => {
+    const { owner, space } = await seedSpace();
+    authenticateAs(owner.id);
+
+    const firstResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: "pending@orbit.test",
+      }),
+      spaceContext(space.id),
+    );
+    expect(firstResponse.status).toBe(201);
+
+    const duplicateResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: "Pending@Orbit.Test",
+      }),
+      spaceContext(space.id),
+    );
+    expect(duplicateResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(duplicateResponse)).resolves.toMatchObject({
+      error: {
+        code: "INVITE_ALREADY_PENDING",
+        message: "An Invite is already pending for that email in this Space",
+      },
     });
   });
 });

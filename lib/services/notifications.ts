@@ -93,7 +93,12 @@ export async function getNotificationPreference(
   );
 }
 
-/** Updates only the caller's notification preference for this Space. */
+/**
+ * Updates only the caller's notification preference for this Space.
+ *
+ * Read-only Members may mutate their own preferences because the setting is
+ * per-user and does not change shared Space content or membership.
+ */
 export async function updateNotificationPreference(
   db: OrbitDb,
   input: UpdateNotificationPreferenceInput,

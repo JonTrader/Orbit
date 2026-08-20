@@ -5,7 +5,7 @@ import {
   requireApiSession,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
-import { inviteMember } from "@/lib/services/members";
+import { inviteMember, listPendingInvites } from "@/lib/services/members";
 
 import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 import { createInviteBodySchema } from "./schema";
@@ -13,6 +13,24 @@ import { createInviteBodySchema } from "./schema";
 type InvitesRouteContext = {
   params: Promise<{ spaceId: string }>;
 };
+
+export async function GET(
+  request: Request,
+  context: InvitesRouteContext,
+): Promise<Response> {
+  try {
+    const session = await requireApiSession(request);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
+    const pending = await listPendingInvites(getDb(), {
+      userId: session.user.id,
+      spaceId,
+    });
+
+    return Response.json(pending);
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
 
 export async function POST(
   request: Request,
