@@ -1,17 +1,10 @@
 import { z } from "zod";
 
-export const sectionSpaceParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 
-export const sectionIdParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-    sectionId: z.uuid(),
-  })
-  .strict();
+export const sectionIdParamsSchema = spaceIdParamsSchema.extend({
+  sectionId: z.uuid(),
+});
 
 export const createSectionBodySchema = z
   .object({

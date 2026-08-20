@@ -1,17 +1,10 @@
 import { z } from "zod";
 
-export const monthlySpaceParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 
-export const monthlyIdParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-    monthlyId: z.uuid(),
-  })
-  .strict();
+export const monthlyIdParamsSchema = spaceIdParamsSchema.extend({
+  monthlyId: z.uuid(),
+});
 
 const dueDayOfMonthSchema = z
   .number()
@@ -23,7 +16,7 @@ export const createMonthlyBodySchema = z
   .object({
     title: z.string().trim().min(1, "Monthly title cannot be empty"),
     dueDayOfMonth: dueDayOfMonthSchema,
-    assigneeId: z.uuid().nullable().optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
   })
   .strict();
 
@@ -31,6 +24,6 @@ export const updateMonthlyBodySchema = z
   .object({
     title: z.string().trim().min(1, "Monthly title cannot be empty").optional(),
     dueDayOfMonth: dueDayOfMonthSchema.optional(),
-    assigneeId: z.uuid().nullable().optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
   })
   .strict();

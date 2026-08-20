@@ -1,17 +1,10 @@
 import { z } from "zod";
 
-export const memberSpaceParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 
-export const memberUserParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-    userId: z.string().min(1),
-  })
-  .strict();
+export const memberUserParamsSchema = spaceIdParamsSchema.extend({
+  userId: z.string().min(1),
+});
 
 export const updateMemberRoleBodySchema = z
   .object({

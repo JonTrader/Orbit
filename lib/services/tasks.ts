@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { section, task, type SectionKind } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type TaskSectionKind = "daily" | "tasks" | "mixed";
@@ -13,15 +14,11 @@ export type TaskErrorCode =
   | "INVALID_UPDATE"
   | "TASK_NOT_FOUND";
 
-export class TaskError extends Error {
+export class TaskError extends DomainError<TaskErrorCode> {
   readonly name = "TaskError";
 
-  constructor(
-    readonly code: TaskErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: TaskErrorCode, message: string) {
+    super(code, message);
   }
 }
 

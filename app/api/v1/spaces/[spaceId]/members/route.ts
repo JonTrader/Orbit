@@ -1,12 +1,12 @@
 import {
   apiErrorResponse,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { listMembers } from "@/lib/services/members";
 
-import { memberSpaceParamsSchema } from "./schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 
 type MembersRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -18,10 +18,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const { spaceId } = validateInput(
-      await context.params,
-      memberSpaceParamsSchema,
-    );
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const members = await listMembers(getDb(), {
       userId: session.user.id,
       spaceId,

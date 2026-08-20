@@ -7,6 +7,7 @@ import {
   createSpaceWithSystemSections,
 } from "@/lib/db/seed";
 import { space, spaceMember } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 export type SpaceErrorCode =
@@ -14,15 +15,11 @@ export type SpaceErrorCode =
   | "LAST_SPACE"
   | "SPACE_NOT_FOUND";
 
-export class SpaceError extends Error {
+export class SpaceError extends DomainError<SpaceErrorCode> {
   readonly name = "SpaceError";
 
-  constructor(
-    readonly code: SpaceErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: SpaceErrorCode, message: string) {
+    super(code, message);
   }
 }
 

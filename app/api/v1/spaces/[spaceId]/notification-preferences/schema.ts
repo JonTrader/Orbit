@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-export const notificationPreferenceSpaceParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
-
 export const updateNotificationPreferenceBodySchema = z
   .object({
     daysBefore: z

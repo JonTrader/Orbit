@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -25,7 +25,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, sectionIdParamsSchema);
     const body = await parseJsonBody(request, renameSectionBodySchema);
     const updated = await renameSection(getDb(), {
       userId: session.user.id,
@@ -46,7 +46,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, sectionIdParamsSchema);
     await deleteCustomSection(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -57,10 +57,4 @@ export async function DELETE(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readParams(
-  context: SectionRouteContext,
-): Promise<{ spaceId: string; sectionId: string }> {
-  return validateInput(await context.params, sectionIdParamsSchema);
 }

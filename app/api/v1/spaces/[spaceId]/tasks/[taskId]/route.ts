@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -26,7 +26,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, taskIdParamsSchema);
     const currentTask = await getTask(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -45,7 +45,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, taskIdParamsSchema);
     const body = await parseJsonBody(request, updateTaskBodySchema);
     const updated = await updateTask(getDb(), {
       userId: session.user.id,
@@ -68,7 +68,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, taskIdParamsSchema);
     await deleteTask(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -79,10 +79,4 @@ export async function DELETE(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readParams(
-  context: TaskRouteContext,
-): Promise<{ spaceId: string; taskId: string }> {
-  return validateInput(await context.params, taskIdParamsSchema);
 }

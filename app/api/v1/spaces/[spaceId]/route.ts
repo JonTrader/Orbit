@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -11,10 +11,8 @@ import {
   updateSpaceTimezone,
 } from "@/lib/services/spaces";
 
-import {
-  spaceIdParamsSchema,
-  updateSpaceBodySchema,
-} from "../schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
+import { updateSpaceBodySchema } from "../schema";
 
 type SpaceRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -26,7 +24,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const currentSpace = await getSpace(getDb(), {
       userId: session.user.id,
       spaceId,
@@ -44,7 +42,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(request, updateSpaceBodySchema);
     const updated = await updateSpaceTimezone(getDb(), {
       userId: session.user.id,
@@ -64,7 +62,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     await deleteSpace(getDb(), {
       userId: session.user.id,
       spaceId,
@@ -74,9 +72,4 @@ export async function DELETE(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readSpaceId(context: SpaceRouteContext): Promise<string> {
-  const params = await context.params;
-  return validateInput(params, spaceIdParamsSchema).spaceId;
 }

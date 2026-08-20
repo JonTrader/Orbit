@@ -1,16 +1,14 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { reorderCustomSections } from "@/lib/services/sections";
 
-import {
-  reorderSectionsBodySchema,
-  sectionSpaceParamsSchema,
-} from "../schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
+import { reorderSectionsBodySchema } from "../schema";
 
 type ReorderSectionsRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -22,8 +20,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await context.params;
-    const { spaceId } = validateInput(params, sectionSpaceParamsSchema);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(request, reorderSectionsBodySchema);
     const sections = await reorderCustomSections(getDb(), {
       userId: session.user.id,

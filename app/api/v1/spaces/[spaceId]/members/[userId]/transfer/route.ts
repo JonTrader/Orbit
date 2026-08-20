@@ -1,7 +1,7 @@
 import {
   apiErrorResponse,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { transferOwnership } from "@/lib/services/members";
@@ -18,7 +18,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = validateInput(await context.params, memberUserParamsSchema);
+    const params = await readRouteParams(context, memberUserParamsSchema);
     const transferred = await transferOwnership(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,

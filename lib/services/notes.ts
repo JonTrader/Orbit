@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { note, section, type SectionKind } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 
 export type NoteSectionKind = "notes" | "mixed";
 export type NoteErrorCode =
@@ -11,15 +12,11 @@ export type NoteErrorCode =
   | "INVALID_UPDATE"
   | "NOTE_NOT_FOUND";
 
-export class NoteError extends Error {
+export class NoteError extends DomainError<NoteErrorCode> {
   readonly name = "NoteError";
 
-  constructor(
-    readonly code: NoteErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: NoteErrorCode, message: string) {
+    super(code, message);
   }
 }
 

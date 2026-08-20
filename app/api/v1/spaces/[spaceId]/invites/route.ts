@@ -1,16 +1,14 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { inviteMember } from "@/lib/services/members";
 
-import {
-  createInviteBodySchema,
-  inviteSpaceParamsSchema,
-} from "./schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
+import { createInviteBodySchema } from "./schema";
 
 type InvitesRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -22,10 +20,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const { spaceId } = validateInput(
-      await context.params,
-      inviteSpaceParamsSchema,
-    );
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(request, createInviteBodySchema);
     const created = await inviteMember(getDb(), {
       userId: session.user.id,

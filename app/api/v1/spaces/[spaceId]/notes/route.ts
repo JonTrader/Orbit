@@ -2,16 +2,16 @@ import {
   apiErrorResponse,
   parseJsonBody,
   parseSearchParams,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { createNote, listNotes } from "@/lib/services/notes";
 
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 import {
   createNoteBodySchema,
   listNotesQuerySchema,
-  noteSpaceParamsSchema,
 } from "./schema";
 
 type NotesRouteContext = {
@@ -24,7 +24,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const query = parseSearchParams(request, listNotesQuerySchema);
     const notes = await listNotes(getDb(), {
       userId: session.user.id,
@@ -44,7 +44,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(request, createNoteBodySchema);
     const created = await createNote(getDb(), {
       userId: session.user.id,
@@ -58,8 +58,4 @@ export async function POST(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readSpaceId(context: NotesRouteContext): Promise<string> {
-  return validateInput(await context.params, noteSpaceParamsSchema).spaceId;
 }

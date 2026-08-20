@@ -8,6 +8,7 @@ import {
 } from "@/lib/calendar-date";
 import type { OrbitDb } from "@/lib/db/client";
 import { monthly, section, space } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type MonthlyErrorCode =
@@ -18,15 +19,11 @@ export type MonthlyErrorCode =
   | "MONTHLY_NOT_FOUND"
   | "MONTHLIES_SECTION_NOT_FOUND";
 
-export class MonthlyError extends Error {
+export class MonthlyError extends DomainError<MonthlyErrorCode> {
   readonly name = "MonthlyError";
 
-  constructor(
-    readonly code: MonthlyErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: MonthlyErrorCode, message: string) {
+    super(code, message);
   }
 }
 

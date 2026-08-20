@@ -1,7 +1,7 @@
 import {
   apiErrorResponse,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { reopenTask } from "@/lib/services/tasks";
@@ -18,7 +18,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = validateInput(await context.params, taskIdParamsSchema);
+    const params = await readRouteParams(context, taskIdParamsSchema);
     const reopened = await reopenTask(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,

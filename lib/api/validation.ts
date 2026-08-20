@@ -12,6 +12,14 @@ export function validateInput<TSchema extends z.ZodType>(
   return result.data;
 }
 
+/** Reads dynamic route params and validates them with a Zod schema. */
+export async function readRouteParams<TSchema extends z.ZodType>(
+  context: { params: Promise<unknown> },
+  schema: TSchema,
+): Promise<z.infer<TSchema>> {
+  return validateInput(await context.params, schema);
+}
+
 /** Reads and validates a JSON request body without leaking parser details. */
 export async function parseJsonBody<TSchema extends z.ZodType>(
   request: Request,

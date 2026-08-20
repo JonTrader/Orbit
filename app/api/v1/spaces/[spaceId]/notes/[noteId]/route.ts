@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -26,7 +26,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, noteIdParamsSchema);
     const currentNote = await getNote(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -45,7 +45,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, noteIdParamsSchema);
     const body = await parseJsonBody(request, updateNoteBodySchema);
     const updated = await updateNote(getDb(), {
       userId: session.user.id,
@@ -67,7 +67,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, noteIdParamsSchema);
     await deleteNote(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -78,10 +78,4 @@ export async function DELETE(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readParams(
-  context: NoteRouteContext,
-): Promise<{ spaceId: string; noteId: string }> {
-  return validateInput(await context.params, noteIdParamsSchema);
 }

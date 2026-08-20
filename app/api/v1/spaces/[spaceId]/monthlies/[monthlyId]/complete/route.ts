@@ -1,7 +1,7 @@
 import {
   apiErrorResponse,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { completeMonthly } from "@/lib/services/monthlies";
@@ -18,7 +18,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = validateInput(await context.params, monthlyIdParamsSchema);
+    const params = await readRouteParams(context, monthlyIdParamsSchema);
     const completed = await completeMonthly(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,

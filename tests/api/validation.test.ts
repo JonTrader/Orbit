@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MembershipError } from "@/lib/authz";
 import {
@@ -8,6 +8,7 @@ import {
   parseSearchParams,
   type ApiErrorPayload,
 } from "@/lib/api";
+import { MemberError } from "@/lib/services/members";
 import { TaskError } from "@/lib/services/tasks";
 
 async function responseFor(action: () => Promise<unknown>): Promise<Response> {
@@ -119,7 +120,47 @@ describe("API boundary validation and errors", () => {
     });
   });
 
+  it("maps domain error codes to their statuses", async () => {
+    const notFoundResponse = apiErrorResponse(
+      new TaskError("TASK_NOT_FOUND", "That Task does not exist"),
+    );
+    expect(notFoundResponse.status).toBe(404);
+
+    const conflictResponse = apiErrorResponse(
+      new MemberError("ALREADY_MEMBER", "They are already a Member"),
+    );
+    expect(conflictResponse.status).toBe(409);
+
+    const expiredResponse = apiErrorResponse(
+      new MemberError("EXPIRED_INVITE", "Invite has expired"),
+    );
+    expect(expiredResponse.status).toBe(410);
+    await expect(responseBody(expiredResponse)).resolves.toEqual({
+      error: {
+        code: "EXPIRED_INVITE",
+        message: "Invite has expired",
+      },
+    });
+  });
+
+  it("treats non-domain errors as unexpected even when they look like domain errors", async () => {
+    const lookalike = Object.assign(new Error("Almost a TaskError"), {
+      name: "TaskError",
+      code: "TASK_NOT_FOUND",
+    });
+    const response = apiErrorResponse(lookalike);
+
+    expect(response.status).toBe(500);
+    await expect(responseBody(response)).resolves.toEqual({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    });
+  });
+
   it("does not expose unexpected error details", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = apiErrorResponse(
       new Error("database password and provider details"),
     );
@@ -131,5 +172,7 @@ describe("API boundary validation and errors", () => {
         message: "An unexpected error occurred",
       },
     });
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
   });
 });

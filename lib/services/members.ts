@@ -5,6 +5,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { invite, spaceMember, user, type SpaceRole } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
 
@@ -22,15 +23,11 @@ export type MemberErrorCode =
   | "OWNER_CANNOT_LEAVE"
   | "OWNERSHIP_TRANSFER_REQUIRED";
 
-export class MemberError extends Error {
+export class MemberError extends DomainError<MemberErrorCode> {
   readonly name = "MemberError";
 
-  constructor(
-    readonly code: MemberErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: MemberErrorCode, message: string) {
+    super(code, message);
   }
 }
 

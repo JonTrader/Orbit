@@ -1,7 +1,7 @@
 import {
   apiErrorResponse,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import { resendInvite } from "@/lib/services/members";
@@ -18,10 +18,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const { inviteId } = validateInput(
-      await context.params,
-      inviteIdParamsSchema,
-    );
+    const { inviteId } = await readRouteParams(context, inviteIdParamsSchema);
     const resent = await resendInvite(getDb(), {
       userId: session.user.id,
       inviteId,

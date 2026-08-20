@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -10,10 +10,8 @@ import {
   listMonthlies,
 } from "@/lib/services/monthlies";
 
-import {
-  createMonthlyBodySchema,
-  monthlySpaceParamsSchema,
-} from "./schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
+import { createMonthlyBodySchema } from "./schema";
 
 type MonthliesRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -25,7 +23,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const monthlies = await listMonthlies(getDb(), {
       userId: session.user.id,
       spaceId,
@@ -43,7 +41,7 @@ export async function POST(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const spaceId = await readSpaceId(context);
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(request, createMonthlyBodySchema);
     const created = await createMonthly(getDb(), {
       userId: session.user.id,
@@ -57,8 +55,4 @@ export async function POST(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readSpaceId(context: MonthliesRouteContext): Promise<string> {
-  return validateInput(await context.params, monthlySpaceParamsSchema).spaceId;
 }

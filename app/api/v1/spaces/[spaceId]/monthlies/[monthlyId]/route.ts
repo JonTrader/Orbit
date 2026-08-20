@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -26,7 +26,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, monthlyIdParamsSchema);
     const currentMonthly = await getMonthly(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -45,7 +45,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, monthlyIdParamsSchema);
     const body = await parseJsonBody(request, updateMonthlyBodySchema);
     const updated = await updateMonthly(getDb(), {
       userId: session.user.id,
@@ -68,7 +68,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = await readParams(context);
+    const params = await readRouteParams(context, monthlyIdParamsSchema);
     await deleteMonthly(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,
@@ -79,10 +79,4 @@ export async function DELETE(
   } catch (error) {
     return apiErrorResponse(error);
   }
-}
-
-async function readParams(
-  context: MonthlyRouteContext,
-): Promise<{ spaceId: string; monthlyId: string }> {
-  return validateInput(await context.params, monthlyIdParamsSchema);
 }

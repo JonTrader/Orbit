@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -25,7 +25,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = validateInput(await context.params, memberUserParamsSchema);
+    const params = await readRouteParams(context, memberUserParamsSchema);
     const body = await parseJsonBody(request, updateMemberRoleBodySchema);
     const updated = await updateMemberRole(getDb(), {
       userId: session.user.id,
@@ -46,7 +46,7 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const params = validateInput(await context.params, memberUserParamsSchema);
+    const params = await readRouteParams(context, memberUserParamsSchema);
     await removeMember(getDb(), {
       userId: session.user.id,
       spaceId: params.spaceId,

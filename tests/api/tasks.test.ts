@@ -304,6 +304,43 @@ describe("Tasks API", () => {
     });
   });
 
+  it("accepts Better Auth style assignee IDs on create and update", async () => {
+    const { editor, sections, space } = await seedSpace();
+    const betterAuthAssignee = await createUser({
+      id: "AbCdEfGhIjKlMnOpQrStUvWxYz0123",
+      email: "better-auth-assignee@orbit.test",
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: betterAuthAssignee.id, role: "read-only" },
+    ]);
+    authenticateAs(editor.id);
+
+    const createResponse = await createTaskRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/tasks`, {
+        sectionId: sections.daily.id,
+        title: "Assigned to Better Auth user",
+        assigneeId: betterAuthAssignee.id,
+      }),
+      spaceContext(space.id),
+    );
+    expect(createResponse.status).toBe(201);
+    const created = await responseJson<TaskBody>(createResponse);
+    expect(created.assigneeId).toBe(betterAuthAssignee.id);
+
+    const updateResponse = await updateTaskRoute(
+      jsonRequest(
+        `/api/v1/spaces/${space.id}/tasks/${created.id}`,
+        { assigneeId: betterAuthAssignee.id },
+        "PATCH",
+      ),
+      taskContext(space.id, created.id),
+    );
+    expect(updateResponse.status).toBe(200);
+    await expect(responseJson<TaskBody>(updateResponse)).resolves.toMatchObject({
+      assigneeId: betterAuthAssignee.id,
+    });
+  });
+
   it("allows read-only reads but rejects Task mutations and non-member access", async () => {
     const { editor, outsider, readOnly, sections, space, customTasks } = await seedSpace();
     authenticateAs(editor.id);

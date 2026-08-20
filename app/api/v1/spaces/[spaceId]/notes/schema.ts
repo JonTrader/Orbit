@@ -1,17 +1,10 @@
 import { z } from "zod";
 
-export const noteSpaceParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 
-export const noteIdParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-    noteId: z.uuid(),
-  })
-  .strict();
+export const noteIdParamsSchema = spaceIdParamsSchema.extend({
+  noteId: z.uuid(),
+});
 
 export const listNotesQuerySchema = z
   .object({

@@ -239,6 +239,43 @@ describe("Monthlies API", () => {
     });
   });
 
+  it("accepts Better Auth style assignee IDs on create and update", async () => {
+    const { editor, space } = await seedSpace();
+    const betterAuthAssignee = await createUser({
+      id: "ZyxWvUtSrQpOnMlKjIhGfEdCbA9876",
+      email: "better-auth-assignee@orbit.test",
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: betterAuthAssignee.id, role: "read-only" },
+    ]);
+    authenticateAs(editor.id);
+
+    const createResponse = await createMonthlyRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/monthlies`, {
+        title: "Assigned to Better Auth user",
+        dueDayOfMonth: 5,
+        assigneeId: betterAuthAssignee.id,
+      }),
+      spaceContext(space.id),
+    );
+    expect(createResponse.status).toBe(201);
+    const created = await responseJson<MonthlyBody>(createResponse);
+    expect(created.assigneeId).toBe(betterAuthAssignee.id);
+
+    const updateResponse = await updateMonthlyRoute(
+      jsonRequest(
+        `/api/v1/spaces/${space.id}/monthlies/${created.id}`,
+        { assigneeId: betterAuthAssignee.id },
+        "PATCH",
+      ),
+      monthlyContext(space.id, created.id),
+    );
+    expect(updateResponse.status).toBe(200);
+    await expect(responseJson<MonthlyBody>(updateResponse)).resolves.toMatchObject({
+      assigneeId: betterAuthAssignee.id,
+    });
+  });
+
   it("allows read-only reads but rejects Monthly mutations and non-member access", async () => {
     const { editor, outsider, readOnly, space } = await seedSpace();
     authenticateAs(editor.id);

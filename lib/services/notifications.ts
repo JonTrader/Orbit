@@ -16,6 +16,7 @@ import {
   task,
   user,
 } from "@/lib/db/schema";
+import { DomainError } from "@/lib/domain-error";
 import { sendEmail } from "@/lib/email/mailer";
 
 const DEFAULT_MONTHLY_DAYS_BEFORE = 3;
@@ -47,15 +48,11 @@ export type NotificationPreferenceErrorCode =
   | "INVALID_UPDATE"
   | "NOTIFICATION_PREFERENCE_NOT_FOUND";
 
-export class NotificationPreferenceError extends Error {
+export class NotificationPreferenceError extends DomainError<NotificationPreferenceErrorCode> {
   readonly name = "NotificationPreferenceError";
 
-  constructor(
-    readonly code: NotificationPreferenceErrorCode,
-    message: string,
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+  constructor(code: NotificationPreferenceErrorCode, message: string) {
+    super(code, message);
   }
 }
 

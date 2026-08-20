@@ -1,8 +1,8 @@
 import {
   apiErrorResponse,
   parseJsonBody,
+  readRouteParams,
   requireApiSession,
-  validateInput,
 } from "@/lib/api";
 import { getDb } from "@/lib/db/client";
 import {
@@ -10,10 +10,8 @@ import {
   updateNotificationPreference,
 } from "@/lib/services/notifications";
 
-import {
-  notificationPreferenceSpaceParamsSchema,
-  updateNotificationPreferenceBodySchema,
-} from "./schema";
+import { spaceIdParamsSchema } from "@/app/api/v1/schema";
+import { updateNotificationPreferenceBodySchema } from "./schema";
 
 type NotificationPreferenceRouteContext = {
   params: Promise<{ spaceId: string }>;
@@ -25,10 +23,7 @@ export async function GET(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const { spaceId } = validateInput(
-      await context.params,
-      notificationPreferenceSpaceParamsSchema,
-    );
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const preference = await getNotificationPreference(getDb(), {
       userId: session.user.id,
       spaceId,
@@ -46,10 +41,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     const session = await requireApiSession(request);
-    const { spaceId } = validateInput(
-      await context.params,
-      notificationPreferenceSpaceParamsSchema,
-    );
+    const { spaceId } = await readRouteParams(context, spaceIdParamsSchema);
     const body = await parseJsonBody(
       request,
       updateNotificationPreferenceBodySchema,

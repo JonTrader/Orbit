@@ -1,17 +1,9 @@
 import { z } from "zod";
 
 import { MembershipError } from "@/lib/authz";
+import { DomainError } from "@/lib/domain-error";
 
-export type ApiErrorStatus =
-  | 400
-  | 401
-  | 403
-  | 404
-  | 409
-  | 410
-  | 422
-  | 429
-  | 500;
+export type ApiErrorStatus = 400 | 401 | 403 | 404 | 409 | 410 | 500;
 export type ApiErrorPathSegment = string | number;
 
 export interface ApiValidationIssue {
@@ -69,10 +61,6 @@ export function unauthenticatedError(
   return new ApiError(401, "UNAUTHENTICATED", message);
 }
 
-export function forbiddenError(message = "You are not allowed to perform this operation"): ApiError {
-  return new ApiError(403, "FORBIDDEN", message);
-}
-
 /**
  * Normalizes errors at the HTTP boundary. Unexpected errors intentionally do
  * not expose their message, which keeps database and provider details private.
@@ -85,8 +73,15 @@ export function toApiError(error: unknown): ApiError {
     return new ApiError(403, error.code, error.message);
   }
 
-  const domainError = getKnownDomainError(error);
-  if (domainError) return domainError;
+  if (error instanceof DomainError) {
+    return new ApiError(
+      statusForDomainError(error.code),
+      error.code,
+      error.message,
+    );
+  }
+
+  console.error("Unexpected API error:", error);
 
   return new ApiError(
     500,
@@ -112,16 +107,6 @@ export function apiErrorResponse(error: unknown): Response {
   return Response.json(payload, { status: normalized.status });
 }
 
-const KNOWN_DOMAIN_ERROR_NAMES = new Set([
-  "MemberError",
-  "MonthlyError",
-  "NoteError",
-  "NotificationPreferenceError",
-  "SectionError",
-  "SpaceError",
-  "TaskError",
-]);
-
 const NOT_FOUND_CODES = new Set([
   "INVITE_NOT_FOUND",
   "MEMBER_NOT_FOUND",
@@ -142,21 +127,6 @@ const CONFLICT_CODES = new Set([
   "OWNERSHIP_TRANSFER_REQUIRED",
   "SYSTEM_SECTION",
 ]);
-
-function getKnownDomainError(error: unknown): ApiError | undefined {
-  if (!(error instanceof Error) || !KNOWN_DOMAIN_ERROR_NAMES.has(error.name)) {
-    return undefined;
-  }
-
-  const code = (error as Error & { code?: unknown }).code;
-  if (typeof code !== "string") return undefined;
-
-  return new ApiError(
-    statusForDomainError(code),
-    code,
-    error.message,
-  );
-}
 
 function statusForDomainError(code: string): ApiErrorStatus {
   if (code === "EXPIRED_INVITE") return 410;
