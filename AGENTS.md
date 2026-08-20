@@ -64,6 +64,9 @@ API Route Handler tests share Vitest mocks and request helpers:
 
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on push to `main`/`master` and on pull requests. Today: `lint` + `build` + `test`.
 
+- CI actions are pinned to majors that ship a Node 24 runtime (`actions/checkout@v5`, `actions/setup-node@v5`). The v4 majors run on the deprecated Node 20 runtime and GitHub flags them on every run.
+- The `test` job injects test-only env vars on top of the database URL: dummy `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Modules such as `lib/auth.ts` require config at import time outside the build phase, so the vars must be present even though auth is mocked in most tests. Keep them fake; never real credentials. API tests that import `@/lib/api` (the barrel re-exports `requireApiSession`, which loads the real auth chain) need these exported locally too. Tests that only exercise errors/validation helpers import `@/lib/api/errors` and `@/lib/api/validation` directly instead, so they never touch auth.
+
 When adding tests, uncomment the matching job in that file (do not invent a second workflow):
 
 - Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production) and serializes all database test jobs with the `orbit-database-tests` concurrency group

@@ -4,10 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { MembershipError } from "@/lib/authz";
 import {
   apiErrorResponse,
-  parseJsonBody,
-  parseSearchParams,
   type ApiErrorPayload,
-} from "@/lib/api";
+} from "@/lib/api/errors";
+import { parseJsonBody, parseSearchParams } from "@/lib/api/validation";
 import { MemberError } from "@/lib/services/members";
 import { TaskError } from "@/lib/services/tasks";
 
