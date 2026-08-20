@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db/client";
 import {
   getNotificationPreference,
   updateNotificationPreference,
-} from "@/lib/services/notifications";
+} from "@/lib/services/notification-preferences";
 
 import { spaceIdParamsSchema } from "@/app/api/v1/schema";
 import { updateNotificationPreferenceBodySchema } from "./schema";

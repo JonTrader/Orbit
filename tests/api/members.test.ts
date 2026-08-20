@@ -1,26 +1,7 @@
+import "../setup/api-mocks";
+
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  database: undefined as unknown,
-  getSession: vi.fn(),
-}));
-
-vi.mock("@/lib/auth", () => ({
-  auth: {
-    api: {
-      getSession: mocks.getSession,
-    },
-  },
-}));
-
-vi.mock("@/lib/db/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/db/client")>();
-  return {
-    ...actual,
-    getDb: () => mocks.database,
-  };
-});
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   POST as acceptInviteRoute,
@@ -48,15 +29,19 @@ import {
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import {
+  apiTestLifecycle,
+  authenticateAs,
+  ErrorBody,
+  inviteContext,
+  jsonRequest,
+  memberContext,
+  responseJson,
+  spaceContext,
+  unauthenticate,
+} from "../setup/api";
+import { testDb } from "../setup/db";
 import { createUser } from "../setup/fixtures";
-
-interface ErrorBody {
-  error: {
-    code: string;
-    message: string;
-  };
-}
 
 interface InviteBody {
   id: string;
@@ -77,56 +62,12 @@ interface MemberBody {
   email?: string;
 }
 
-function authenticateAs(userId: string, emailVerified = true): void {
-  mocks.getSession.mockResolvedValue({
-    user: { id: userId, emailVerified },
-  });
-}
-
-function jsonRequest(
-  url: string,
-  body: unknown,
-  method = "POST",
-): Request {
-  return new Request(`http://localhost${url}`, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-function spaceContext(spaceId: string): {
-  params: Promise<{ spaceId: string }>;
-} {
-  return { params: Promise.resolve({ spaceId }) };
-}
-
-function memberContext(spaceId: string, userId: string): {
-  params: Promise<{ spaceId: string; userId: string }>;
-} {
-  return { params: Promise.resolve({ spaceId, userId }) };
-}
-
-function inviteContext(inviteId: string): {
-  params: Promise<{ inviteId: string }>;
-} {
-  return { params: Promise.resolve({ inviteId }) };
-}
-
-async function responseJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
-}
+const { beforeAll: setupBeforeAll, beforeEach: setupBeforeEach } =
+  apiTestLifecycle();
 
 describe("Members and Invites API", () => {
-  beforeAll(async () => {
-    mocks.database = testDb;
-    await migrateTestDb();
-  });
-
-  beforeEach(async () => {
-    await truncateAll();
-    mocks.getSession.mockReset();
-  });
+  beforeAll(setupBeforeAll);
+  beforeEach(setupBeforeEach);
 
   async function seedSpace() {
     const owner = await createUser({ email: "owner@orbit.test" });
@@ -148,7 +89,7 @@ describe("Members and Invites API", () => {
   }
 
   it("rejects unauthenticated Member reads with the shared error envelope", async () => {
-    mocks.getSession.mockResolvedValue(null);
+    unauthenticate();
 
     const response = await listMembersRoute(
       new Request("http://localhost/api/v1/spaces/00000000-0000-0000-0000-000000000000/members"),

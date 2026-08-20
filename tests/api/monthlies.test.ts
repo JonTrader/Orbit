@@ -1,25 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import "../setup/api-mocks";
 
-const mocks = vi.hoisted(() => ({
-  database: undefined as unknown,
-  getSession: vi.fn(),
-}));
-
-vi.mock("@/lib/auth", () => ({
-  auth: {
-    api: {
-      getSession: mocks.getSession,
-    },
-  },
-}));
-
-vi.mock("@/lib/db/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/db/client")>();
-  return {
-    ...actual,
-    getDb: () => mocks.database,
-  };
-});
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   GET as getMonthlyRoute,
@@ -36,15 +17,18 @@ import {
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { spaceMember } from "@/lib/db/schema";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import {
+  apiTestLifecycle,
+  authenticateAs,
+  ErrorBody,
+  jsonRequest,
+  monthlyContext,
+  responseJson,
+  spaceContext,
+  unauthenticate,
+} from "../setup/api";
+import { testDb } from "../setup/db";
 import { createUser } from "../setup/fixtures";
-
-interface ErrorBody {
-  error: {
-    code: string;
-    message: string;
-  };
-}
 
 interface MonthlyBody {
   id: string;
@@ -58,50 +42,12 @@ interface MonthlyBody {
   lastCompletedBy: string | null;
 }
 
-function authenticateAs(userId: string, emailVerified = true): void {
-  mocks.getSession.mockResolvedValue({
-    user: { id: userId, emailVerified },
-  });
-}
-
-function jsonRequest(
-  url: string,
-  body: unknown,
-  method = "POST",
-): Request {
-  return new Request(`http://localhost${url}`, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-function spaceContext(spaceId: string): {
-  params: Promise<{ spaceId: string }>;
-} {
-  return { params: Promise.resolve({ spaceId }) };
-}
-
-function monthlyContext(spaceId: string, monthlyId: string): {
-  params: Promise<{ spaceId: string; monthlyId: string }>;
-} {
-  return { params: Promise.resolve({ spaceId, monthlyId }) };
-}
-
-async function responseJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
-}
+const { beforeAll: setupBeforeAll, beforeEach: setupBeforeEach } =
+  apiTestLifecycle();
 
 describe("Monthlies API", () => {
-  beforeAll(async () => {
-    mocks.database = testDb;
-    await migrateTestDb();
-  });
-
-  beforeEach(async () => {
-    await truncateAll();
-    mocks.getSession.mockReset();
-  });
+  beforeAll(setupBeforeAll);
+  beforeEach(setupBeforeEach);
 
   async function seedSpace() {
     const owner = await createUser({ email: "owner@orbit.test" });
@@ -125,7 +71,7 @@ describe("Monthlies API", () => {
   }
 
   it("rejects unauthenticated Monthly reads with the shared error envelope", async () => {
-    mocks.getSession.mockResolvedValue(null);
+    unauthenticate();
 
     const response = await listMonthliesRoute(
       new Request("http://localhost/api/v1/spaces/00000000-0000-0000-0000-000000000000/monthlies"),
