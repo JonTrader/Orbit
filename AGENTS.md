@@ -21,6 +21,13 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
 
+## Action layout
+
+- `lib/actions/` - web-only Server Actions (ADR 0005). Thin wrappers over `lib/services`; no business logic.
+- Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`) so forms can render errors inline; error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
+- Each action awaits `requireVerifiedSession()` OUTSIDE its try/catch, so unauthenticated or unverified callers get a real redirect instead of a swallowed NEXT_REDIRECT.
+- Action tests (`tests/actions/`) mock `@/lib/session` and `next/cache`, reuse `tests/setup/api-mocks.ts` for the DB client, and assert `revalidatePath` calls; see `tests/actions/quick-add.test.ts`.
+
 ## ID conventions
 
 App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
