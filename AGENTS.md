@@ -27,6 +27,7 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 - Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`) so forms can render errors inline; error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
 - Each action awaits `requireVerifiedSession()` OUTSIDE its try/catch, so unauthenticated or unverified callers get a real redirect instead of a swallowed NEXT_REDIRECT.
 - Action tests (`tests/actions/`) mock `@/lib/session` and `next/cache`, reuse `tests/setup/api-mocks.ts` for the DB client, and assert `revalidatePath` calls; see `tests/actions/quick-add.test.ts`.
+- Never give an action the exact export name of a service it calls: after bundling, the local function shadows the import and the action silently recurses (the recursive call fails `.strict()` validation and comes back as an `ok: true` payload). Alias the service import instead (`renameSection as renameSectionService`).
 
 ## ID conventions
 
