@@ -18,8 +18,8 @@ todos:
     content: "Phase E: /api/v1 Route Handlers (E1-E7 complete: Tasks, Monthlies, Notes, Members, Invites, preferences)"
     status: completed
   - id: F-actions
-    content: "Phase F: Web-only Server Actions (F1-F3 complete; F4 remaining)"
-    status: pending
+    content: "Phase F: Web-only Server Actions (F1-F4 complete: quickAdd, toggleComplete, Sections, sendInvite)"
+    status: completed
   - id: G-ui
     content: "Phase G: Wire Orbit UI (Active Space, no Shared tab)"
     status: pending
