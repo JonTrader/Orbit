@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
+import { SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
 import type { section } from "@/lib/db/schema";
 import { getDb } from "@/lib/db/client";
 import {
@@ -73,7 +73,7 @@ export async function createSection(
       kind: parsed.kind,
     });
 
-    revalidatePath(APP_PATH);
+    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
     return { ok: true, data: created };
   } catch (error) {
     return toActionError(error);
@@ -95,7 +95,7 @@ export async function renameSection(
       name: parsed.name,
     });
 
-    revalidatePath(APP_PATH);
+    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
     return { ok: true, data: renamed };
   } catch (error) {
     return toActionError(error);
@@ -119,7 +119,7 @@ export async function reorderSections(
       sectionIds: parsed.sectionIds,
     });
 
-    revalidatePath(APP_PATH);
+    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
     return { ok: true, data: ordered };
   } catch (error) {
     return toActionError(error);
@@ -140,7 +140,7 @@ export async function deleteSection(
       sectionId: parsed.sectionId,
     });
 
-    revalidatePath(APP_PATH);
+    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
     return { ok: true, data: deleted };
   } catch (error) {
     return toActionError(error);

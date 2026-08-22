@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
+import { SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
 import type { monthly, note, task } from "@/lib/db/schema";
 import { getDb } from "@/lib/db/client";
 import { createMonthly, MonthlyError } from "@/lib/services/monthlies";
@@ -110,7 +110,7 @@ export async function quickAdd(input: unknown): Promise<QuickAddResult> {
       }
     }
 
-    revalidatePath(APP_PATH);
+    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
     return { ok: true, data: created };
   } catch (error) {
     return toActionError(error);
