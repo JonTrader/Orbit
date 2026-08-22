@@ -12,6 +12,7 @@ import {
   moveTask,
   reopenTask,
   TaskError,
+  toggleTask,
   updateTask,
 } from "@/lib/services/tasks";
 
@@ -188,6 +189,32 @@ describe("Task services", () => {
     expect(reopened.completedBy).toBeNull();
   });
 
+  it("toggles a Task open and completed atomically", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Toggle me",
+    });
+
+    const completed = await toggleTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    expect(completed.completedAt).toBeInstanceOf(Date);
+    expect(completed.completedBy).toBe(editor.id);
+
+    const reopened = await toggleTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    expect(reopened.completedAt).toBeNull();
+    expect(reopened.completedBy).toBeNull();
+  });
+
   it("moves Tasks among Daily and custom task Sections, never to Monthlies or notes", async () => {
     const { space, sections, editor, customTasks, mixed, notes } = await seedSpace();
     const created = await createTask(testDb, {
@@ -256,6 +283,12 @@ describe("Task services", () => {
         }),
       () =>
         completeTask(testDb, {
+          userId: readOnly.id,
+          spaceId: space.id,
+          taskId: created.id,
+        }),
+      () =>
+        toggleTask(testDb, {
           userId: readOnly.id,
           spaceId: space.id,
           taskId: created.id,
