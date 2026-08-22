@@ -10,12 +10,20 @@ interface ComposeBarProps {
   sectionId: string;
   /** Compose input label; also used as the placeholder. */
   label: string;
+  /** Monthlies need an authored due day of month on every add. */
+  requiresDueDay?: boolean;
 }
 
 /** Quick-add form targeting one Section of the Active Space. */
-export function ComposeBar({ spaceId, sectionId, label }: ComposeBarProps) {
+export function ComposeBar({
+  spaceId,
+  sectionId,
+  label,
+  requiresDueDay = false,
+}: ComposeBarProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [dueDay, setDueDay] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -24,10 +32,22 @@ export function ComposeBar({ spaceId, sectionId, label }: ComposeBarProps) {
     const trimmed = title.trim();
     if (!trimmed || pending) return;
 
+    const parsedDueDay = Number(dueDay);
+    if (requiresDueDay && (!dueDay || !Number.isInteger(parsedDueDay))) {
+      setError("A Monthly needs a due day of month from 1 through 31");
+      return;
+    }
+
     startTransition(async () => {
-      const result = await quickAdd({ spaceId, sectionId, title: trimmed });
+      const result = await quickAdd({
+        spaceId,
+        sectionId,
+        title: trimmed,
+        ...(requiresDueDay ? { dueDayOfMonth: parsedDueDay } : {}),
+      });
       if (result.ok) {
         setTitle("");
+        setDueDay("");
         setError(null);
         router.refresh();
       } else {
@@ -46,8 +66,21 @@ export function ComposeBar({ spaceId, sectionId, label }: ComposeBarProps) {
           placeholder={`${label}…`}
           aria-label={label}
           disabled={pending}
-          className="flex-1 rounded border border-line bg-panel px-3.5 py-2.5 text-base outline-none focus:border-accent disabled:opacity-60"
+          className="min-w-0 flex-1 rounded border border-line bg-panel px-3.5 py-2.5 text-base outline-none focus:border-accent disabled:opacity-60"
         />
+        {requiresDueDay ? (
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={dueDay}
+            onChange={(event) => setDueDay(event.target.value)}
+            placeholder="Day"
+            aria-label="Due day of month"
+            disabled={pending}
+            className="w-20 rounded border border-line bg-panel px-3 py-2.5 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-60"
+          />
+        ) : null}
         <button
           type="submit"
           disabled={pending || !title.trim()}
