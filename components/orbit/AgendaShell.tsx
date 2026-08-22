@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
+import { spacePath } from "@/lib/space-paths";
 
 const SECTIONS = [
   { id: "upcoming", label: "Upcoming", sub: "Monthlies and dated items in this Space." },
@@ -15,23 +16,29 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-const SPACES = [
-  { id: "personal", name: "Personal", meta: "1" },
-  { id: "home", name: "Home", meta: "3" },
-] as const;
-
 export interface AgendaShellUser {
   name: string;
   email: string;
   canChangePassword: boolean;
 }
 
-export function AgendaShell({ user }: { user?: AgendaShellUser }) {
-  const [activeSpaceId, setActiveSpaceId] = useState<(typeof SPACES)[number]["id"]>("personal");
+export interface AgendaShellSpace {
+  id: string;
+  name: string;
+}
+
+export interface AgendaShellProps {
+  user?: AgendaShellUser;
+  /** The Space every view below is scoped to. */
+  activeSpace: AgendaShellSpace;
+  /** Every Space the user belongs to, in creation order. */
+  spaces: AgendaShellSpace[];
+}
+
+export function AgendaShell({ user, activeSpace, spaces }: AgendaShellProps) {
   const [activeSection, setActiveSection] = useState<SectionId>("upcoming");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const activeSpace = SPACES.find((s) => s.id === activeSpaceId) ?? SPACES[0];
   const section = SECTIONS.find((s) => s.id === activeSection) ?? SECTIONS[0];
   const showCompose = activeSection !== "upcoming";
 
@@ -72,12 +79,12 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
             <span>Spaces</span>
             <span className="tracking-[0.04em] text-accent">View all</span>
           </div>
-          {SPACES.map((space) => {
-            const active = space.id === activeSpaceId;
+          {spaces.map((space) => {
+            const active = space.id === activeSpace.id;
             return (
-              <button
+              <Link
                 key={space.id}
-                type="button"
+                href={spacePath(space.id)}
                 className={[
                   "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[0.875rem] font-medium",
                   active
@@ -85,7 +92,7 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
                     : "hover:bg-panel/70",
                 ].join(" ")}
                 aria-current={active ? "page" : undefined}
-                onClick={() => setActiveSpaceId(space.id)}
+                onClick={() => setSidebarOpen(false)}
               >
                 <span
                   className={[
@@ -94,10 +101,7 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
                   ].join(" ")}
                 />
                 {space.name}
-                <span className="ml-auto font-mono text-[0.65rem] text-muted">
-                  {space.meta}
-                </span>
-              </button>
+              </Link>
             );
           })}
         </div>
