@@ -1,27 +1,13 @@
 import "../setup/api-mocks";
+import "../setup/action-mocks";
 
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const requireVerifiedSessionMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/session", () => ({
-  requireVerifiedSession: requireVerifiedSessionMock,
-}));
-
-const revalidatePathMock = vi.hoisted(() => vi.fn());
-vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock,
-}));
-
-// The invite email template and send land in Phase H; the mailer seam is
-// mocked so these tests stay hermetic either way.
-vi.mock("@/lib/email/mailer", () => ({
-  sendEmail: vi.fn(),
-}));
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { sendInvite } from "@/lib/actions/invites";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
 
+import { authenticateAs, getRevalidatePathMock, getRequireVerifiedSessionMock } from "../setup/action-mocks";
 import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -57,12 +43,6 @@ async function seedSpace(): Promise<SeededSpace> {
   };
 }
 
-function authenticateAs(userId: string): void {
-  requireVerifiedSessionMock.mockResolvedValue({
-    user: { id: userId },
-  });
-}
-
 describe("sendInvite action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
@@ -71,8 +51,8 @@ describe("sendInvite action", () => {
 
   beforeEach(async () => {
     await truncateAll();
-    requireVerifiedSessionMock.mockReset();
-    revalidatePathMock.mockReset();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
   });
 
   it("creates a pending Invite with a token and seven-day expiry", async () => {
@@ -99,8 +79,8 @@ describe("sendInvite action", () => {
     expect(Math.abs(result.data.expiresAt.getTime() - expectedExpiry)).toBeLessThan(
       5_000,
     );
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
   });
 
   it("defaults the role to read-only when omitted", async () => {
@@ -137,7 +117,7 @@ describe("sendInvite action", () => {
     }
     const rows = await testDb.select().from(invite);
     expect(rows).toHaveLength(1);
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1); // first call only
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1); // first call only
   });
 
   it("rejects an invalid email as a validation error", async () => {
@@ -154,7 +134,7 @@ describe("sendInvite action", () => {
       expect(result.error.code).toBe("VALIDATION_ERROR");
     }
     expect(await testDb.select().from(invite)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks Editors and read-only Members; only the Owner invites", async () => {
@@ -179,7 +159,7 @@ describe("sendInvite action", () => {
       }
     }
     expect(await testDb.select().from(invite)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks users who are not Members of the Space", async () => {
@@ -197,6 +177,6 @@ describe("sendInvite action", () => {
       expect(result.error.code).toBe("NOT_MEMBER");
     }
     expect(await testDb.select().from(invite)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });

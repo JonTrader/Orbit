@@ -22,6 +22,8 @@ const sendInviteInputSchema = z
 
 export type SendInviteInput = z.input<typeof sendInviteInputSchema>;
 
+export type SendInviteResult = ActionResult<typeof invite.$inferSelect>;
+
 /**
  * Creates an Invite for the Active Space from the share bar. Owner-only by
  * the underlying service; the default role is read-only and the Invite
@@ -30,7 +32,7 @@ export type SendInviteInput = z.input<typeof sendInviteInputSchema>;
  */
 export async function sendInvite(
   input: unknown,
-): Promise<ActionResult<typeof invite.$inferSelect>> {
+): Promise<SendInviteResult> {
   // Awaited outside try so its redirect for unauthenticated or unverified
   // callers propagates instead of turning into an action error.
   const session = await requireVerifiedSession();

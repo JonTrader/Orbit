@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/authz/require-membership";
 import type { OrbitDb } from "@/lib/db/client";
@@ -216,6 +216,31 @@ export async function reopenTask(
   }
 
   return reopened;
+}
+
+/** Atomically toggles a Task between completed and open. */
+export async function toggleTask(
+  db: OrbitDb,
+  input: GetTaskInput,
+): Promise<TaskRow> {
+  await requireMembership(db, { ...input, minimumRole: "editor" });
+  await findTask(db, input.spaceId, input.taskId);
+
+  const now = new Date();
+  const [toggled] = await db
+    .update(task)
+    .set({
+      completedAt: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${now} ELSE NULL END::timestamptz`,
+      completedBy: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${input.userId} ELSE NULL END`,
+    })
+    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+    .returning();
+
+  if (!toggled) {
+    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+  }
+
+  return toggled;
 }
 
 /** Moves a Task only among Daily and custom tasks/mixed Sections. */

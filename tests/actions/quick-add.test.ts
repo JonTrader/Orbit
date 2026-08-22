@@ -1,23 +1,19 @@
 import "../setup/api-mocks";
+import "../setup/action-mocks";
 
 import { randomUUID } from "node:crypto";
 
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const requireVerifiedSessionMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/session", () => ({
-  requireVerifiedSession: requireVerifiedSessionMock,
-}));
-
-const revalidatePathMock = vi.hoisted(() => vi.fn());
-vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock,
-}));
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { quickAdd } from "@/lib/actions/quick-add";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { monthly, note, section, spaceMember, task } from "@/lib/db/schema";
 
+import {
+  authenticateAs,
+  getRevalidatePathMock,
+  getRequireVerifiedSessionMock,
+} from "../setup/action-mocks";
 import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -70,12 +66,6 @@ async function seedSpace(): Promise<SeededSpace> {
   };
 }
 
-function authenticateAs(userId: string): void {
-  requireVerifiedSessionMock.mockResolvedValue({
-    user: { id: userId },
-  });
-}
-
 describe("quickAdd action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
@@ -84,8 +74,8 @@ describe("quickAdd action", () => {
 
   beforeEach(async () => {
     await truncateAll();
-    requireVerifiedSessionMock.mockReset();
-    revalidatePathMock.mockReset();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
   });
 
   it("creates a Task in the Daily Section of the Active Space", async () => {
@@ -101,8 +91,8 @@ describe("quickAdd action", () => {
     assertCreatedTask(result, s.dailyId, "Water plants");
     const rows = await testDb.select().from(task);
     expect(rows).toHaveLength(1);
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
   });
 
   it("creates a Task in a custom tasks Section", async () => {
@@ -183,7 +173,7 @@ describe("quickAdd action", () => {
       expect(result.error.code).toBe("INVALID_DUE_DAY");
     }
     expect(await testDb.select().from(monthly)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("rejects Upcoming as a quick-add target", async () => {
@@ -213,7 +203,7 @@ describe("quickAdd action", () => {
     }
     expect(await testDb.select().from(task)).toHaveLength(0);
     expect(await testDb.select().from(note)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("rejects an empty title as a validation error", async () => {
@@ -249,7 +239,7 @@ describe("quickAdd action", () => {
       expect(result.error.code).toBe("INSUFFICIENT_ROLE");
     }
     expect(await testDb.select().from(task)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks users who are not Members of the Space", async () => {
@@ -267,7 +257,7 @@ describe("quickAdd action", () => {
       expect(result.error.code).toBe("NOT_MEMBER");
     }
     expect(await testDb.select().from(task)).toHaveLength(0);
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });
 

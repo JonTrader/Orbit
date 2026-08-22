@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { formatZodIssues, type ApiValidationIssue } from "@/lib/api/errors";
-import { MembershipError } from "@/lib/authz";
 import { DomainError } from "@/lib/domain-error";
-
-/** Field-level detail attached to an input validation failure. */
-export type ActionIssue = ApiValidationIssue;
 
 export interface ActionErrorBody {
   code: string;
@@ -30,7 +26,7 @@ export interface ActionFailure {
  */
 export type ActionResult<TData> = ActionSuccess<TData> | ActionFailure;
 
-export function actionFailure(
+function actionFailure(
   code: string,
   message: string,
   issues?: readonly ApiValidationIssue[],
@@ -54,10 +50,6 @@ export function toActionError(error: unknown): ActionFailure {
       "Input validation failed",
       formatZodIssues(error),
     );
-  }
-
-  if (error instanceof MembershipError) {
-    return actionFailure(error.code, error.message);
   }
 
   if (error instanceof DomainError) {

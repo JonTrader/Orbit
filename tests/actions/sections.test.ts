@@ -1,17 +1,8 @@
 import "../setup/api-mocks";
+import "../setup/action-mocks";
 
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const requireVerifiedSessionMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/session", () => ({
-  requireVerifiedSession: requireVerifiedSessionMock,
-}));
-
-const revalidatePathMock = vi.hoisted(() => vi.fn());
-vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock,
-}));
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createSection,
@@ -22,6 +13,11 @@ import {
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
 
+import {
+  authenticateAs,
+  getRevalidatePathMock,
+  getRequireVerifiedSessionMock,
+} from "../setup/action-mocks";
 import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -84,12 +80,6 @@ async function seedSpace(): Promise<SeededSpace> {
   };
 }
 
-function authenticateAs(userId: string): void {
-  requireVerifiedSessionMock.mockResolvedValue({
-    user: { id: userId },
-  });
-}
-
 describe("section actions", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
@@ -98,8 +88,8 @@ describe("section actions", () => {
 
   beforeEach(async () => {
     await truncateAll();
-    requireVerifiedSessionMock.mockReset();
-    revalidatePathMock.mockReset();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
   });
 
   describe("createSection", () => {
@@ -120,7 +110,7 @@ describe("section actions", () => {
       expect(result.data.kind).toBe("mixed");
       expect(result.data.isSystem).toBe(false);
       expect(result.data.sortOrder).toBe(4);
-      expect(revalidatePathMock).toHaveBeenCalledWith("/");
+      expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
     });
 
     it("rejects an unknown kind as a validation error", async () => {
@@ -137,7 +127,7 @@ describe("section actions", () => {
       if (!result.ok) {
         expect(result.error.code).toBe("VALIDATION_ERROR");
       }
-      expect(revalidatePathMock).not.toHaveBeenCalled();
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
 
     it("rejects an empty name as a validation error", async () => {
@@ -172,7 +162,7 @@ describe("section actions", () => {
         throw new Error("Expected a renamed Section");
       }
       expect(result.data.name).toBe("Chores");
-      expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+      expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     });
 
     it("rejects renaming a system Section", async () => {
@@ -194,7 +184,7 @@ describe("section actions", () => {
         .from(section)
         .where(eq(section.id, s.dailyId));
       expect(daily.name).toBe("Daily");
-      expect(revalidatePathMock).not.toHaveBeenCalled();
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
   });
 
@@ -217,7 +207,7 @@ describe("section actions", () => {
         s.ideasId,
         s.errandsId,
       ]);
-      expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+      expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     });
 
     it("rejects a reorder that includes a system Section", async () => {
@@ -233,7 +223,7 @@ describe("section actions", () => {
       if (!result.ok) {
         expect(result.error.code).toBe("SYSTEM_SECTION");
       }
-      expect(revalidatePathMock).not.toHaveBeenCalled();
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
 
     it("rejects a reorder that omits or duplicates a custom Section", async () => {
@@ -255,7 +245,7 @@ describe("section actions", () => {
           expect(result.error.code).toBe("INVALID_REORDER");
         }
       }
-      expect(revalidatePathMock).not.toHaveBeenCalled();
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
   });
 
@@ -275,7 +265,7 @@ describe("section actions", () => {
       expect(result.data.id).toBe(s.ideasId);
       const rows = await testDb.select().from(section);
       expect(rows.map((row) => row.id)).not.toContain(s.ideasId);
-      expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+      expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     });
 
     it("rejects deleting a system Section", async () => {
@@ -293,7 +283,7 @@ describe("section actions", () => {
       }
       const rows = await testDb.select().from(section);
       expect(rows.map((row) => row.id)).toContain(s.monthliesId);
-      expect(revalidatePathMock).not.toHaveBeenCalled();
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
   });
 
@@ -326,7 +316,7 @@ describe("section actions", () => {
         expect(result.error.code).toBe("INSUFFICIENT_ROLE");
       }
     }
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks users who are not Members of the Space", async () => {
@@ -343,6 +333,6 @@ describe("section actions", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("NOT_MEMBER");
     }
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });

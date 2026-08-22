@@ -1,23 +1,19 @@
 import "../setup/api-mocks";
+import "../setup/action-mocks";
 
 import { randomUUID } from "node:crypto";
 
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-
-const requireVerifiedSessionMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/session", () => ({
-  requireVerifiedSession: requireVerifiedSessionMock,
-}));
-
-const revalidatePathMock = vi.hoisted(() => vi.fn());
-vi.mock("next/cache", () => ({
-  revalidatePath: revalidatePathMock,
-}));
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { monthly, spaceMember, task } from "@/lib/db/schema";
 
+import {
+  authenticateAs,
+  getRevalidatePathMock,
+  getRequireVerifiedSessionMock,
+} from "../setup/action-mocks";
 import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -96,12 +92,6 @@ async function seedMonthly(
   return row;
 }
 
-function authenticateAs(userId: string): void {
-  requireVerifiedSessionMock.mockResolvedValue({
-    user: { id: userId },
-  });
-}
-
 describe("toggleComplete action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
@@ -110,8 +100,8 @@ describe("toggleComplete action", () => {
 
   beforeEach(async () => {
     await truncateAll();
-    requireVerifiedSessionMock.mockReset();
-    revalidatePathMock.mockReset();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
   });
 
   it("completes an open Task and records who completed it", async () => {
@@ -130,8 +120,8 @@ describe("toggleComplete action", () => {
     }
     expect(result.data.task.completedAt).not.toBeNull();
     expect(result.data.task.completedBy).toBe(s.editorId);
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
   });
 
   it("reopens a completed Task when toggled again", async () => {
@@ -172,7 +162,7 @@ describe("toggleComplete action", () => {
     expect(result.data.monthly.nextDueOn).toBe("2030-07-15");
     expect(result.data.monthly.lastCompletedAt).not.toBeNull();
     expect(result.data.monthly.lastCompletedBy).toBe(s.ownerId);
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
   });
 
   it("blocks read-only Members for Tasks and Monthlies", async () => {
@@ -205,7 +195,7 @@ describe("toggleComplete action", () => {
     expect(taskRow.completedAt).toBeNull();
     const [monthlyRow] = await testDb.select().from(monthly);
     expect(monthlyRow.nextDueOn).toBe("2030-06-15");
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks users who are not Members of the Space", async () => {
@@ -223,7 +213,7 @@ describe("toggleComplete action", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("NOT_MEMBER");
     }
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("reports a missing Task or Monthly without revalidating", async () => {
@@ -249,7 +239,7 @@ describe("toggleComplete action", () => {
     if (!monthlyResult.ok) {
       expect(monthlyResult.error.code).toBe("MONTHLY_NOT_FOUND");
     }
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("rejects invalid input as a validation error", async () => {
@@ -272,6 +262,6 @@ describe("toggleComplete action", () => {
         expect(result.error.code).toBe("VALIDATION_ERROR");
       }
     }
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });

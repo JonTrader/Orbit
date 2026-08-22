@@ -7,7 +7,7 @@ import { APP_PATH } from "@/lib/auth-paths";
 import type { monthly, task } from "@/lib/db/schema";
 import { getDb } from "@/lib/db/client";
 import { completeMonthly } from "@/lib/services/monthlies";
-import { completeTask, getTask, reopenTask } from "@/lib/services/tasks";
+import { toggleTask } from "@/lib/services/tasks";
 import { requireVerifiedSession } from "@/lib/session";
 
 import { toActionError, type ActionResult } from "./result";
@@ -62,25 +62,15 @@ export async function toggleComplete(
         break;
       }
       case "task": {
-        const current = await getTask(db, {
-          userId,
-          spaceId: parsed.spaceId,
-          taskId: parsed.entityId,
-        });
         updated = {
           entity: "task",
-          task: current.completedAt
-            ? await reopenTask(db, {
-                userId,
-                spaceId: parsed.spaceId,
-                taskId: parsed.entityId,
-              })
-            : await completeTask(db, {
-                userId,
-                spaceId: parsed.spaceId,
-                taskId: parsed.entityId,
-              }),
+          task: await toggleTask(db, {
+            userId,
+            spaceId: parsed.spaceId,
+            taskId: parsed.entityId,
+          }),
         };
+        break;
       }
     }
 
