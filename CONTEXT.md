@@ -2,6 +2,10 @@
 
 A household-first coordination app for day-to-day to-dos and recurring monthly obligations, with optional personal Spaces.
 
+## Product spine (MVP)
+
+Household-first coordination: Daily Tasks vs Monthlies as separate domains, Space-level sharing/RBAC, Upcoming as a read-only view, email Reminders via Inngest + Resend. Dual API: `/api/v1` Route Handlers + web Server Actions over shared domain services. Full requirements: [`docs/spec.md`](./docs/spec.md).
+
 ## Language
 
 ### Containers and access

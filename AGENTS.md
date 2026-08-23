@@ -1,10 +1,10 @@
-# Orbit — agent notes
+# Orbit - agent notes
 
 ## Read order
 
-1. [`CONTEXT.md`](./CONTEXT.md) - vocabulary only  
-2. [`docs/spec.md`](./docs/spec.md) - MVP requirements (stack, API shape, product rules)  
-3. [`docs/adr/`](./docs/adr/) - hard decisions  
+1. [`CONTEXT.md`](./CONTEXT.md) - vocabulary + product overview
+2. [`docs/spec.md`](./docs/spec.md) - MVP requirements (stack, API shape, product rules)
+3. [`docs/adr/`](./docs/adr/) - hard decisions
 4. [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md) - one phase per conversation (copy that phase's handoff prompt)
 5. [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md) - what to test for the phase you are implementing
 
@@ -12,22 +12,19 @@
 
 Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite). Do not invent synonyms.
 
-## Product spine (MVP)
-
-Household-first coordination: Daily Tasks vs Monthlies as separate domains, Space-level sharing/RBAC, Upcoming as a read-only view, email Reminders via Inngest + Resend. Dual API: `/api/v1` Route Handlers + web Server Actions over shared domain services.
-
 ## Service layout
 
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
+- `lib/space-view.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route (404 on malformed ids); `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner). It owns the failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect. Pages and layouts must use it instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas - it is the single session touchpoint for Space views; services keep their own membership checks for the API boundary. Tests: `tests/lib/space-view.test.ts`.
 
 ## Action layout
 
 - `lib/actions/` - web-only Server Actions (ADR 0005). Thin wrappers over `lib/services`; no business logic.
+- Every action is built by `defineAction(schema, handler)` from `lib/actions/define-action.ts`, which owns the frame: the verified-session guard runs OUTSIDE try/catch (its redirect propagates instead of becoming an error payload), schema parse maps to `VALIDATION_ERROR`, handlers receive `(parsed, { userId, db })`, success revalidates `SPACE_LAYOUT_PATTERN` as a layout, and thrown errors map through `toActionError`. Do not hand-roll that sequence in new actions.
 - Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`) so forms can render errors inline; error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
-- Each action awaits `requireVerifiedSession()` OUTSIDE its try/catch, so unauthenticated or unverified callers get a real redirect instead of a swallowed NEXT_REDIRECT.
-- Action tests (`tests/actions/`) import `tests/setup/action-mocks.ts` (session/cache/mailer mocks + `authenticateAs`) and `tests/setup/api-mocks.ts` (DB client) first, and assert `revalidatePath` calls; see `tests/actions/quick-add.test.ts`.
-- Never give an action the exact export name of a service it calls: after bundling, the local function shadows the import and the action silently recurses (the recursive call fails `.strict()` validation and comes back as an `ok: true` payload). Alias the service import instead (`renameSection as renameSectionService`).
+- Action tests (`tests/actions/`) import `tests/setup/api-mocks.ts` then `tests/setup/action-mocks.ts` first (session/cache/mailer mocks), use `authenticateAs(userId)` for signed-in callers and `guardRedirectsTo(url)` to simulate unauthenticated/unverified ones, and assert `revalidatePath` calls; see `tests/actions/quick-add.test.ts` and the runner contract in `tests/actions/define-action.test.ts`.
+- Never give an action the exact export name of a service it calls. With `const x = defineAction(...)` factories a name collision is now a loud TDZ crash instead of silent recursion, but the aliasing convention stands (`renameSection as renameSectionService`).
 
 ## ID conventions
 
@@ -37,9 +34,9 @@ App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `u
 
 Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
-When implementing **any** build phase (A–J):
+When implementing **any** build phase (A-J):
 
-1. Open that plan and read the **Phase X** section for the phase you are shipping (stack, layout, and **What to test**).
+1. Read the **Phase X** section for the phase you are shipping (stack, layout, and **What to test**).
 2. Implement those tests **in the same phase** as the feature code. Do not defer the suite to Phase J.
 3. Treat the phase as incomplete until Acceptance **and** that phase's "What to test" items are green (Phase C OAuth browser click-through may stay manual as noted in the plan).
 4. Keep earlier phases' suites passing; do not delete or skip B/D coverage when adding API or E2E later.
@@ -56,13 +53,11 @@ npm run test:auth # Phase C auth suite only
 npm run test:watch
 ```
 
-`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` requires the `DATABASE_URL_TEST_CONFIRMATION=dedicated-neon-branch` acknowledgement, refuses a missing or application-equal URL, and refuses a URL on the same database host as `DATABASE_URL`. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Do not run full suites concurrently against the same branch; the CI test job uses a shared concurrency group because push and pull-request workflows otherwise race while resetting the schema.
+`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` requires the `DATABASE_URL_TEST_CONFIRMATION=dedicated-neon-branch` acknowledgement and refuses a missing, application-equal, or same-host-as-production URL. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch (CI uses `orbit-database-tests` concurrency group).
 
-Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`. `tests/db/migrations.test.ts` also verifies that the handwritten Section immutability and `updated_at` triggers are present after migration.
+Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`. `tests/db/migrations.test.ts` also verifies that the handwritten Section immutability and `updated_at` triggers survive migration.
 
 ### API test helpers
-
-API Route Handler tests share Vitest mocks and request helpers:
 
 - `tests/setup/api-mocks.ts` - `vi.mock` for `@/lib/auth` and `@/lib/db/client`. Import this **first** in any API test file so the mocks are registered before Route Handler imports.
 - `tests/setup/api.ts` - shared helpers: `authenticateAs`, `unauthenticate`, `jsonRequest`, `responseJson`, route context builders, `ErrorBody`, and `apiTestLifecycle`.
@@ -74,14 +69,11 @@ API Route Handler tests share Vitest mocks and request helpers:
 
 - CI actions are pinned to majors that ship a Node 24 runtime (`actions/checkout@v5`, `actions/setup-node@v5`). The v4 majors run on the deprecated Node 20 runtime and GitHub flags them on every run.
 - The `test` job injects test-only env vars on top of the database URL: dummy `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Modules such as `lib/auth.ts` require config at import time outside the build phase, so the vars must be present even though auth is mocked in most tests. Keep them fake; never real credentials. API tests that import `@/lib/api` (the barrel re-exports `requireApiSession`, which loads the real auth chain) need these exported locally too. Tests that only exercise errors/validation helpers import `@/lib/api/errors` and `@/lib/api/validation` directly instead, so they never touch auth.
-
-When adding tests, uncomment the matching job in that file (do not invent a second workflow):
-
-- Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production) and serializes all database test jobs with the `orbit-database-tests` concurrency group
-- Phase G: `e2e` job (`npx playwright install --with-deps chromium` then `npm run test:e2e`)
-- Phase J: mark checks required; document secrets and how to run tests in README
-
-CI and local dev both run Node 24 (npm 11) - keep them on the same major. npm 10 and npm 11 handle optional peer dependencies differently: npm 10 auto-installs vite 8's optional `esbuild` peer and its `npm ci` rejects locks that lack the 27-entry `node_modules/vitest/node_modules/esbuild` subtree (`Missing: esbuild@0.28.2 from lock file`); npm 11 omits that subtree and accepts the lock either way, and plain `npm install` on npm 11 prunes the subtree if a lock contains it. So committed locks here are npm 11 output by design, and a failing `npx npm@10 ci` is expected version skew, not a defect to repair. Never commit a lock produced with peer/optional resolution disabled (`--legacy-peer-deps`, `--omit=optional`). If the CI Node version ever changes, re-verify the lock with that version's npm before pushing.
+- When adding tests, uncomment the matching job in that file (do not invent a second workflow):
+  - Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production)
+  - Phase G: `e2e` job (`npx playwright install --with-deps chromium` then `npm run test:e2e`)
+  - Phase J: mark checks required; document secrets and how to run tests in README
+- CI and local dev both run Node 24 (npm 11) - keep them on the same major. Committed locks are npm 11 output by design; a failing `npx npm@10 ci` is expected optional-peer version skew, not a defect to repair. Never commit a lock produced with peer/optional resolution disabled (`--legacy-peer-deps`, `--omit=optional`). If the CI Node version ever changes, re-verify the lock with that version's npm before pushing.
 
 ## Project status
 
