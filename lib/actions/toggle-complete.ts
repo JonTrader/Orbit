@@ -1,16 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
 import type { monthly, task } from "@/lib/db/schema";
-import { getDb } from "@/lib/db/client";
 import { completeMonthly } from "@/lib/services/monthlies";
 import { toggleTask } from "@/lib/services/tasks";
-import { requireVerifiedSession } from "@/lib/session";
 
-import { toActionError, type ActionResult } from "./result";
+import { defineAction } from "./define-action";
+import type { ActionResult } from "./result";
 
 const toggleCompleteInputSchema = z
   .object({
@@ -36,22 +33,12 @@ export type ToggleCompleteResult = ActionResult<ToggleCompleteUpdated>;
  * toggle: completing finishes the current period and advances the next due
  * date, so every call completes exactly one period.
  */
-export async function toggleComplete(
-  input: unknown,
-): Promise<ToggleCompleteResult> {
-  // Awaited outside try so its redirect for unauthenticated or unverified
-  // callers propagates instead of turning into an action error.
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = toggleCompleteInputSchema.parse(input);
-    const db = getDb();
-    const userId = session.user.id;
-
-    let updated: ToggleCompleteUpdated;
+export const toggleComplete = defineAction(
+  toggleCompleteInputSchema,
+  async (parsed, { userId, db }): Promise<ToggleCompleteUpdated> => {
     switch (parsed.entity) {
       case "monthly": {
-        updated = {
+        return {
           entity: "monthly",
           monthly: await completeMonthly(db, {
             userId,
@@ -59,10 +46,9 @@ export async function toggleComplete(
             monthlyId: parsed.entityId,
           }),
         };
-        break;
       }
       case "task": {
-        updated = {
+        return {
           entity: "task",
           task: await toggleTask(db, {
             userId,
@@ -70,13 +56,7 @@ export async function toggleComplete(
             taskId: parsed.entityId,
           }),
         };
-        break;
       }
     }
-
-    revalidatePath(SPACE_LAYOUT_PATTERN, "layout");
-    return { ok: true, data: updated };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+  },
+);

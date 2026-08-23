@@ -8,8 +8,8 @@
  * database. The pulse is disabled globally for reduced-motion users.
  */
 
-/** Tab pill widths echoing Upcoming / Daily / Monthlies / a custom Section. */
-const TAB_WIDTHS = ["5.25rem", "3.5rem", "5.75rem", "4.25rem"];
+/** Tab pill widths echoing the fixed system nav: Upcoming / Daily / Monthlies. */
+const TAB_WIDTHS = ["5.25rem", "3.5rem", "5.75rem"];
 
 /** Varied row title widths so the panel reads as content, not one gray slab. */
 const ROW_TITLE_WIDTHS = ["44%", "58%", "37%", "52%", "45%", "40%"];
