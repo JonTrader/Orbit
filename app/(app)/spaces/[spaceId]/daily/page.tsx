@@ -1,21 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { z } from "zod";
 
 import { ComposeBar } from "@/components/orbit/ComposeBar";
 import { SectionTabs } from "@/components/orbit/SectionTabs";
 import { TaskRow } from "@/components/orbit/TaskRow";
-import { requireMembership } from "@/lib/authz/require-membership";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
+import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listSections } from "@/lib/services/sections";
 import { listTasks } from "@/lib/services/tasks";
-import { requireVerifiedSession } from "@/lib/session";
-
-const dailyParamsSchema = z.object({
-  spaceId: z.uuid(),
-});
 
 interface DailyPageProps {
   params: Promise<{ spaceId: string }>;
@@ -32,24 +26,22 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
     params,
     searchParams,
   ]);
-  const parsedSpace = dailyParamsSchema.safeParse(parsedParams);
-  if (!parsedSpace.success) notFound();
+  const spaceId = await resolveSpaceContext(parsedParams);
+  const viewer = await getSpaceViewer(spaceId);
 
-  const session = await requireVerifiedSession();
-  const db = getDb();
-  const userId = session.user.id;
-  const spaceId = parsedSpace.data.spaceId;
-
-  const sections = await listSections(db, { userId, spaceId });
+  const sections = await listSections(getDb(), {
+    userId: viewer.userId,
+    spaceId,
+  });
   const daily = sections.find((row) => row.isSystem && row.kind === "daily");
   if (!daily) notFound();
 
-  const [tasks, membership] = await Promise.all([
-    listTasks(db, { userId, spaceId, sectionId: daily.id }),
-    requireMembership(db, { userId, spaceId }),
-  ]);
+  const tasks = await listTasks(getDb(), {
+    userId: viewer.userId,
+    spaceId,
+    sectionId: daily.id,
+  });
 
-  const canMutate = membership.role !== "read-only";
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
   const showCompleted = parsedQuery.showCompleted === "1";
@@ -82,7 +74,7 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
                 title={task.title}
                 dueOn={task.dueOn}
                 completed={false}
-                canMutate={canMutate}
+                canMutate={viewer.can.mutateContent}
               />
             ))
           )}
@@ -110,7 +102,7 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
                   title={task.title}
                   dueOn={task.dueOn}
                   completed={true}
-                  canMutate={canMutate}
+                  canMutate={viewer.can.mutateContent}
                 />
               ))}
             </div>
@@ -118,7 +110,7 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
         </div>
       ) : null}
 
-      {canMutate ? (
+      {viewer.can.mutateContent ? (
         <ComposeBar
           spaceId={spaceId}
           sectionId={daily.id}

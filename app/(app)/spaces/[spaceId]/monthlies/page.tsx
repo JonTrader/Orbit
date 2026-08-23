@@ -1,20 +1,14 @@
 import { notFound } from "next/navigation";
-import { z } from "zod";
 
 import { ComposeBar } from "@/components/orbit/ComposeBar";
 import { MonthlyRow } from "@/components/orbit/MonthlyRow";
 import { SectionTabs } from "@/components/orbit/SectionTabs";
-import { requireMembership } from "@/lib/authz/require-membership";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
+import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listMonthlies } from "@/lib/services/monthlies";
 import { listSections } from "@/lib/services/sections";
-import { requireVerifiedSession } from "@/lib/session";
-
-const spaceParamsSchema = z.object({
-  spaceId: z.uuid(),
-});
 
 interface MonthliesPageProps {
   params: Promise<{ spaceId: string }>;
@@ -26,26 +20,23 @@ interface MonthliesPageProps {
  * its next due date.
  */
 export default async function MonthliesPage({ params }: MonthliesPageProps) {
-  const parsed = spaceParamsSchema.safeParse(await params);
-  if (!parsed.success) notFound();
+  const spaceId = await resolveSpaceContext(params);
+  const viewer = await getSpaceViewer(spaceId);
 
-  const session = await requireVerifiedSession();
-  const db = getDb();
-  const userId = session.user.id;
-  const spaceId = parsed.data.spaceId;
-
-  const sections = await listSections(db, { userId, spaceId });
+  const sections = await listSections(getDb(), {
+    userId: viewer.userId,
+    spaceId,
+  });
   const monthliesSection = sections.find(
     (row) => row.isSystem && row.kind === "monthlies",
   );
   if (!monthliesSection) notFound();
 
-  const [monthlies, membership] = await Promise.all([
-    listMonthlies(db, { userId, spaceId }),
-    requireMembership(db, { userId, spaceId }),
-  ]);
+  const monthlies = await listMonthlies(getDb(), {
+    userId: viewer.userId,
+    spaceId,
+  });
 
-  const canMutate = membership.role !== "read-only";
   const basePath = spaceSectionPath(spaceId, "monthlies");
 
   return (
@@ -72,14 +63,14 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
                 monthlyId={monthly.id}
                 title={monthly.title}
                 nextDueOn={monthly.nextDueOn}
-                canMutate={canMutate}
+                canMutate={viewer.can.mutateContent}
               />
             ))
           )}
         </div>
       </div>
 
-      {canMutate ? (
+      {viewer.can.mutateContent ? (
         <ComposeBar
           spaceId={spaceId}
           sectionId={monthliesSection.id}
