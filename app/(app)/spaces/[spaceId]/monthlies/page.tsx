@@ -6,9 +6,8 @@ import { SectionTabs } from "@/components/orbit/SectionTabs";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
-import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
+import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listMonthlies } from "@/lib/services/monthlies";
-import { listSections } from "@/lib/services/sections";
 
 interface MonthliesPageProps {
   params: Promise<{ spaceId: string }>;
@@ -23,10 +22,7 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
   const spaceId = await resolveSpaceContext(params);
   const viewer = await getSpaceViewer(spaceId);
 
-  const sections = await listSections(getDb(), {
-    userId: viewer.userId,
-    spaceId,
-  });
+  const sections = await getSpaceSections(spaceId);
   const monthliesSection = sections.find(
     (row) => row.isSystem && row.kind === "monthlies",
   );

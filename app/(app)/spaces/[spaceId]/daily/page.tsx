@@ -7,8 +7,7 @@ import { TaskRow } from "@/components/orbit/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
-import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
-import { listSections } from "@/lib/services/sections";
+import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listTasks } from "@/lib/services/tasks";
 
 interface DailyPageProps {
@@ -29,10 +28,7 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
   const spaceId = await resolveSpaceContext(parsedParams);
   const viewer = await getSpaceViewer(spaceId);
 
-  const sections = await listSections(getDb(), {
-    userId: viewer.userId,
-    spaceId,
-  });
+  const sections = await getSpaceSections(spaceId);
   const daily = sections.find((row) => row.isSystem && row.kind === "daily");
   if (!daily) notFound();
 

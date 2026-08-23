@@ -39,6 +39,7 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
 });
 
 import {
+  getSpaceSections,
   getSpaceViewer,
   resolveSpaceContext,
 } from "@/lib/space-view";
@@ -162,6 +163,43 @@ describe("Space viewer context", () => {
       await expect(getSpaceViewer(crypto.randomUUID())).rejects.toBeInstanceOf(
         NotFoundSignal,
       );
+    });
+  });
+
+  describe("getSpaceSections", () => {
+    it("lists the Space's Sections for a Member, system Sections first", async () => {
+      const owner = await createUser({ email: "owner@orbit.test" });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      authenticateAs(owner.id);
+
+      const sections = await getSpaceSections(created.id);
+
+      const kinds = sections.map((row) => row.kind);
+      expect(kinds).toContain("daily");
+      expect(kinds).toContain("monthlies");
+      // System Sections are pinned to the top by listSections' ordering.
+      const firstCustomIndex = sections.findIndex((row) => !row.isSystem);
+      if (firstCustomIndex !== -1) {
+        const tail = sections.slice(firstCustomIndex);
+        expect(tail.some((row) => row.isSystem)).toBe(false);
+      }
+    });
+
+    it("inherits the Viewer failure modes for non-members", async () => {
+      const owner = await createUser({ email: "owner@orbit.test" });
+      const outsider = await createUser({ email: "outsider@orbit.test" });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      authenticateAs(outsider.id);
+
+      await expect(getSpaceSections(created.id)).rejects.toMatchObject({
+        url: "/",
+      });
     });
   });
 });

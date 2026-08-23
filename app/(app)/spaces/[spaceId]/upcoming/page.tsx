@@ -5,9 +5,8 @@ import {
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
-import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
+import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listMonthlies } from "@/lib/services/monthlies";
-import { listSections } from "@/lib/services/sections";
 import { listTasks } from "@/lib/services/tasks";
 import { SectionTabs } from "@/components/orbit/SectionTabs";
 
@@ -72,7 +71,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
   const db = getDb();
 
   const [sections, monthlies, tasks] = await Promise.all([
-    listSections(db, { userId: viewer.userId, spaceId }),
+    getSpaceSections(spaceId),
     listMonthlies(db, { userId: viewer.userId, spaceId }),
     listTasks(db, { userId: viewer.userId, spaceId }),
   ]);

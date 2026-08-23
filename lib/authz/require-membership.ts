@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 
 import type { OrbitDb } from "@/lib/db/client";
@@ -40,24 +41,37 @@ export interface RequireMembershipInput extends MembershipLookupInput {
   minimumRole?: MinimumMembershipRole;
 }
 
-/** Finds a Member row without applying a minimum role requirement. */
-export async function findMembership(
+async function queryMembership(
   db: OrbitDb,
-  input: MembershipLookupInput,
+  userId: string,
+  spaceId: string,
 ): Promise<typeof spaceMember.$inferSelect | undefined> {
   const [membership] = await db
     .select()
     .from(spaceMember)
     .where(
       and(
-        eq(spaceMember.spaceId, input.spaceId),
-        eq(spaceMember.userId, input.userId),
+        eq(spaceMember.spaceId, spaceId),
+        eq(spaceMember.userId, userId),
       ),
     )
     .limit(1);
 
   return membership;
 }
+
+/**
+ * Finds a Member row without applying a minimum role requirement.
+ *
+ * Request-cached so repeated lookups for the same user + Space within one
+ * render pass (Viewer resolution, layout data, each service's own boundary
+ * check) share one round trip. Outside a React request scope - plain Vitest
+ * runs, scripts - this passes through uncached.
+ *
+ * Caveat: a flow that mutates membership and then re-reads it in the same
+ * request would observe the pre-mutation row. No such flow exists today.
+ */
+export const findMembership = cache(queryMembership);
 
 /**
  * Returns the caller's Member row when they meet the minimum role for a Space.
@@ -72,7 +86,7 @@ export async function requireMembership(
   input: RequireMembershipInput,
 ): Promise<typeof spaceMember.$inferSelect> {
   const minimumRole = input.minimumRole ?? "read-only";
-  const membership = await findMembership(db, input);
+  const membership = await findMembership(db, input.userId, input.spaceId);
 
   if (!membership) {
     throw new MembershipError(

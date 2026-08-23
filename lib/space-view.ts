@@ -7,6 +7,7 @@ import { APP_PATH } from "@/lib/auth-paths";
 import { findMembership } from "@/lib/authz/require-membership";
 import { getDb } from "@/lib/db/client";
 import { space, type SpaceRole } from "@/lib/db/schema";
+import { listSections } from "@/lib/services/sections";
 import { requireVerifiedSession } from "@/lib/session";
 
 export const spaceIdParamsSchema = z
@@ -73,7 +74,7 @@ export const getSpaceViewer = cache(
     const userId = session.user.id;
 
     const [membership, activeSpace] = await Promise.all([
-      findMembership(db, { userId, spaceId }),
+      findMembership(db, userId, spaceId),
       db.select().from(space).where(eq(space.id, spaceId)).limit(1),
     ]);
 
@@ -89,3 +90,13 @@ export const getSpaceViewer = cache(
     };
   },
 );
+
+/**
+ * Lists the Active Space's Sections for the Viewer, memoised per render pass
+ * so a request's layout and page share one query instead of each fetching the
+ * same rows. Failure modes are the Viewer's (404 / root redirect).
+ */
+export const getSpaceSections = cache(async (spaceId: string) => {
+  const { userId } = await getSpaceViewer(spaceId);
+  return listSections(getDb(), { userId, spaceId });
+});

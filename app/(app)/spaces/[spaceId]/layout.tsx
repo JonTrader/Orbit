@@ -4,8 +4,7 @@ import { AgendaShell } from "@/components/orbit/AgendaShell";
 import { hasCredentialAccount } from "@/lib/auth-access";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
-import { getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
-import { listSections } from "@/lib/services/sections";
+import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
 import { listSpaces } from "@/lib/services/spaces";
 
 interface SpaceLayoutProps {
@@ -24,7 +23,7 @@ export default async function SpaceLayout({ children, params }: SpaceLayoutProps
 
   const [spaces, sections, canChangePassword] = await Promise.all([
     listSpaces(db, viewer.userId),
-    listSections(db, { userId: viewer.userId, spaceId }),
+    getSpaceSections(spaceId),
     hasCredentialAccount(db, viewer.userId),
   ]);
 
