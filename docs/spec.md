@@ -106,7 +106,7 @@ app/(app)/…           agenda UI (Active Space)
 app/api/auth/[...all]
 app/api/v1/…          spaces, sections, tasks, monthlies, notes, members, invites, prefs
 app/api/inngest/…
-components/orbit/…    agenda rows, nav, compose, share bar
+components/spaces/…   agenda rows, nav, compose, share bar
 lib/services/…        domain logic
 lib/authz/…           requireMembership
 lib/db/…              Drizzle

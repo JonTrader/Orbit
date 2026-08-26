@@ -152,7 +152,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
                   >
                     <span
                       className={[
-                        "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-[0.05em]",
+                        "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-wider",
                         group.urgent ? "text-accent" : "text-muted",
                       ].join(" ")}
                     >
@@ -162,7 +162,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
                       <div className="truncate text-[0.95rem] font-medium text-ink">
                         {entry.title}
                       </div>
-                      <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-[0.05em] text-muted">
+                      <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
                         {entry.kindLabel}
                         {entry.sectionName ? ` · ${entry.sectionName}` : ""}
                       </div>

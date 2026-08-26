@@ -16,7 +16,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
-- `lib/space-view.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/space-view.test.ts`.
+- `lib/spaces/viewer.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
   - `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route; malformed ids 404.
   - `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner).
   - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. The layout and Daily / Monthlies / Upcoming pages call it instead of `listSections` directly so they share one query per render pass.
@@ -26,14 +26,22 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 ## Action layout
 
 - `lib/actions/` - web-only Server Actions (ADR 0005). Thin wrappers over `lib/services`; no business logic.
-- Build every action with `defineAction(schema, handler)` from `lib/actions/define-action.ts`. It owns the verified-session guard, schema validation, `{ userId, db }` injection, Space layout revalidation, and error mapping. Do not hand-roll that sequence.
+- Build every action with `defineAction(schema, handler)` from `lib/actions/framework.ts`. It owns the verified-session guard, schema validation, `{ userId, db }` injection, Space layout revalidation, and error mapping. Do not hand-roll that sequence.
 - Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`). Error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
 - Action tests (`tests/actions/`) import `tests/setup/api-mocks.ts` then `tests/setup/action-mocks.ts` first, use `authenticateAs(userId)` for signed-in callers and `guardRedirectsTo(url)` for unauthenticated/unverified ones, and assert `revalidatePath` calls. See `tests/actions/quick-add.test.ts` and `tests/actions/define-action.test.ts`.
 - Avoid naming an action the same as the service function it wraps. Alias imports when needed (`renameSection as renameSectionService`).
 
 ## ID conventions
 
-App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
+App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth/config.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
+
+## Component layout
+
+- `components/spaces/` owns the Active Space chrome and rows:
+  - `SpaceLayout.tsx` - client shell used by `app/(app)/spaces/[spaceId]/layout.tsx`. Owns the mobile sidebar open/close state, renders `SpaceSidebar`, the view header, and the `SectionTabs` strip above `{children}`.
+  - `SpaceSidebar.tsx` / `SidebarHeader.tsx` / `SidebarNavLinks.tsx` / `SidebarFooter.tsx` - sidebar breakdown. `SidebarNavLinks` is the client link list deriving active state from `usePathname()` and takes an optional `onClick` (used to close the mobile sidebar).
+  - `SectionTabs.tsx` - client tab strip; derives the active tab from `usePathname()` and takes only `items`. Do not render it inside section pages - it lives in `SpaceLayout`, and section pages render content only.
+- Each section route (`upcoming/`, `daily/`, `monthlies/`) has its own `loading.tsx` skeleton matching that page's anatomy; the layout renders the nav chrome during streaming, so skeletons cover the content panel only. A generic `[spaceId]/loading.tsx` remains the fallback for routes without one.
 
 ## Testing
 

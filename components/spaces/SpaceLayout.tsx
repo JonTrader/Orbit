@@ -54,7 +54,7 @@ export function SpaceLayout({
           "fixed inset-y-0 left-0 z-40 w-[min(18rem,88vw)] transition-transform duration-200 lg:static lg:w-auto lg:translate-x-0",
           sidebarOpen
             ? "translate-x-0 shadow-[8px_0_32px_rgba(28,25,23,0.08)]"
-            : "-translate-x-[105%]",
+            : "translate-x-[-105%]",
         ].join(" ")}
       >
         <SpaceSidebar

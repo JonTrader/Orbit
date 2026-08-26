@@ -30,7 +30,7 @@ export default function MonthliesLoading() {
               >
                 <div className="h-3.5 rounded bg-line" style={{ width }} />
                 <div className="ml-auto h-2.5 w-14 shrink-0 rounded bg-line" />
-                <div className="h-[1.75rem] w-14 shrink-0 rounded border border-line" />
+                <div className="h-7 w-14 shrink-0 rounded border border-line" />
               </div>
             ))}
           </div>
