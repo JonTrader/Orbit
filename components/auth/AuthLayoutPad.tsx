@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AuthThemeProvider } from "./kit/AuthThemeProvider";
+import { AuthThemeProvider } from "@/components/auth/kit/AuthThemeProvider";
 
 function HouseholdPad() {
   return (

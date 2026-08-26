@@ -3,8 +3,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { spaceMember, type SpaceRole } from "@/lib/db/schema";
 import { createSpace } from "@/lib/services/spaces";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
-import { createUser } from "../setup/fixtures";
+import { migrateTestDb, testDb, truncateAll } from "../../setup/db";
+import { createUser } from "../../setup/fixtures";
 
 class RedirectedError extends Error {
   constructor(readonly url: string) {

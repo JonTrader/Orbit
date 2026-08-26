@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 
 import { AuthLayoutBurner } from "@/components/auth/AuthLayoutBurner";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
-import { AuthCard } from "./kit/AuthCard";
-import { AuthLink } from "./kit/AuthLink";
+import { AuthCard } from "@/components/auth/kit/AuthCard";
+import { AuthLink } from "@/components/auth/kit/AuthLink";
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
 
 export const metadata: Metadata = {

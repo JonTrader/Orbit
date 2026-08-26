@@ -7,9 +7,9 @@ import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 import { APP_PATH, verifyEmailPath } from "@/lib/auth/paths";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 
-import { Field } from "./kit/AuthField";
-import { FormMessage } from "./kit/FormMessage";
-import { SubmitButton } from "./kit/AuthSubmitButton";
+import { Field } from "@/components/auth/kit/AuthField";
+import { FormMessage } from "@/components/auth/kit/FormMessage";
+import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
 export function SignUpForm() {
   const router = useRouter();

@@ -11,7 +11,7 @@ const submitBtn = {
     "mt-1 inline-flex w-full items-center justify-center gap-2 rounded-none bg-[var(--auth-ink)] px-4 py-3 text-[0.92rem] font-bold text-[var(--auth-butcher)] disabled:cursor-wait disabled:opacity-60",
 } as const;
 
-export function AuthSubmitButton({
+function AuthSubmitButtonComponent({
   pending,
   children,
 }: {
@@ -38,3 +38,6 @@ export function AuthSubmitButton({
     </button>
   );
 }
+
+export const SubmitButton = AuthSubmitButtonComponent;
+export const AuthSubmitButton = AuthSubmitButtonComponent;

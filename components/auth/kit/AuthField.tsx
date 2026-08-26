@@ -10,7 +10,7 @@ const fieldInput = {
     "rounded-none border-0 border-b-[1.5px] border-[color-mix(in_srgb,var(--auth-ink)_18%,transparent)] bg-transparent px-0.5 py-2.5 text-[1rem] outline-none focus:border-[var(--auth-copper)]",
 } as const;
 
-export function AuthField({
+function AuthFieldComponent({
   label,
   hint,
   ...input
@@ -29,3 +29,6 @@ export function AuthField({
     </label>
   );
 }
+
+export const Field = AuthFieldComponent;
+export const AuthField = AuthFieldComponent;
