@@ -5,7 +5,9 @@ import { useState, type FormEvent } from "react";
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 import { RESET_PASSWORD_PATH } from "@/lib/auth/paths";
 
-import { Field, FormMessage, SubmitButton } from "./ui";
+import { Field } from "./kit/AuthField";
+import { FormMessage } from "./kit/FormMessage";
+import { SubmitButton } from "./kit/AuthSubmitButton";
 
 export function ForgotPasswordForm() {
   const [pending, setPending] = useState(false);

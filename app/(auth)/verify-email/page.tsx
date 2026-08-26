@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
-import { AuthCard, AuthLink } from "@/components/auth/ui";
+import { AuthCard } from "./kit/AuthCard";
+import { AuthLink } from "./kit/AuthLink";
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
 import { getAppSession } from "@/lib/auth/session";
 

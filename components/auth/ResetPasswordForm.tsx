@@ -12,7 +12,10 @@ import {
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "@/lib/auth/paths";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
-import { AuthLink, Field, FormMessage, SubmitButton } from "./ui";
+import { AuthLink } from "./kit/AuthLink";
+import { Field } from "./kit/AuthField";
+import { FormMessage } from "./kit/FormMessage";
+import { SubmitButton } from "./kit/AuthSubmitButton";
 
 function createResetTokenStore() {
   let token: string | null = null;

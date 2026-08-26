@@ -5,8 +5,10 @@ import { useState } from "react";
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 import type { OAuthProviderId } from "@/lib/auth/oauth";
 
-import { useAuthTheme } from "./theme";
-import { AuthPendingMark, FormMessage, oauthButtonClass } from "./ui";
+import { useAuthTheme } from "./kit/useAuthTheme";
+import { AuthPendingMark } from "./kit/AuthPendingMark";
+import { FormMessage } from "./kit/FormMessage";
+import { oauthButtonClass } from "./kit/OAuthButton";
 
 const PROVIDERS = [
   { id: "google", label: "Continue with Google" },
