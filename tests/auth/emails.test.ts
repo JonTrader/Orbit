@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { passwordResetEmail, verificationEmail } from "@/emails/auth";
+import { passwordResetEmail, verificationEmail } from "@/lib/email/templates/auth";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
-} from "@/lib/email/auth-emails";
+} from "@/lib/email/templates/auth-emails";
 import { sendEmail } from "@/lib/email/mailer";
 
 vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));

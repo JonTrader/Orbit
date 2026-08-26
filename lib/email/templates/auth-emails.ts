@@ -1,6 +1,6 @@
-import { passwordResetEmail, verificationEmail } from "@/emails/auth";
+import { passwordResetEmail, verificationEmail } from "./auth";
 
-import { sendEmail } from "./mailer";
+import { sendEmail } from "../mailer";
 
 export interface AuthEmailRecipient {
   email: string;

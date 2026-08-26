@@ -7,7 +7,7 @@ import { resetPasswordFragmentUrl } from "@/lib/auth/paths";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
-} from "@/lib/email/auth-emails";
+} from "@/lib/email/templates/auth-emails";
 import { requireEnv } from "@/lib/env";
 import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
