@@ -4,7 +4,7 @@ import "../setup/action-mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { defineAction } from "@/lib/actions/define-action";
+import { defineAction } from "@/lib/actions/framework";
 import { DomainError } from "@/lib/domain-error";
 
 import {

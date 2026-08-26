@@ -10,7 +10,7 @@ import {
   renameSection as renameSectionService,
 } from "@/lib/services/sections";
 
-import { defineAction } from "./define-action";
+import { defineAction } from "./framework";
 
 const createSectionInputSchema = z
   .object({
