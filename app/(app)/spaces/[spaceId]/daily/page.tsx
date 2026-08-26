@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-import { ComposeBar } from "@/components/orbit/ComposeBar";
-import { SectionTabs } from "@/components/orbit/SectionTabs";
-import { TaskRow } from "@/components/orbit/TaskRow";
+import { ComposeBar } from "@/components/spaces/ComposeBar";
+import { SectionTabs } from "@/components/spaces/SectionTabs";
+import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/spaces/nav";
 import { spaceSectionPath } from "@/lib/spaces/paths";

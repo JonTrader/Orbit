@@ -9,7 +9,7 @@ import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listMonthlies } from "@/lib/services/monthlies";
 import { listTasks } from "@/lib/services/tasks";
-import { SectionTabs } from "@/components/orbit/SectionTabs";
+import { SectionTabs } from "@/components/spaces/SectionTabs";
 
 interface UpcomingPageProps {
   params: Promise<{ spaceId: string }>;

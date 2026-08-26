@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { ComposeBar } from "@/components/orbit/ComposeBar";
-import { MonthlyRow } from "@/components/orbit/MonthlyRow";
-import { SectionTabs } from "@/components/orbit/SectionTabs";
+import { ComposeBar } from "@/components/spaces/ComposeBar";
+import { MonthlyRow } from "@/components/spaces/MonthlyRow";
+import { SectionTabs } from "@/components/spaces/SectionTabs";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/spaces/nav";
 import { spaceSectionPath } from "@/lib/spaces/paths";

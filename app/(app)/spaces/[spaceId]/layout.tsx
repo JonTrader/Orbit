@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { SpaceLayout } from "@/components/orbit/SpaceLayout";
+import { SpaceLayout } from "@/components/spaces/SpaceLayout";
 import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/spaces/nav";
