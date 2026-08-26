@@ -1,10 +1,6 @@
-import {
-  apiErrorResponse,
-  parseJsonBody,
-  parseSearchParams,
-  readRouteParams,
-  requireApiSession,
-} from "@/lib/api";
+import { requireApiSession } from "@/lib/rest-api/auth";
+import { apiErrorResponse } from "@/lib/rest-api/errors";
+import { parseJsonBody, parseSearchParams, readRouteParams } from "@/lib/rest-api/validation";
 import { getDb } from "@/lib/db/client";
 import { createNote, listNotes } from "@/lib/services/notes";
 

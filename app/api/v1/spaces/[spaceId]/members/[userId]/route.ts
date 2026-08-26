@@ -1,9 +1,6 @@
-import {
-  apiErrorResponse,
-  parseJsonBody,
-  readRouteParams,
-  requireApiSession,
-} from "@/lib/api";
+import { requireApiSession } from "@/lib/rest-api/auth";
+import { apiErrorResponse } from "@/lib/rest-api/errors";
+import { parseJsonBody, readRouteParams } from "@/lib/rest-api/validation";
 import { getDb } from "@/lib/db/client";
 import {
   removeMember,
