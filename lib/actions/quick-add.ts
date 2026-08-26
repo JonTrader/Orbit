@@ -1,18 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
 import type { monthly, note, task } from "@/lib/db/schema";
-import { getDb } from "@/lib/db/client";
 import { createMonthly, MonthlyError } from "@/lib/services/monthlies";
 import { createNote } from "@/lib/services/notes";
 import { listSections, SectionError } from "@/lib/services/sections";
 import { createTask } from "@/lib/services/tasks";
-import { requireVerifiedSession } from "@/lib/session";
 
-import { toActionError, type ActionResult } from "./result";
+import { defineAction } from "./define-action";
+import type { ActionResult } from "./result";
 
 const quickAddInputSchema = z
   .object({
@@ -45,16 +42,9 @@ export type QuickAddResult = ActionResult<QuickAddCreated>;
  * Monthlies (which need a due day) for the Monthlies Section. Upcoming is a
  * view, not a Section, so it can never be a quick-add target.
  */
-export async function quickAdd(input: unknown): Promise<QuickAddResult> {
-  // Awaited outside try so its redirect for unauthenticated or unverified
-  // callers propagates instead of turning into an action error.
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = quickAddInputSchema.parse(input);
-    const db = getDb();
-    const userId = session.user.id;
-
+export const quickAdd = defineAction(
+  quickAddInputSchema,
+  async (parsed, { userId, db }): Promise<QuickAddCreated> => {
     const sections = await listSections(db, {
       userId,
       spaceId: parsed.spaceId,
@@ -65,7 +55,6 @@ export async function quickAdd(input: unknown): Promise<QuickAddResult> {
       throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
     }
 
-    let created: QuickAddCreated;
     switch (target.kind) {
       case "monthlies": {
         if (!parsed.dueDayOfMonth) {
@@ -74,7 +63,7 @@ export async function quickAdd(input: unknown): Promise<QuickAddResult> {
             "Adding a Monthly needs a due day of month",
           );
         }
-        created = {
+        return {
           entity: "monthly",
           monthly: await createMonthly(db, {
             userId,
@@ -83,10 +72,9 @@ export async function quickAdd(input: unknown): Promise<QuickAddResult> {
             dueDayOfMonth: parsed.dueDayOfMonth,
           }),
         };
-        break;
       }
       case "notes": {
-        created = {
+        return {
           entity: "note",
           note: await createNote(db, {
             userId,
@@ -95,24 +83,20 @@ export async function quickAdd(input: unknown): Promise<QuickAddResult> {
             title: parsed.title,
           }),
         };
-        break;
       }
       default: {
-        created = {
+        return {
           entity: "task",
           task: await createTask(db, {
             userId,
             spaceId: parsed.spaceId,
             sectionId: target.id,
+            // The switch already validated the kind; skip createTask's re-query.
+            section: target,
             title: parsed.title,
           }),
         };
       }
     }
-
-    revalidatePath(APP_PATH);
-    return { ok: true, data: created };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+  },
+);

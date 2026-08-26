@@ -42,3 +42,17 @@ export function authenticateAs(userId: string): void {
     user: { id: userId },
   });
 }
+
+/**
+ * Makes the session guard redirect, as it does for unauthenticated or
+ * unverified callers. Mimics next/navigation's redirect(): an error whose
+ * digest carries NEXT_REDIRECT, so tests can assert that actions let it
+ * propagate instead of swallowing it into an action result.
+ */
+export function guardRedirectsTo(url = "/sign-in"): void {
+  const redirectError = new Error(`NEXT_REDIRECT: ${url}`) as Error & {
+    digest?: string;
+  };
+  redirectError.digest = `NEXT_REDIRECT;replace;${url};`;
+  actionMocks.requireVerifiedSession.mockRejectedValue(redirectError);
+}

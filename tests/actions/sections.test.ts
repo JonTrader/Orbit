@@ -1,6 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
+import { spaceLayoutPath } from "@/lib/space-paths";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -110,7 +111,7 @@ describe("section actions", () => {
       expect(result.data.kind).toBe("mixed");
       expect(result.data.isSystem).toBe(false);
       expect(result.data.sortOrder).toBe(4);
-      expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
+      expect(getRevalidatePathMock()).toHaveBeenCalledWith(spaceLayoutPath(s.spaceId), "layout");
     });
 
     it("rejects an unknown kind as a validation error", async () => {

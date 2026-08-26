@@ -48,7 +48,6 @@ export function ChangePasswordForm() {
 
       if (!failure) {
         router.replace(APP_PATH);
-        router.refresh();
         return;
       }
 

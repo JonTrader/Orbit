@@ -33,6 +33,13 @@ export interface ListTasksInput extends TaskAccessInput {
 
 export interface CreateTaskInput extends TaskAccessInput {
   sectionId: string;
+  /**
+   * Already-resolved target Section row. Callers that just validated the
+   * Section themselves (quick-add resolves it from the Space's Section list)
+   * pass it here to skip a redundant re-query; it must match `sectionId`,
+   * belong to the Space, and accept Tasks, or the service re-validates.
+   */
+  section?: typeof section.$inferSelect;
   title: string;
   dueOn?: string | null;
   assigneeId?: string | null;
@@ -91,11 +98,14 @@ export async function createTask(
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
   const title = normalizeTaskTitle(input.title);
-  const targetSection = await findTaskSection(
-    db,
-    input.spaceId,
-    input.sectionId,
-  );
+  const resolved = input.section;
+  const targetSection =
+    resolved &&
+    resolved.id === input.sectionId &&
+    resolved.spaceId === input.spaceId &&
+    isTaskSectionKind(resolved.kind)
+      ? (resolved as typeof section.$inferSelect & { kind: TaskSectionKind })
+      : await findTaskSection(db, input.spaceId, input.sectionId);
   await assertAssigneeIsMember(
     db,
     input.spaceId,
@@ -182,7 +192,6 @@ export async function completeTask(
   input: GetTaskInput,
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  await findTask(db, input.spaceId, input.taskId);
 
   const [completed] = await db
     .update(task)
@@ -203,7 +212,6 @@ export async function reopenTask(
   input: GetTaskInput,
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  await findTask(db, input.spaceId, input.taskId);
 
   const [reopened] = await db
     .update(task)
@@ -224,7 +232,6 @@ export async function toggleTask(
   input: GetTaskInput,
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  await findTask(db, input.spaceId, input.taskId);
 
   const now = new Date();
   const [toggled] = await db

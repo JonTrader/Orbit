@@ -1,6 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
+import { spaceLayoutPath } from "@/lib/space-paths";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { sendInvite } from "@/lib/actions/invites";
@@ -80,7 +81,7 @@ describe("sendInvite action", () => {
       5_000,
     );
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
-    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/");
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(spaceLayoutPath(s.spaceId), "layout");
   });
 
   it("defaults the role to read-only when omitted", async () => {

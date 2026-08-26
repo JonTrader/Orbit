@@ -2,6 +2,10 @@
 
 A household-first coordination app for day-to-day to-dos and recurring monthly obligations, with optional personal Spaces.
 
+## Product spine (MVP)
+
+Household-first coordination: Daily Tasks vs Monthlies as separate domains, Space-level sharing/RBAC, Upcoming as a read-only view, email Reminders via Inngest + Resend. Dual API: `/api/v1` Route Handlers + web Server Actions over shared domain services. Full requirements: [`docs/spec.md`](./docs/spec.md).
+
 ## Language
 
 ### Containers and access
@@ -28,6 +32,10 @@ _Avoid_: Pending member, guest, share link (MVP uses email invites, not link mem
 
 **Owner** / **Editor** / **Read-only**:
 Space-level roles. All sections in a Space inherit the member's role. Read-only is view-only (no complete/reopen/create/edit/delete). Editor mutates content and custom Sections. Owner alone invites, changes roles, removes Members, and transfers ownership. A Space has a single Owner at a time.
+
+**Viewer**:
+The Member currently viewing the Active Space. Each request resolves exactly one Viewer for that Space, carrying the Member's role and its derived capabilities: mutate content (editor or owner) and manage members (owner). A read-only Viewer sees every view with mutations disabled.
+_Avoid_: Session user, current user, visitor
 
 **Ownership transfer**:
 Owner action that makes another Member the Owner; the former Owner becomes an Editor (unless removed). Required before an Owner can leave a Space that still has other Members. An Owner-only Space must be deleted instead of left ownerless.

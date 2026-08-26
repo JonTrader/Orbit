@@ -12,10 +12,7 @@ export async function assertAssigneeIsMember(
 ): Promise<void> {
   if (assigneeId == null) return;
 
-  const membership = await findMembership(db, {
-    spaceId,
-    userId: assigneeId,
-  });
+  const membership = await findMembership(db, assigneeId, spaceId);
 
   if (!membership) {
     throw createError(INVALID_ASSIGNEE_MESSAGE);

@@ -1,24 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
-
-const SECTIONS = [
-  { id: "upcoming", label: "Upcoming", sub: "Monthlies and dated items in this Space." },
-  { id: "daily", label: "Daily", sub: "Day-to-day to-dos for this Space." },
-  { id: "monthlies", label: "Monthlies", sub: "Recurring monthly obligations." },
-  { id: "shopping", label: "Shopping", sub: "Custom Section placeholder." },
-] as const;
-
-type SectionId = (typeof SECTIONS)[number]["id"];
-
-const SPACES = [
-  { id: "personal", name: "Personal", meta: "1" },
-  { id: "home", name: "Home", meta: "3" },
-] as const;
+import type { SpaceNavItem } from "@/lib/space-nav";
+import { spaceSectionPath } from "@/lib/space-paths";
 
 export interface AgendaShellUser {
   name: string;
@@ -26,19 +15,32 @@ export interface AgendaShellUser {
   canChangePassword: boolean;
 }
 
-export function AgendaShell({ user }: { user?: AgendaShellUser }) {
-  const [activeSpaceId, setActiveSpaceId] = useState<(typeof SPACES)[number]["id"]>("personal");
-  const [activeSection, setActiveSection] = useState<SectionId>("upcoming");
+export interface AgendaShellSpace {
+  id: string;
+  name: string;
+}
+
+export interface AgendaShellProps {
+  user?: AgendaShellUser;
+  /** The Space every nested view is scoped to. */
+  activeSpace: AgendaShellSpace;
+  /** Every Space the user belongs to, in creation order. */
+  spaces: AgendaShellSpace[];
+  /** Nav entries in fixed order: Upcoming, Daily, Monthlies, customs. */
+  navItems: SpaceNavItem[];
+  children?: ReactNode;
+}
+
+export function AgendaShell({
+  user,
+  activeSpace,
+  spaces,
+  navItems,
+  children,
+}: AgendaShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const activeSpace = SPACES.find((s) => s.id === activeSpaceId) ?? SPACES[0];
-  const section = SECTIONS.find((s) => s.id === activeSection) ?? SECTIONS[0];
-  const showCompose = activeSection !== "upcoming";
-
-  function selectSection(id: SectionId) {
-    setActiveSection(id);
-    setSidebarOpen(false);
-  }
+  const pathname = usePathname();
+  const current = navItems.find((item) => item.href === pathname);
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]">
@@ -72,12 +74,12 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
             <span>Spaces</span>
             <span className="tracking-[0.04em] text-accent">View all</span>
           </div>
-          {SPACES.map((space) => {
-            const active = space.id === activeSpaceId;
+          {spaces.map((space) => {
+            const active = space.id === activeSpace.id;
             return (
-              <button
+              <Link
                 key={space.id}
-                type="button"
+                href={spaceSectionPath(space.id, "upcoming")}
                 className={[
                   "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[0.875rem] font-medium",
                   active
@@ -85,7 +87,7 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
                     : "hover:bg-panel/70",
                 ].join(" ")}
                 aria-current={active ? "page" : undefined}
-                onClick={() => setActiveSpaceId(space.id)}
+                onClick={() => setSidebarOpen(false)}
               >
                 <span
                   className={[
@@ -94,10 +96,7 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
                   ].join(" ")}
                 />
                 {space.name}
-                <span className="ml-auto font-mono text-[0.65rem] text-muted">
-                  {space.meta}
-                </span>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -106,22 +105,23 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
           <div className="px-2 pb-1.5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-muted">
             In this Space
           </div>
-          {SECTIONS.map((item) => {
-            const active = item.id === activeSection;
+          {navItems.map((item) => {
+            const active = item.href === pathname;
             return (
-              <button
-                key={item.id}
-                type="button"
+              <Link
+                key={item.key}
+                href={item.href}
                 className={[
                   "w-full rounded py-1.5 pl-5 pr-2 text-left text-[0.82rem]",
                   active
                     ? "bg-panel font-semibold text-ink shadow-[inset_0_0_0_1px_var(--line)]"
                     : "font-normal text-muted hover:bg-panel/70",
                 ].join(" ")}
-                onClick={() => selectSection(item.id)}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
                 {item.label}
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -165,8 +165,12 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
             <div className="mb-1 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
               Active Space · {activeSpace.name}
             </div>
-            <h1 className="text-[1.75rem] font-bold tracking-[-0.03em]">{section.label}</h1>
-            <p className="mt-1 text-[0.95rem] text-muted">{section.sub}</p>
+            <h1 className="text-[1.75rem] font-bold tracking-[-0.03em]">
+              {current?.label ?? "Orbit"}
+            </h1>
+            {current ? (
+              <p className="mt-1 text-[0.95rem] text-muted">{current.sub}</p>
+            ) : null}
           </header>
           <button
             type="button"
@@ -177,72 +181,7 @@ export function AgendaShell({ user }: { user?: AgendaShellUser }) {
           </button>
         </div>
 
-        <div
-          className="mb-4 flex flex-wrap gap-1 border-b border-line pb-0.5"
-          role="tablist"
-          aria-label="Sections"
-        >
-          {SECTIONS.map((item) => {
-            const active = item.id === activeSection;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={[
-                  "mb-[-2px] border-b-2 px-3 py-2 text-[0.875rem] font-medium",
-                  active
-                    ? "border-accent text-ink"
-                    : "border-transparent text-muted",
-                ].join(" ")}
-                onClick={() => selectSection(item.id)}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="overflow-hidden rounded border border-line bg-panel">
-          <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-            {section.label}
-          </div>
-          <div className="border-t border-line px-4 py-10 text-center text-[0.9rem] text-muted">
-            Nothing here yet. Data wiring comes in later phases.
-          </div>
-        </div>
-
-        {showCompose ? (
-          <div className="mt-3.5 flex gap-2">
-            <input
-              type="text"
-              readOnly
-              placeholder={`Add to ${section.label}…`}
-              className="flex-1 rounded border border-line bg-panel px-3.5 py-2.5 text-base outline-none placeholder:text-muted/80"
-              aria-label={`Add to ${section.label}`}
-            />
-            <button
-              type="button"
-              className="rounded bg-ink px-4 text-[0.85rem] font-semibold text-white"
-            >
-              Add
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-dashed border-line bg-[color-mix(in_srgb,var(--panel)_70%,transparent)] px-4 py-3.5 text-[0.85rem]">
-          <div>
-            <strong className="font-semibold">{activeSpace.name}</strong>
-            <span className="text-muted"> · share bar placeholder</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="grid size-6 place-items-center rounded-full bg-ink text-[0.65rem] font-bold text-white">
-              Y
-            </span>
-            <em className="ml-1 text-[0.75rem] not-italic text-muted">+ Invite</em>
-          </div>
-        </div>
+        {children}
       </main>
     </div>
   );

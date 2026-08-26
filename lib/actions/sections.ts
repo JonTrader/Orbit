@@ -1,11 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
-import type { section } from "@/lib/db/schema";
-import { getDb } from "@/lib/db/client";
 import {
   createCustomSection,
   deleteCustomSection,
@@ -13,9 +9,8 @@ import {
   // Aliased: the action below owns the name `renameSection` in this module.
   renameSection as renameSectionService,
 } from "@/lib/services/sections";
-import { requireVerifiedSession } from "@/lib/session";
 
-import { toActionError, type ActionResult } from "./result";
+import { defineAction } from "./define-action";
 
 const createSectionInputSchema = z
   .object({
@@ -53,96 +48,54 @@ export type RenameSectionInput = z.input<typeof renameSectionInputSchema>;
 export type ReorderSectionsInput = z.input<typeof reorderSectionsInputSchema>;
 export type DeleteSectionInput = z.input<typeof deleteSectionInputSchema>;
 
-type SectionRow = typeof section.$inferSelect;
-
 /**
  * Creates a custom Section (tasks, notes, or mixed) after the existing
  * Sections. System Daily and Monthlies are fixed and cannot be recreated.
  */
-export async function createSection(
-  input: unknown,
-): Promise<ActionResult<SectionRow>> {
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = createSectionInputSchema.parse(input);
-    const created = await createCustomSection(getDb(), {
-      userId: session.user.id,
+export const createSection = defineAction(
+  createSectionInputSchema,
+  async (parsed, { userId, db }) =>
+    createCustomSection(db, {
+      userId,
       spaceId: parsed.spaceId,
       name: parsed.name,
       kind: parsed.kind,
-    });
-
-    revalidatePath(APP_PATH);
-    return { ok: true, data: created };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+    }),
+);
 
 /** Renames a custom Section. System Section names are fixed. */
-export async function renameSection(
-  input: unknown,
-): Promise<ActionResult<SectionRow>> {
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = renameSectionInputSchema.parse(input);
-    const renamed = await renameSectionService(getDb(), {
-      userId: session.user.id,
+export const renameSection = defineAction(
+  renameSectionInputSchema,
+  async (parsed, { userId, db }) =>
+    renameSectionService(db, {
+      userId,
       spaceId: parsed.spaceId,
       sectionId: parsed.sectionId,
       name: parsed.name,
-    });
-
-    revalidatePath(APP_PATH);
-    return { ok: true, data: renamed };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+    }),
+);
 
 /**
  * Applies one complete custom Section order. System Sections cannot be
  * included and remain at the top of the navigation.
  */
-export async function reorderSections(
-  input: unknown,
-): Promise<ActionResult<SectionRow[]>> {
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = reorderSectionsInputSchema.parse(input);
-    const ordered = await reorderCustomSections(getDb(), {
-      userId: session.user.id,
+export const reorderSections = defineAction(
+  reorderSectionsInputSchema,
+  async (parsed, { userId, db }) =>
+    reorderCustomSections(db, {
+      userId,
       spaceId: parsed.spaceId,
       sectionIds: parsed.sectionIds,
-    });
-
-    revalidatePath(APP_PATH);
-    return { ok: true, data: ordered };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+    }),
+);
 
 /** Deletes a custom Section; its content is removed by database cascade. */
-export async function deleteSection(
-  input: unknown,
-): Promise<ActionResult<SectionRow>> {
-  const session = await requireVerifiedSession();
-
-  try {
-    const parsed = deleteSectionInputSchema.parse(input);
-    const deleted = await deleteCustomSection(getDb(), {
-      userId: session.user.id,
+export const deleteSection = defineAction(
+  deleteSectionInputSchema,
+  async (parsed, { userId, db }) =>
+    deleteCustomSection(db, {
+      userId,
       spaceId: parsed.spaceId,
       sectionId: parsed.sectionId,
-    });
-
-    revalidatePath(APP_PATH);
-    return { ok: true, data: deleted };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
+    }),
+);

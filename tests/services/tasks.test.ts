@@ -215,6 +215,49 @@ describe("Task services", () => {
     expect(reopened.completedBy).toBeNull();
   });
 
+  it("reports TASK_NOT_FOUND from the write path for unknown Tasks", async () => {
+    const { space, editor } = await seedSpace();
+    const ghostTaskId = crypto.randomUUID();
+
+    for (const mutate of [completeTask, reopenTask, toggleTask]) {
+      await expect(
+        mutate(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          taskId: ghostTaskId,
+        }),
+      ).rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
+    }
+  });
+
+  it("accepts a prevalidated Section row and still rejects Task-incompatible ones", async () => {
+    const { space, editor, customTasks, notes } = await seedSpace();
+
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: customTasks.id,
+      section: customTasks,
+      title: "Fast path",
+    });
+    expect(created).toMatchObject({
+      sectionId: customTasks.id,
+      sectionKind: "tasks",
+    });
+
+    // A resolved row that does not match sectionId is ignored; the service
+    // re-queries and rejects the notes Section.
+    await expect(
+      createTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: notes.id,
+        section: customTasks,
+        title: "Mismatched",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_SECTION" });
+  });
+
   it("moves Tasks among Daily and custom task Sections, never to Monthlies or notes", async () => {
     const { space, sections, editor, customTasks, mixed, notes } = await seedSpace();
     const created = await createTask(testDb, {
