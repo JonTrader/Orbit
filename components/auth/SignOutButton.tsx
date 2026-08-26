@@ -15,8 +15,7 @@ export function SignOutButton() {
 
     try {
       await authClient.signOut();
-      router.replace(SIGN_IN_PATH);
-      router.refresh();
+      router.push(SIGN_IN_PATH);
     } catch {
       // The sidebar has nowhere to show a message; just allow another attempt.
       setPending(false);

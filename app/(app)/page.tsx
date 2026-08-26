@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/lib/db/client";
-import { spacePath } from "@/lib/space-paths";
+import { spaceSectionPath } from "@/lib/space-paths";
 import { listSpaces } from "@/lib/services/spaces";
 import { requireVerifiedSession } from "@/lib/session";
 
 /**
- * Entry route: forwards to the user's default Active Space. The (app) layout
- * guarantees the Personal Space exists before this runs.
+ * Entry route: forwards to the user's default Active Space, straight into its
+ * Upcoming view so no redirect page runs a second render pass. The (app)
+ * layout guarantees the Personal Space exists before this runs.
  */
 export default async function HomePage() {
   const session = await requireVerifiedSession();
@@ -18,5 +19,5 @@ export default async function HomePage() {
     throw new Error("No Spaces found for user after onboarding");
   }
 
-  redirect(spacePath(defaultSpace.id));
+  redirect(spaceSectionPath(defaultSpace.id, "upcoming"));
 }

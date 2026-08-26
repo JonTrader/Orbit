@@ -33,7 +33,6 @@ export function SignInForm() {
       if (!failure) {
         // Better Auth set the session cookie; let the server re-render the shell.
         router.replace(APP_PATH);
-        router.refresh();
         return;
       }
 

@@ -33,6 +33,18 @@ const echoAction = defineAction(
   }),
 );
 
+const SPACE_ID = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+
+const spaceScopedAction = defineAction(
+  z
+    .object({
+      spaceId: z.uuid(),
+      title: z.string().trim().min(1, "Title cannot be empty"),
+    })
+    .strict(),
+  async (parsed) => ({ title: parsed.title }),
+);
+
 const failingAction = defineAction(echoSchema, async () => {
   throw new Error("secret database DSN leaked");
 });
@@ -56,6 +68,25 @@ describe("defineAction", () => {
       data: { title: "Water plants", userId: "user-1", db: { marker: "test-db" } },
     });
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(
+      "/spaces/[spaceId]",
+      "layout",
+    );
+  });
+
+  it("revalidates the acting Space's layout when the schema carries spaceId", async () => {
+    authenticateAs("user-1");
+
+    const result = await spaceScopedAction({
+      spaceId: SPACE_ID,
+      title: "x",
+    });
+    expect(result.ok).toBe(true);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(
+      `/spaces/${SPACE_ID}`,
+      "layout",
+    );
+    expect(getRevalidatePathMock()).not.toHaveBeenCalledWith(
       "/spaces/[spaceId]",
       "layout",
     );

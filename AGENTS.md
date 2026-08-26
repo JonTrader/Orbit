@@ -16,46 +16,45 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
-- `lib/space-view.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route (404 on malformed ids); `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner). `getSpaceSections(spaceId)` is the React-cached Section read for Space views - the Space layout and Daily / Monthlies / Upcoming pages must call it instead of `listSections` directly, so layout + page share one query per render pass. It owns the failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect. Pages and layouts must use it instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas - it is the single session touchpoint for Space views; services keep their own membership checks for the API boundary. Tests: `tests/lib/space-view.test.ts`.
+- `lib/space-view.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/space-view.test.ts`.
+  - `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route; malformed ids 404.
+  - `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner).
+  - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. The layout and Daily / Monthlies / Upcoming pages call it instead of `listSections` directly so they share one query per render pass.
+  - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
+  - Pages and layouts must use this module instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
 
 ## Action layout
 
 - `lib/actions/` - web-only Server Actions (ADR 0005). Thin wrappers over `lib/services`; no business logic.
-- Every action is built by `defineAction(schema, handler)` from `lib/actions/define-action.ts`, which owns the frame: the verified-session guard runs OUTSIDE try/catch (its redirect propagates instead of becoming an error payload), schema parse maps to `VALIDATION_ERROR`, handlers receive `(parsed, { userId, db })`, success revalidates `SPACE_LAYOUT_PATTERN` as a layout, and thrown errors map through `toActionError`. Do not hand-roll that sequence in new actions.
-- Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`) so forms can render errors inline; error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
-- Action tests (`tests/actions/`) import `tests/setup/api-mocks.ts` then `tests/setup/action-mocks.ts` first (session/cache/mailer mocks), use `authenticateAs(userId)` for signed-in callers and `guardRedirectsTo(url)` to simulate unauthenticated/unverified ones, and assert `revalidatePath` calls; see `tests/actions/quick-add.test.ts` and the runner contract in `tests/actions/define-action.test.ts`.
-- Never give an action the exact export name of a service it calls. With `const x = defineAction(...)` factories a name collision is now a loud TDZ crash instead of silent recursion, but the aliasing convention stands (`renameSection as renameSectionService`).
+- Build every action with `defineAction(schema, handler)` from `lib/actions/define-action.ts`. It owns the verified-session guard, schema validation, `{ userId, db }` injection, Space layout revalidation, and error mapping. Do not hand-roll that sequence.
+- Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`). Error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
+- Action tests (`tests/actions/`) import `tests/setup/api-mocks.ts` then `tests/setup/action-mocks.ts` first, use `authenticateAs(userId)` for signed-in callers and `guardRedirectsTo(url)` for unauthenticated/unverified ones, and assert `revalidatePath` calls. See `tests/actions/quick-add.test.ts` and `tests/actions/define-action.test.ts`.
+- Avoid naming an action the same as the service function it wraps. Alias imports when needed (`renameSection as renameSectionService`).
 
 ## ID conventions
 
 App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
 
-## Testing (required per phase)
+## Testing
 
 Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
-When implementing **any** build phase (A-J):
+Prefer domain/service tests for business rules; keep Route Handlers and Server Actions thin. User-visible bugs get a Playwright repro when practical.
 
-1. Read the **Phase X** section for the phase you are shipping (stack, layout, and **What to test**).
-2. Implement those tests **in the same phase** as the feature code. Do not defer the suite to Phase J.
-3. Treat the phase as incomplete until Acceptance **and** that phase's "What to test" items are green (Phase C OAuth browser click-through may stay manual as noted in the plan).
-4. Keep earlier phases' suites passing; do not delete or skip B/D coverage when adding API or E2E later.
-5. Prefer domain/service tests for business rules; keep Route Handlers and Server Actions thin. From Phase G, user-visible bugs get a Playwright repro when practical.
-
-Stack (locked in the test plan): Vitest + real Neon Postgres via `DATABASE_URL_TEST` from Phase B; Playwright from Phase G. No SQLite stand-in.
+Stack: Vitest + real Neon Postgres via `DATABASE_URL_TEST`. No SQLite stand-in.
 
 ### Running the suite
 
 ```
 npm test          # everything
-npm run test:db   # Phase B db suite only
-npm run test:auth # Phase C auth suite only
+npm run test:db   # db suite only
+npm run test:auth # auth suite only
 npm run test:watch
 ```
 
-`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. `tests/setup/env.ts` requires the `DATABASE_URL_TEST_CONFIRMATION=dedicated-neon-branch` acknowledgement and refuses a missing, application-equal, or same-host-as-production URL. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch (CI uses `orbit-database-tests` concurrency group).
+`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. Test files share that one branch, so `vitest.config.mts` disables file parallelism and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch.
 
-Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`. `tests/db/migrations.test.ts` also verifies that the handwritten Section immutability and `updated_at` triggers survive migration.
+Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`.
 
 ### API test helpers
 
@@ -65,15 +64,7 @@ Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editi
 
 ## CI
 
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on push to `main`/`master` and on pull requests. Today: `lint` + `build` + `test`.
-
-- CI actions are pinned to majors that ship a Node 24 runtime (`actions/checkout@v5`, `actions/setup-node@v5`). The v4 majors run on the deprecated Node 20 runtime and GitHub flags them on every run.
-- The `test` job injects test-only env vars on top of the database URL: dummy `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Modules such as `lib/auth.ts` require config at import time outside the build phase, so the vars must be present even though auth is mocked in most tests. Keep them fake; never real credentials. API tests that import `@/lib/api` (the barrel re-exports `requireApiSession`, which loads the real auth chain) need these exported locally too. Tests that only exercise errors/validation helpers import `@/lib/api/errors` and `@/lib/api/validation` directly instead, so they never touch auth.
-- When adding tests, uncomment the matching job in that file (do not invent a second workflow):
-  - Phase B: **done** - `test` job is live; it needs GitHub secret `DATABASE_URL_TEST` (dedicated Neon ci branch, not production)
-  - Phase G: `e2e` job (`npx playwright install --with-deps chromium` then `npm run test:e2e`)
-  - Phase J: mark checks required; document secrets and how to run tests in README
-- CI and local dev both run Node 24 (npm 11) - keep them on the same major. Committed locks are npm 11 output by design; a failing `npx npm@10 ci` is expected optional-peer version skew, not a defect to repair. Never commit a lock produced with peer/optional resolution disabled (`--legacy-peer-deps`, `--omit=optional`). If the CI Node version ever changes, re-verify the lock with that version's npm before pushing.
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) defines the CI pipeline. When adding tests, enable the matching job in that file rather than creating a second workflow. The `test` job needs the GitHub secret `DATABASE_URL_TEST` (dedicated Neon branch, not production).
 
 ## Project status
 

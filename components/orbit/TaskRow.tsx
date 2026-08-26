@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useOptimistic, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 
@@ -14,7 +13,11 @@ interface TaskRowProps {
   canMutate: boolean;
 }
 
-/** One checklist row; the checkbox toggles completion in place. */
+/**
+ * One checklist row; the checkbox toggles completion in place. The row owns
+ * its completed state: it flips instantly on click and reconciles against
+ * the action's returned entity, so settling never waits for a re-render.
+ */
 export function TaskRow({
   spaceId,
   taskId,
@@ -23,23 +26,27 @@ export function TaskRow({
   completed,
   canMutate,
 }: TaskRowProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [saveFailed, setSaveFailed] = useState(false);
-  const [shownCompleted, setShownCompleted] = useOptimistic(completed);
+  const [shownCompleted, setShownCompleted] = useState(completed);
 
   function toggle() {
+    if (pending) return;
+    const optimistic = !shownCompleted;
+    setSaveFailed(false);
+    setShownCompleted(optimistic);
     startTransition(async () => {
-      setSaveFailed(false);
-      setShownCompleted(!completed);
       const result = await toggleComplete({
         spaceId,
         entity: "task",
         entityId: taskId,
       });
       if (result.ok) {
-        router.refresh();
+        if (result.data.entity === "task") {
+          setShownCompleted(result.data.task.completedAt !== null);
+        }
       } else {
+        setShownCompleted(!optimistic);
         setSaveFailed(true);
       }
     });

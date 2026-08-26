@@ -2,10 +2,6 @@
  * Route constants for the agenda UI. Free of server imports so client
  * components can build Active Space links from them.
  */
-export function spacePath(spaceId: string): string {
-  return `/spaces/${spaceId}`;
-}
-
 /** The fixed nav slugs for Upcoming, Daily, and Monthlies. */
 export type SystemSectionSlug = "upcoming" | "daily" | "monthlies";
 
@@ -14,6 +10,14 @@ export function spaceSectionPath(
   slug: SystemSectionSlug,
 ): string {
   return `/spaces/${spaceId}/${slug}`;
+}
+
+/**
+ * The bare Space layout URL. Server Actions revalidate this concrete path so
+ * a mutation refreshes only the Space it touched, never sibling Spaces.
+ */
+export function spaceLayoutPath(spaceId: string): string {
+  return `/spaces/${spaceId}`;
 }
 
 export function customSectionPath(

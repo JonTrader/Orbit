@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
 import type { SpaceNavItem } from "@/lib/space-nav";
-import { spacePath } from "@/lib/space-paths";
+import { spaceSectionPath } from "@/lib/space-paths";
 
 export interface AgendaShellUser {
   name: string;
@@ -79,7 +79,7 @@ export function AgendaShell({
             return (
               <Link
                 key={space.id}
-                href={spacePath(space.id)}
+                href={spaceSectionPath(space.id, "upcoming")}
                 className={[
                   "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[0.875rem] font-medium",
                   active

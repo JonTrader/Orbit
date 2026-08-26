@@ -1,7 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
+import { spaceLayoutPath } from "@/lib/space-paths";
 import { randomUUID } from "node:crypto";
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -93,7 +93,7 @@ describe("quickAdd action", () => {
     const rows = await testDb.select().from(task);
     expect(rows).toHaveLength(1);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
-    expect(getRevalidatePathMock()).toHaveBeenCalledWith(SPACE_LAYOUT_PATTERN, "layout");
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(spaceLayoutPath(s.spaceId), "layout");
   });
 
   it("creates a Task in a custom tasks Section", async () => {

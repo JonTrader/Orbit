@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { quickAdd } from "@/lib/actions/quick-add";
@@ -14,14 +13,17 @@ interface ComposeBarProps {
   requiresDueDay?: boolean;
 }
 
-/** Quick-add form targeting one Section of the Active Space. */
+/**
+ * Quick-add form targeting one Section of the Active Space. The input clears
+ * the moment the request goes out; a failure restores what was typed. The
+ * created row lands through the action's revalidation.
+ */
 export function ComposeBar({
   spaceId,
   sectionId,
   label,
   requiresDueDay = false,
 }: ComposeBarProps) {
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,19 +40,21 @@ export function ComposeBar({
       return;
     }
 
+    const submittedTitle = trimmed;
+    const submittedDueDay = dueDay;
+    setTitle("");
+    setDueDay("");
+    setError(null);
     startTransition(async () => {
       const result = await quickAdd({
         spaceId,
         sectionId,
-        title: trimmed,
+        title: submittedTitle,
         ...(requiresDueDay ? { dueDayOfMonth: parsedDueDay } : {}),
       });
-      if (result.ok) {
-        setTitle("");
-        setDueDay("");
-        setError(null);
-        router.refresh();
-      } else {
+      if (!result.ok) {
+        setTitle(submittedTitle);
+        setDueDay(submittedDueDay);
         setError(result.error.message);
       }
     });

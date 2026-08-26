@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useOptimistic, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 
@@ -27,7 +26,8 @@ function formatDueDate(nextDueOn: string): string {
 /**
  * One Monthly obligation. Completing finishes the current period and rolls
  * the next due forward, so the button is not a toggle: it acknowledges done
- * optimistically, then the refreshed row shows the advanced due date.
+ * instantly, then adopts the advanced due date from the action's returned
+ * entity without waiting for a re-render.
  */
 export function MonthlyRow({
   spaceId,
@@ -36,29 +36,34 @@ export function MonthlyRow({
   nextDueOn,
   canMutate,
 }: MonthlyRowProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [saveFailed, setSaveFailed] = useState(false);
-  const [shownCompleted, setShownCompleted] = useOptimistic(false);
+  const [dueOn, setDueOn] = useState(nextDueOn);
+  const [flashDone, setFlashDone] = useState(false);
 
   function complete() {
+    if (pending) return;
+    setSaveFailed(false);
+    setFlashDone(true);
     startTransition(async () => {
-      setSaveFailed(false);
-      setShownCompleted(true);
       const result = await toggleComplete({
         spaceId,
         entity: "monthly",
         entityId: monthlyId,
       });
       if (result.ok) {
-        router.refresh();
+        if (result.data.entity === "monthly") {
+          setDueOn(result.data.monthly.nextDueOn);
+        }
+        setFlashDone(false);
       } else {
+        setFlashDone(false);
         setSaveFailed(true);
       }
     });
   }
 
-  const done = pending && shownCompleted;
+  const done = flashDone;
 
   return (
     <div
@@ -77,7 +82,7 @@ export function MonthlyRow({
             done ? "text-teal" : "text-muted",
           ].join(" ")}
         >
-          due {formatDueDate(nextDueOn)}
+          due {formatDueDate(dueOn)}
         </span>
         {canMutate ? (
           <button

@@ -1,5 +1,3 @@
-"use client";
-
 import { createAuthClient } from "better-auth/react";
 
 /** Browser client; the base URL defaults to the current origin. */

@@ -91,6 +91,8 @@ export const quickAdd = defineAction(
             userId,
             spaceId: parsed.spaceId,
             sectionId: target.id,
+            // The switch already validated the kind; skip createTask's re-query.
+            section: target,
             title: parsed.title,
           }),
         };

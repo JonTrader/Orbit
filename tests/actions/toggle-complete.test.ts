@@ -1,7 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
+import { spaceLayoutPath } from "@/lib/space-paths";
 import { randomUUID } from "node:crypto";
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -122,7 +122,7 @@ describe("toggleComplete action", () => {
     expect(result.data.task.completedAt).not.toBeNull();
     expect(result.data.task.completedBy).toBe(s.editorId);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
-    expect(getRevalidatePathMock()).toHaveBeenCalledWith(SPACE_LAYOUT_PATTERN, "layout");
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(spaceLayoutPath(s.spaceId), "layout");
   });
 
   it("reopens a completed Task when toggled again", async () => {
