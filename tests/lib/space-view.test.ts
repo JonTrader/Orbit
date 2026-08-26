@@ -26,7 +26,7 @@ vi.mock("next/navigation", () => ({
   notFound: viewMocks.notFound,
 }));
 
-vi.mock("@/lib/session", () => ({
+vi.mock("@/lib/auth/session", () => ({
   requireVerifiedSession: viewMocks.requireVerifiedSession,
 }));
 

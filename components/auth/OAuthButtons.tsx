@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import type { OAuthProviderId } from "@/lib/oauth-providers";
+import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
+import type { OAuthProviderId } from "@/lib/auth/oauth";
 
 import { useAuthTheme } from "./theme";
 import { AuthPendingMark, FormMessage, oauthButtonClass } from "./ui";

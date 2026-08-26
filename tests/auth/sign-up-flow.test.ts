@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveAppAccess } from "@/lib/auth-access";
-import { APP_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
+import { resolveAppAccess } from "@/lib/auth/access";
+import { APP_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth/paths";
 import { section, session, user } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/mailer";
 import { ensurePersonalSpace } from "@/lib/onboarding";
@@ -17,7 +17,7 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   return { ...actual, getDb: () => db };
 });
 
-type Auth = (typeof import("@/lib/auth"))["auth"];
+type Auth = (typeof import("@/lib/auth/config"))["auth"];
 
 let auth: Auth;
 
@@ -64,7 +64,7 @@ describe("email/password sign-up", () => {
     await migrateTestDb();
     process.env.BETTER_AUTH_SECRET ??= "orbit-test-secret-value-0123456789";
     process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
-    ({ auth } = await import("@/lib/auth"));
+    ({ auth } = await import("@/lib/auth/config"));
   });
 
   beforeEach(async () => {

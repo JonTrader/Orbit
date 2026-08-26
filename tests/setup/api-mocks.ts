@@ -11,7 +11,7 @@ const apiMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/config", () => ({
   auth: {
     api: {
       getSession: apiMocks.getSession,

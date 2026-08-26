@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import { APP_PATH } from "@/lib/auth-paths";
+import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
+import { APP_PATH } from "@/lib/auth/paths";
 
 import { Field, FormMessage, SubmitButton } from "./ui";
 

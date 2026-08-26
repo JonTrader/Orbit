@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
+import { CHANGE_PASSWORD_PATH } from "@/lib/auth/paths";
 import type { SpaceNavItem } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
 

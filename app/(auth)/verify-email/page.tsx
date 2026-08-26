@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
 import { AuthCard, AuthLink } from "@/components/auth/ui";
-import { SIGN_IN_PATH } from "@/lib/auth-paths";
-import { getAppSession } from "@/lib/session";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
+import { getAppSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Verify your email · Orbit" };
 

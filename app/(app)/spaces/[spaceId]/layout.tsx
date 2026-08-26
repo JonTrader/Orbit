@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { SpaceLayout } from "@/components/orbit/SpaceLayout";
-import { hasCredentialAccount } from "@/lib/auth-access";
+import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/space-nav";
 import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";

@@ -12,7 +12,7 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   return { ...actual, getDb: () => testDb };
 });
 
-type Auth = (typeof import("@/lib/auth"))["auth"];
+type Auth = (typeof import("@/lib/auth/config"))["auth"];
 
 let auth: Auth;
 
@@ -36,7 +36,7 @@ describe("better auth configuration", () => {
     process.env.MICROSOFT_CLIENT_ID ??= "microsoft-test-client";
     process.env.MICROSOFT_CLIENT_SECRET ??= "microsoft-test-secret";
 
-    ({ auth } = await import("@/lib/auth"));
+    ({ auth } = await import("@/lib/auth/config"));
   });
 
   beforeEach(() => {

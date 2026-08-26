@@ -4,9 +4,9 @@ import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
-import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth-paths";
-import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
-import { redirectIfVerified } from "@/lib/session";
+import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth/paths";
+import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
+import { redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Sign in · Orbit" };
 

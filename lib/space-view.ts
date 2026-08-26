@@ -3,12 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
+import { APP_PATH } from "@/lib/auth/paths";
 import { findMembership } from "@/lib/authz/require-membership";
 import { getDb } from "@/lib/db/client";
 import { space, type SpaceRole } from "@/lib/db/schema";
 import { listSections } from "@/lib/services/sections";
-import { requireVerifiedSession } from "@/lib/session";
+import { requireVerifiedSession } from "@/lib/auth/session";
 
 export const spaceIdParamsSchema = z
   .object({

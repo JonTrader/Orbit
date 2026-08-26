@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
+import { resetPasswordFragmentUrl } from "@/lib/auth/paths";
 
 describe("reset password URL", () => {
   it("moves a Better Auth path token into a fragment", () => {

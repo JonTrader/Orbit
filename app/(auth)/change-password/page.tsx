@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { AuthLayoutBurner } from "@/components/auth/AuthLayoutBurner";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { AuthCard, AuthLink } from "@/components/auth/ui";
-import { APP_PATH } from "@/lib/auth-paths";
-import { requireCredentialSession } from "@/lib/session";
+import { APP_PATH } from "@/lib/auth/paths";
+import { requireCredentialSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Change password · Orbit" };
 

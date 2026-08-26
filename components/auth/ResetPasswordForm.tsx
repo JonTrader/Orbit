@@ -9,9 +9,9 @@ import {
   type FormEvent,
 } from "react";
 
-import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "@/lib/auth-paths";
-import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
+import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
+import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "@/lib/auth/paths";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 import { AuthLink, Field, FormMessage, SubmitButton } from "./ui";
 
 function createResetTokenStore() {

@@ -6,8 +6,8 @@ import {
   CREDENTIAL_PROVIDER_ID,
   hasCredentialAccount,
   resolveAppAccess,
-} from "@/lib/auth-access";
-import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
+} from "@/lib/auth/access";
+import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth/paths";
 import { account } from "@/lib/db/schema";
 
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";

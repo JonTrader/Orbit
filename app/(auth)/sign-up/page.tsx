@@ -4,9 +4,9 @@ import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
-import { SIGN_IN_PATH } from "@/lib/auth-paths";
-import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
-import { redirectIfVerified } from "@/lib/session";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
+import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
+import { redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Create an account · Orbit" };
 

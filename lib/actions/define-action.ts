@@ -3,7 +3,7 @@ import type { z } from "zod";
 
 import { getDb, type OrbitDb } from "@/lib/db/client";
 import { spaceLayoutPath, SPACE_LAYOUT_PATTERN } from "@/lib/space-paths";
-import { requireVerifiedSession } from "@/lib/session";
+import { requireVerifiedSession } from "@/lib/auth/session";
 
 import { toActionError, type ActionResult } from "./result";
 
