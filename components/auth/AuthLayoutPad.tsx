@@ -71,7 +71,7 @@ function PadItem({
   );
 }
 
-export function AuthPadShell({ children }: { children: ReactNode }) {
+export function AuthLayoutPad({ children }: { children: ReactNode }) {
   return (
     <AuthThemeProvider theme="pad">
       <div className="auth-pad min-h-screen bg-(--auth-linen) font-sans text-(--auth-ink)">

@@ -9,35 +9,35 @@ import { CHANGE_PASSWORD_PATH } from "@/lib/auth-paths";
 import type { SpaceNavItem } from "@/lib/space-nav";
 import { spaceSectionPath } from "@/lib/space-paths";
 
-export interface AgendaShellUser {
+export interface SpaceLayoutUser {
   name: string;
   email: string;
   canChangePassword: boolean;
 }
 
-export interface AgendaShellSpace {
+export interface SpaceLayoutSpace {
   id: string;
   name: string;
 }
 
-export interface AgendaShellProps {
-  user?: AgendaShellUser;
+export interface SpaceLayoutProps {
+  user?: SpaceLayoutUser;
   /** The Space every nested view is scoped to. */
-  activeSpace: AgendaShellSpace;
+  activeSpace: SpaceLayoutSpace;
   /** Every Space the user belongs to, in creation order. */
-  spaces: AgendaShellSpace[];
+  spaces: SpaceLayoutSpace[];
   /** Nav entries in fixed order: Upcoming, Daily, Monthlies, customs. */
   navItems: SpaceNavItem[];
   children?: ReactNode;
 }
 
-export function AgendaShell({
+export function SpaceLayout({
   user,
   activeSpace,
   spaces,
   navItems,
   children,
-}: AgendaShellProps) {
+}: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const current = navItems.find((item) => item.href === pathname);

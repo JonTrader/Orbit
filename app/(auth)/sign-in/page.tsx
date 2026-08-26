@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AuthPadShell } from "@/components/auth/AuthPadShell";
+import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
@@ -15,7 +15,7 @@ export default async function SignInPage() {
   const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
-    <AuthPadShell>
+    <AuthLayoutPad>
       <AuthCard
         title="Sign in"
         intro="The household list without the fridge magnets. Daily and Monthlies, in one Space."
@@ -38,6 +38,6 @@ export default async function SignInPage() {
           ) : null}
         </div>
       </AuthCard>
-    </AuthPadShell>
+    </AuthLayoutPad>
   );
 }

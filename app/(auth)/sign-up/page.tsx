@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AuthPadShell } from "@/components/auth/AuthPadShell";
+import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
@@ -15,7 +15,7 @@ export default async function SignUpPage() {
   const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
-    <AuthPadShell>
+    <AuthLayoutPad>
       <AuthCard
         title="Create your account"
         intro="You start with a Personal Space. Invite the household onto the same list later."
@@ -36,6 +36,6 @@ export default async function SignUpPage() {
           ) : null}
         </div>
       </AuthCard>
-    </AuthPadShell>
+    </AuthLayoutPad>
   );
 }

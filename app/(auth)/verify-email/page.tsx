@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AuthPadShell } from "@/components/auth/AuthPadShell";
+import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
 import { AuthCard, AuthLink } from "@/components/auth/ui";
 import { SIGN_IN_PATH } from "@/lib/auth-paths";
@@ -20,7 +20,7 @@ export default async function VerifyEmailPage({
   const address = email ?? session?.user.email;
 
   return (
-    <AuthPadShell>
+    <AuthLayoutPad>
       <AuthCard
         title="Verify your email"
         intro="Open the link to unlock your Spaces."
@@ -32,6 +32,6 @@ export default async function VerifyEmailPage({
       >
         <ResendVerification email={address} />
       </AuthCard>
-    </AuthPadShell>
+    </AuthLayoutPad>
   );
 }

@@ -22,7 +22,7 @@ function BurnerRings() {
   );
 }
 
-export function AuthBurnerShell({ children }: { children: ReactNode }) {
+export function AuthLayoutBurner({ children }: { children: ReactNode }) {
   return (
     <AuthThemeProvider theme="burner">
       <div

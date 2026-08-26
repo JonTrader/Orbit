@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AuthBurnerShell } from "@/components/auth/AuthBurnerShell";
+import { AuthLayoutBurner } from "@/components/auth/AuthLayoutBurner";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
 import { AuthCard, AuthLink } from "@/components/auth/ui";
 import { SIGN_IN_PATH } from "@/lib/auth-paths";
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthBurnerShell>
+    <AuthLayoutBurner>
       <AuthCard
         title="Set a new password"
         intro="Choose a new password to get back into Orbit."
@@ -24,6 +24,6 @@ export default function ResetPasswordPage() {
       >
         <ResetPasswordForm />
       </AuthCard>
-    </AuthBurnerShell>
+    </AuthLayoutBurner>
   );
 }

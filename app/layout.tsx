@@ -29,9 +29,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      className={`${instrumentSans.variable} ${ibmPlexMono.variable} antialiased`}
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
