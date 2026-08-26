@@ -3,7 +3,7 @@ import {
   customSectionPath,
   spaceSectionPath,
   type SystemSectionSlug,
-} from "@/lib/space-paths";
+} from "./paths";
 
 type SectionRow = typeof section.$inferSelect;
 

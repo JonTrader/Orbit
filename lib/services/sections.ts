@@ -1,6 +1,6 @@
 import { asc, and, desc, eq } from "drizzle-orm";
 
-import { requireMembership } from "@/lib/authz/require-membership";
+import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { section, type SectionKind } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";

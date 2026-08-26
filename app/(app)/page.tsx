@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getDb } from "@/lib/db/client";
-import { spaceSectionPath } from "@/lib/space-paths";
+import { spaceSectionPath } from "@/lib/spaces/paths";
 import { listSpaces } from "@/lib/services/spaces";
 import { requireVerifiedSession } from "@/lib/auth/session";
 

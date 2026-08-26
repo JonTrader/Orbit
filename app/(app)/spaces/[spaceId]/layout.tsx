@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import { SpaceLayout } from "@/components/orbit/SpaceLayout";
 import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/space-nav";
-import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
+import { buildSpaceNav } from "@/lib/spaces/nav";
+import { resolveSpaceContext } from "@/lib/spaces/params";
+import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listSpaces } from "@/lib/services/spaces";
 
 interface SpaceRouteLayoutProps {

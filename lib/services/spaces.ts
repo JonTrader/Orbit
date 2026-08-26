@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 
-import { requireMembership } from "@/lib/authz/require-membership";
+import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
 import {
   DEFAULT_SPACE_TIMEZONE,

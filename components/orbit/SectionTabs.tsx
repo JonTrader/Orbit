@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { SpaceNavItem } from "@/lib/space-nav";
+import type { SpaceNavItem } from "@/lib/spaces/nav";
 
 interface SectionTabsProps {
   items: SpaceNavItem[];

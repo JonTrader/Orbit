@@ -38,11 +38,8 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   };
 });
 
-import {
-  getSpaceSections,
-  getSpaceViewer,
-  resolveSpaceContext,
-} from "@/lib/space-view";
+import { resolveSpaceContext } from "@/lib/spaces/params";
+import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 /** Points the mocked session guard at one verified Viewer. */
 function authenticateAs(userId: string, name = "Jonathan"): void {

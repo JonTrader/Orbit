@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
-import { MembershipError } from "@/lib/authz";
+import { MembershipError } from "@/lib/spaces/membership";
 import {
   apiErrorResponse,
   type ApiErrorPayload,

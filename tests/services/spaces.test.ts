@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { MembershipError } from "@/lib/authz";
+import { MembershipError } from "@/lib/spaces/membership";
 import { DEFAULT_SPACE_TIMEZONE } from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
 import {

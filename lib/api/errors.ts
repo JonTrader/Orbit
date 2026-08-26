@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { MembershipError } from "@/lib/authz";
+import { MembershipError } from "@/lib/spaces/membership";
 import { DomainError } from "@/lib/domain-error";
 
 export type ApiErrorStatus = 400 | 401 | 403 | 404 | 409 | 410 | 500;

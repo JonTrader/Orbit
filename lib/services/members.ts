@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
-import { requireMembership } from "@/lib/authz/require-membership";
+import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
 import { invite, spaceMember, user, type SpaceRole } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
