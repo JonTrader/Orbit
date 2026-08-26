@@ -8,7 +8,7 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   return { ...actual, getDb: () => testDb };
 });
 
-type Auth = (typeof import("@/lib/auth"))["auth"];
+type Auth = (typeof import("@/lib/auth/config"))["auth"];
 
 let auth: Auth;
 
@@ -21,7 +21,7 @@ describe("OAuth configuration", () => {
     vi.stubEnv("MICROSOFT_CLIENT_ID", "");
     vi.stubEnv("MICROSOFT_CLIENT_SECRET", "");
 
-    ({ auth } = await import("@/lib/auth"));
+    ({ auth } = await import("@/lib/auth/config"));
   });
 
   afterAll(() => {

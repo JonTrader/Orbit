@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AuthThemeProvider } from "./theme";
+import { AuthThemeProvider } from "@/components/auth/kit/AuthThemeProvider";
 
 function BurnerRings() {
   return (
@@ -22,7 +22,7 @@ function BurnerRings() {
   );
 }
 
-export function AuthBurnerShell({ children }: { children: ReactNode }) {
+export function AuthLayoutBurner({ children }: { children: ReactNode }) {
   return (
     <AuthThemeProvider theme="burner">
       <div

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
-import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import { APP_PATH } from "@/lib/auth-paths";
+import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
+import { APP_PATH } from "@/lib/auth/paths";
 
-import { Field, FormMessage, SubmitButton } from "./ui";
+import { Field } from "@/components/auth/kit/AuthField";
+import { FormMessage } from "@/components/auth/kit/FormMessage";
+import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
 export function ResendVerification({ email }: { email?: string }) {
   const [pending, setPending] = useState(false);

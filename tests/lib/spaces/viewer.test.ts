@@ -3,8 +3,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { spaceMember, type SpaceRole } from "@/lib/db/schema";
 import { createSpace } from "@/lib/services/spaces";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
-import { createUser } from "../setup/fixtures";
+import { migrateTestDb, testDb, truncateAll } from "../../setup/db";
+import { createUser } from "../../setup/fixtures";
 
 class RedirectedError extends Error {
   constructor(readonly url: string) {
@@ -26,7 +26,7 @@ vi.mock("next/navigation", () => ({
   notFound: viewMocks.notFound,
 }));
 
-vi.mock("@/lib/session", () => ({
+vi.mock("@/lib/auth/session", () => ({
   requireVerifiedSession: viewMocks.requireVerifiedSession,
 }));
 
@@ -38,11 +38,8 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   };
 });
 
-import {
-  getSpaceSections,
-  getSpaceViewer,
-  resolveSpaceContext,
-} from "@/lib/space-view";
+import { resolveSpaceContext } from "@/lib/spaces/params";
+import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 /** Points the mocked session guard at one verified Viewer. */
 function authenticateAs(userId: string, name = "Jonathan"): void {

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
-import { AuthBurnerShell } from "@/components/auth/AuthBurnerShell";
+import { AuthLayoutBurner } from "@/components/auth/AuthLayoutBurner";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
-import { AuthCard, AuthLink } from "@/components/auth/ui";
-import { APP_PATH } from "@/lib/auth-paths";
-import { requireCredentialSession } from "@/lib/session";
+import { AuthCard } from "@/components/auth/kit/AuthCard";
+import { AuthLink } from "@/components/auth/kit/AuthLink";
+import { APP_PATH } from "@/lib/auth/paths";
+import { requireCredentialSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Change password · Orbit" };
 
@@ -12,7 +13,7 @@ export default async function ChangePasswordPage() {
   await requireCredentialSession();
 
   return (
-    <AuthBurnerShell>
+    <AuthLayoutBurner>
       <AuthCard
         title="Change password"
         intro="Confirm it's you, then choose a new one."
@@ -24,6 +25,6 @@ export default async function ChangePasswordPage() {
       >
         <ChangePasswordForm />
       </AuthCard>
-    </AuthBurnerShell>
+    </AuthLayoutBurner>
   );
 }

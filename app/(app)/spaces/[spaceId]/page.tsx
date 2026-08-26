@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { spaceSectionPath } from "@/lib/space-paths";
-import { resolveSpaceContext } from "@/lib/space-view";
+import { spaceSectionPath } from "@/lib/spaces/paths";
+import { resolveSpaceContext } from "@/lib/spaces/params";
 
 interface SpaceIndexPageProps {
   params: Promise<{ spaceId: string }>;

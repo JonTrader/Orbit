@@ -14,7 +14,7 @@ const actionMocks = vi.hoisted(() => ({
   sendEmail: vi.fn(),
 }));
 
-vi.mock("@/lib/session", () => ({
+vi.mock("@/lib/auth/session", () => ({
   requireVerifiedSession: actionMocks.requireVerifiedSession,
 }));
 

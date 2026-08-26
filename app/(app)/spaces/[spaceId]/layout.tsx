@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 
-import { AgendaShell } from "@/components/orbit/AgendaShell";
-import { hasCredentialAccount } from "@/lib/auth-access";
+import { SpaceLayout } from "@/components/orbit/SpaceLayout";
+import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/space-nav";
-import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
+import { buildSpaceNav } from "@/lib/spaces/nav";
+import { resolveSpaceContext } from "@/lib/spaces/params";
+import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listSpaces } from "@/lib/services/spaces";
 
-interface SpaceLayoutProps {
+interface SpaceRouteLayoutProps {
   children: ReactNode;
   params: Promise<{ spaceId: string }>;
 }
@@ -16,7 +17,7 @@ interface SpaceLayoutProps {
  * Chrome for the Active Space: the Viewer is resolved here once, so every
  * nested section view can trust the Space scope and focus on its content.
  */
-export default async function SpaceLayout({ children, params }: SpaceLayoutProps) {
+export default async function SpaceRouteLayout({ children, params }: SpaceRouteLayoutProps) {
   const spaceId = await resolveSpaceContext(params);
   const viewer = await getSpaceViewer(spaceId);
   const db = getDb();
@@ -28,7 +29,7 @@ export default async function SpaceLayout({ children, params }: SpaceLayoutProps
   ]);
 
   return (
-    <AgendaShell
+    <SpaceLayout
       user={{
         name: viewer.user.name,
         email: viewer.user.email,
@@ -39,6 +40,6 @@ export default async function SpaceLayout({ children, params }: SpaceLayoutProps
       navItems={buildSpaceNav(spaceId, sections)}
     >
       {children}
-    </AgendaShell>
+    </SpaceLayout>
   );
 }

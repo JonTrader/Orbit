@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { invite } from "@/lib/db/schema";
 import { inviteMember } from "@/lib/services/members";
 
-import { defineAction } from "./define-action";
+import { defineAction } from "./framework";
 import type { ActionResult } from "./result";
 
 const sendInviteInputSchema = z

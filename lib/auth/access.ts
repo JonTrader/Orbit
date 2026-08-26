@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
-import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth-paths";
+import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from "@/lib/auth/paths";
 import type { OrbitDb } from "@/lib/db/client";
 import { account } from "@/lib/db/schema";
 

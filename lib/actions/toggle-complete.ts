@@ -6,7 +6,7 @@ import type { monthly, task } from "@/lib/db/schema";
 import { completeMonthly } from "@/lib/services/monthlies";
 import { toggleTask } from "@/lib/services/tasks";
 
-import { defineAction } from "./define-action";
+import { defineAction } from "./framework";
 import type { ActionResult } from "./result";
 
 const toggleCompleteInputSchema = z

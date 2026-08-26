@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AuthThemeProvider } from "./theme";
+import { AuthThemeProvider } from "@/components/auth/kit/AuthThemeProvider";
 
 function HouseholdPad() {
   return (
@@ -71,7 +71,7 @@ function PadItem({
   );
 }
 
-export function AuthPadShell({ children }: { children: ReactNode }) {
+export function AuthLayoutPad({ children }: { children: ReactNode }) {
   return (
     <AuthThemeProvider theme="pad">
       <div className="auth-pad min-h-screen bg-(--auth-linen) font-sans text-(--auth-ink)">

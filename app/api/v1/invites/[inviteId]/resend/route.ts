@@ -1,8 +1,6 @@
-import {
-  apiErrorResponse,
-  readRouteParams,
-  requireApiSession,
-} from "@/lib/api";
+import { requireApiSession } from "@/lib/rest-api/auth";
+import { apiErrorResponse } from "@/lib/rest-api/errors";
+import { readRouteParams } from "@/lib/rest-api/validation";
 import { getDb } from "@/lib/db/client";
 import { resendInvite } from "@/lib/services/members";
 

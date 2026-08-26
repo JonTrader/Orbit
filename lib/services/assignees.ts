@@ -1,4 +1,4 @@
-import { findMembership } from "@/lib/authz/require-membership";
+import { findMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
 
 const INVALID_ASSIGNEE_MESSAGE = "Assignee must be a Member of this Space";

@@ -2,13 +2,13 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/config";
 import {
   hasCredentialAccount,
   resolveAppAccess,
   type AppAccess,
-} from "@/lib/auth-access";
-import { APP_PATH } from "@/lib/auth-paths";
+} from "@/lib/auth/access";
+import { APP_PATH } from "@/lib/auth/paths";
 import { getDb } from "@/lib/db/client";
 import { TIMEZONE_COOKIE, normalizeTimeZone } from "@/lib/timezone";
 

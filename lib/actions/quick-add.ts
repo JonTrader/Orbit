@@ -8,7 +8,7 @@ import { createNote } from "@/lib/services/notes";
 import { listSections, SectionError } from "@/lib/services/sections";
 import { createTask } from "@/lib/services/tasks";
 
-import { defineAction } from "./define-action";
+import { defineAction } from "./framework";
 import type { ActionResult } from "./result";
 
 const quickAddInputSchema = z

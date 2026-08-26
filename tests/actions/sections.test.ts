@@ -1,7 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath } from "@/lib/space-paths";
+import { spaceLayoutPath } from "@/lib/spaces/paths";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 

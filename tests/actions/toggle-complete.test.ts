@@ -1,7 +1,7 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath } from "@/lib/space-paths";
+import { spaceLayoutPath } from "@/lib/spaces/paths";
 import { randomUUID } from "node:crypto";
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";

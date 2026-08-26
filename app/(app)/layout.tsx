@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { getDb } from "@/lib/db/client";
 import { ensurePersonalSpace } from "@/lib/onboarding";
-import { readCreatorTimeZone, requireVerifiedSession } from "@/lib/session";
+import { readCreatorTimeZone, requireVerifiedSession } from "@/lib/auth/session";
 
 /**
  * Onboarding gate for the app shell. Pages re-check the session themselves,

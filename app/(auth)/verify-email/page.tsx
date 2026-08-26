@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
-import { AuthPadShell } from "@/components/auth/AuthPadShell";
+import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
-import { AuthCard, AuthLink } from "@/components/auth/ui";
-import { SIGN_IN_PATH } from "@/lib/auth-paths";
-import { getAppSession } from "@/lib/session";
+import { AuthCard } from "@/components/auth/kit/AuthCard";
+import { AuthLink } from "@/components/auth/kit/AuthLink";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
+import { getAppSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Verify your email · Orbit" };
 
@@ -20,7 +21,7 @@ export default async function VerifyEmailPage({
   const address = email ?? session?.user.email;
 
   return (
-    <AuthPadShell>
+    <AuthLayoutPad>
       <AuthCard
         title="Verify your email"
         intro="Open the link to unlock your Spaces."
@@ -32,6 +33,6 @@ export default async function VerifyEmailPage({
       >
         <ResendVerification email={address} />
       </AuthCard>
-    </AuthPadShell>
+    </AuthLayoutPad>
   );
 }

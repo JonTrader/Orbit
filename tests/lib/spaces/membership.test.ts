@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { MembershipError, requireMembership } from "@/lib/authz";
+import { MembershipError, requireMembership } from "@/lib/spaces/membership";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { spaceMember } from "@/lib/db/schema";
 

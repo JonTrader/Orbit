@@ -1,30 +1,14 @@
 import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { z } from "zod";
 
-import { APP_PATH } from "@/lib/auth-paths";
-import { findMembership } from "@/lib/authz/require-membership";
+import { APP_PATH } from "@/lib/auth/paths";
 import { getDb } from "@/lib/db/client";
 import { space, type SpaceRole } from "@/lib/db/schema";
 import { listSections } from "@/lib/services/sections";
-import { requireVerifiedSession } from "@/lib/session";
+import { requireVerifiedSession } from "@/lib/auth/session";
 
-export const spaceIdParamsSchema = z
-  .object({
-    spaceId: z.uuid(),
-  })
-  .strict();
-
-/**
- * Parses `[spaceId]` route params for every Space view. Accepts the params
- * promise or its awaited value; a malformed Space id is a 404, not an error.
- */
-export async function resolveSpaceContext(params: unknown): Promise<string> {
-  const parsed = spaceIdParamsSchema.safeParse(await params);
-  if (!parsed.success) notFound();
-  return parsed.data.spaceId;
-}
+import { findMembership } from "./membership";
 
 export interface SpaceViewerCapabilities {
   /** Editor or Owner: compose, complete/reopen, Notes, custom Sections. */

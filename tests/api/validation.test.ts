@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
-import { MembershipError } from "@/lib/authz";
+import { MembershipError } from "@/lib/spaces/membership";
 import {
   apiErrorResponse,
   type ApiErrorPayload,
-} from "@/lib/api/errors";
-import { parseJsonBody, parseSearchParams } from "@/lib/api/validation";
+} from "@/lib/rest-api/errors";
+import { parseJsonBody, parseSearchParams } from "@/lib/rest-api/validation";
 import { MemberError } from "@/lib/services/members";
 import { TaskError } from "@/lib/services/tasks";
 

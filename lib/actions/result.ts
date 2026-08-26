@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatZodIssues, type ApiValidationIssue } from "@/lib/api/errors";
+import { formatZodIssues, type ApiValidationIssue } from "@/lib/rest-api/errors";
 import { DomainError } from "@/lib/domain-error";
 
 export interface ActionErrorBody {

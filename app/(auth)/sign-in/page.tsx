@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
-import { AuthPadShell } from "@/components/auth/AuthPadShell";
+import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { SignInForm } from "@/components/auth/SignInForm";
-import { AuthCard, AuthLink, Divider } from "@/components/auth/ui";
-import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth-paths";
-import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
-import { redirectIfVerified } from "@/lib/session";
+import { AuthCard } from "@/components/auth/kit/AuthCard";
+import { AuthLink } from "@/components/auth/kit/AuthLink";
+import { Divider } from "@/components/auth/kit/Divider";
+import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth/paths";
+import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
+import { redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Sign in · Orbit" };
 
@@ -15,7 +17,7 @@ export default async function SignInPage() {
   const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
-    <AuthPadShell>
+    <AuthLayoutPad>
       <AuthCard
         title="Sign in"
         intro="The household list without the fridge magnets. Daily and Monthlies, in one Space."
@@ -38,6 +40,6 @@ export default async function SignInPage() {
           ) : null}
         </div>
       </AuthCard>
-    </AuthPadShell>
+    </AuthLayoutPad>
   );
 }

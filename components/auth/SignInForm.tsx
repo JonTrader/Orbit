@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth-client";
-import { APP_PATH, verifyEmailPath } from "@/lib/auth-paths";
+import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
+import { APP_PATH, verifyEmailPath } from "@/lib/auth/paths";
 
-import { Field, FormMessage, SubmitButton } from "./ui";
+import { Field } from "@/components/auth/kit/AuthField";
+import { FormMessage } from "@/components/auth/kit/FormMessage";
+import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
 const EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
 

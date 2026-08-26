@@ -5,9 +5,10 @@ import { ComposeBar } from "@/components/orbit/ComposeBar";
 import { SectionTabs } from "@/components/orbit/SectionTabs";
 import { TaskRow } from "@/components/orbit/TaskRow";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/space-nav";
-import { spaceSectionPath } from "@/lib/space-paths";
-import { getSpaceSections, getSpaceViewer, resolveSpaceContext } from "@/lib/space-view";
+import { buildSpaceNav } from "@/lib/spaces/nav";
+import { spaceSectionPath } from "@/lib/spaces/paths";
+import { resolveSpaceContext } from "@/lib/spaces/params";
+import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listTasks } from "@/lib/services/tasks";
 
 interface DailyPageProps {

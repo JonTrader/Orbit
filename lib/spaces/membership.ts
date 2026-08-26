@@ -41,25 +41,6 @@ export interface RequireMembershipInput extends MembershipLookupInput {
   minimumRole?: MinimumMembershipRole;
 }
 
-async function queryMembership(
-  db: OrbitDb,
-  userId: string,
-  spaceId: string,
-): Promise<typeof spaceMember.$inferSelect | undefined> {
-  const [membership] = await db
-    .select()
-    .from(spaceMember)
-    .where(
-      and(
-        eq(spaceMember.spaceId, spaceId),
-        eq(spaceMember.userId, userId),
-      ),
-    )
-    .limit(1);
-
-  return membership;
-}
-
 /**
  * Finds a Member row without applying a minimum role requirement.
  *
@@ -71,7 +52,26 @@ async function queryMembership(
  * Caveat: a flow that mutates membership and then re-reads it in the same
  * request would observe the pre-mutation row. No such flow exists today.
  */
-export const findMembership = cache(queryMembership);
+export const findMembership = cache(
+  async (
+    db: OrbitDb,
+    userId: string,
+    spaceId: string,
+  ): Promise<typeof spaceMember.$inferSelect | undefined> => {
+    const [membership] = await db
+      .select()
+      .from(spaceMember)
+      .where(
+        and(
+          eq(spaceMember.spaceId, spaceId),
+          eq(spaceMember.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    return membership;
+  },
+);
 
 /**
  * Returns the caller's Member row when they meet the minimum role for a Space.

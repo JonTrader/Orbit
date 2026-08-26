@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { authClient } from "@/lib/auth-client";
-import { SIGN_IN_PATH } from "@/lib/auth-paths";
+import { authClient } from "@/lib/auth/client";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
 
 export function SignOutButton() {
   const router = useRouter();

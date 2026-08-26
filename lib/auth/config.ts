@@ -3,14 +3,14 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 
 import { getDb, schema } from "@/lib/db/client";
-import { resetPasswordFragmentUrl } from "@/lib/auth-paths";
+import { resetPasswordFragmentUrl } from "@/lib/auth/paths";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
-} from "@/lib/email/auth-emails";
+} from "@/lib/email/templates/auth-emails";
 import { requireEnv } from "@/lib/env";
-import { getConfiguredOAuthProviderIds } from "@/lib/oauth-providers";
-import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
+import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 
 // Better Auth degrades quietly when these are missing: an unset secret falls
 // back to a published default outside production, and an unset base URL takes
