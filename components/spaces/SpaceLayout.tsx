@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 
+import { SectionTabs } from "./SectionTabs";
 import { SpaceSidebar } from "./SpaceSidebar";
 import type { SidebarFooterUser } from "./SidebarFooter";
 
@@ -99,6 +100,8 @@ export function SpaceLayout({
             Spaces
           </button>
         </div>
+
+        <SectionTabs items={navItems} />
 
         {children}
       </main>

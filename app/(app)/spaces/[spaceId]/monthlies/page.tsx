@@ -2,10 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { MonthlyRow } from "@/components/spaces/MonthlyRow";
-import { SectionTabs } from "@/components/spaces/SectionTabs";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/spaces/nav";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listMonthlies } from "@/lib/services/monthlies";
@@ -34,15 +31,8 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
     spaceId,
   });
 
-  const basePath = spaceSectionPath(spaceId, "monthlies");
-
   return (
     <>
-      <SectionTabs
-        items={buildSpaceNav(spaceId, sections)}
-        activeHref={basePath}
-      />
-
       <div className="overflow-hidden rounded border border-line bg-panel">
         <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
           Monthlies · {monthlies.length} tracked
