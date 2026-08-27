@@ -72,8 +72,13 @@ export function SpaceLayout({
       <main className="mx-auto w-full max-w-[720px] px-4 py-5 pb-16 sm:px-6 sm:py-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <header>
-            <div className="mb-1 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
-              Active Space · {activeSpace.name}
+            <div className="mb-1 flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
+              <span>Active Space · {activeSpace.name}</span>
+              {!canMutateContent ? (
+                <span className="rounded bg-line px-1.5 py-0.5 text-[0.6rem] font-bold tracking-[0.06em] text-muted">
+                  Read-only
+                </span>
+              ) : null}
             </div>
             <h1 className="text-[1.75rem] font-bold tracking-[-0.03em]">
               {current?.label ?? "Orbit"}

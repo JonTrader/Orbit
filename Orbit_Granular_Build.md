@@ -21,7 +21,7 @@ todos:
     content: "Phase F: Web-only Server Actions (F1-F4 complete: quickAdd, toggleComplete, Sections, sendInvite)"
     status: completed
   - id: G-ui
-    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G8 done, G9-G10 remain"
+    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G9 done, G10 remain"
     status: in_progress
   - id: H-sharing
     content: "Phase H: Invites + ownership transfer + RBAC audit"
@@ -343,7 +343,7 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 | **G6** | Custom **notes** Section view: list + edit (notes are plain text, no complete) | done |
 | **G7** | **Mixed** Section view: Tasks and Notes in one list | done |
 | **G8** | Add Section (name + kind) UI entry point | done |
-| **G9** | Read-only UI: disable mutations + badges | todo |
+| **G9** | Read-only UI: disable mutations + badges | done |
 | **G10** | Share bar: avatars, roles, invite entry point | todo |
 
 **Architecture notes for G5+ (things that changed since ui-wiring)**
