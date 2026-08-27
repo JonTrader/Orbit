@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection";
+import { NoteRow } from "@/components/spaces/NoteRow";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { resolveCustomSectionContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
+import { listNotes } from "@/lib/services/notes";
 import { listTasks } from "@/lib/services/tasks";
 
 import CustomSectionLoading from "./loading";
@@ -16,11 +18,11 @@ interface CustomSectionPageProps {
 }
 
 /**
- * Custom tasks Section view: checklist content in a user-created Section.
- * Completed Tasks stay completed until reopened and are hidden behind the
- * same show-completed control used by Daily.
+ * Custom Section view: dispatches by the Section's kind. Tasks Sections use
+ * the same checklist pattern as Daily; Notes Sections show plain-text Notes
+ * with inline editing. Mixed Sections are not implemented yet (G7).
  *
- * The task list streams in behind Suspense; the route's loading.tsx does
+ * The content streams in behind Suspense; the route's loading.tsx does
  * double duty as the fallback so there is one skeleton per route. The
  * compose bar rides inside the slot so it appears with the real panel.
  */
@@ -32,25 +34,39 @@ export default async function CustomSectionPage({
 
   const sections = await getSpaceSections(spaceId);
   const section = sections.find(
-    (row) => row.id === sectionId && !row.isSystem && row.kind === "tasks",
+    (row) => row.id === sectionId && !row.isSystem,
   );
   if (!section) notFound();
+
+  const kind = section.kind;
+  if (kind !== "tasks" && kind !== "notes") notFound();
 
   return (
     <>
       <Suspense fallback={<CustomSectionLoading />}>
-        <SectionTasks
-          userId={viewer.userId}
-          spaceId={spaceId}
-          sectionId={sectionId}
-          sectionName={section.name}
-          canMutate={viewer.can.mutateContent}
-        />
+        {kind === "tasks" ? (
+          <SectionTasks
+            userId={viewer.userId}
+            spaceId={spaceId}
+            sectionId={sectionId}
+            sectionName={section.name}
+            canMutate={viewer.can.mutateContent}
+          />
+        ) : (
+          <SectionNotes
+            userId={viewer.userId}
+            spaceId={spaceId}
+            sectionId={sectionId}
+            sectionName={section.name}
+            canMutate={viewer.can.mutateContent}
+          />
+        )}
         {viewer.can.mutateContent ? (
           <ComposeBar
             spaceId={spaceId}
             sectionId={sectionId}
             label={`Add to ${section.name}`}
+            requiresBody={kind === "notes"}
           />
         ) : null}
       </Suspense>
@@ -122,5 +138,53 @@ async function SectionTasks({
         />
       ) : null}
     </>
+  );
+}
+
+interface SectionNotesProps {
+  userId: string;
+  spaceId: string;
+  sectionId: string;
+  sectionName: string;
+  canMutate: boolean;
+}
+
+/**
+ * One read lists all Notes in the Section. Notes have no completion state,
+ * so the panel is a simple list with inline editing.
+ */
+async function SectionNotes({
+  userId,
+  spaceId,
+  sectionId,
+  sectionName,
+  canMutate,
+}: SectionNotesProps) {
+  const notes = await listNotes(getDb(), { userId, spaceId, sectionId });
+
+  return (
+    <div className="overflow-hidden rounded border border-line bg-panel">
+      <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+        {sectionName} · {notes.length} {notes.length === 1 ? "note" : "notes"}
+      </div>
+      <div className="border-t border-line">
+        {notes.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
+            Nothing in {sectionName} yet.
+          </div>
+        ) : (
+          notes.map((note) => (
+            <NoteRow
+              key={note.id}
+              spaceId={spaceId}
+              noteId={note.id}
+              title={note.title}
+              body={note.body}
+              canMutate={canMutate}
+            />
+          ))
+        )}
+      </div>
+    </div>
   );
 }

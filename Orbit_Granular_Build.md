@@ -21,7 +21,7 @@ todos:
     content: "Phase F: Web-only Server Actions (F1-F4 complete: quickAdd, toggleComplete, Sections, sendInvite)"
     status: completed
   - id: G-ui
-    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G5 done, G6-G10 remain"
+    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G6 done, G7-G10 remain"
     status: in_progress
   - id: H-sharing
     content: "Phase H: Invites + ownership transfer + RBAC audit"
@@ -340,8 +340,8 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 | **G3** | Monthlies: list; complete rolls next due | done |
 | **G4** | Upcoming: read-only timeline; no compose | done |
 | **G5** | Custom **tasks** Section view: list + complete + compose (reuse `TaskRow`/`ComposeBar`) | done |
-| **G6** | Custom **notes** Section view: list + edit (notes are plain text, no complete) | todo |
-| **G7** | **Mixed** Section view: Tasks and Notes in one list | todo |
+| **G6** | Custom **notes** Section view: list + edit (notes are plain text, no complete) | done |
+| **G7** | **Mixed** Section view: Tasks and Notes in one list | todo - the page 404s `mixed` on purpose; Mixed Sections remain creatable via `/api/v1` and `quickAdd` until this lands, so the gap is API-reachable only |
 | **G8** | Add Section (name + kind) UI entry point | todo |
 | **G9** | Read-only UI: disable mutations + badges | todo |
 | **G10** | Share bar: avatars, roles, invite entry point | todo |
@@ -375,7 +375,7 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 
 - [x] Nav Upcoming → Daily → Monthlies → customs; no Shared (custom **tasks** Sections render as of G5; notes/mixed land in G6-G7)
 - [x] Active Space scopes all views
-- [ ] Custom section pages render Tasks/Notes/Mixed content (G5-G7)
+- [ ] Custom section pages render Tasks/Notes/Mixed content (G5-G7; Tasks and Notes render as of G5-G6, Mixed is G7)
 - [ ] Add Section flow creates usable Sections (G8)
 - [ ] Read-only member cannot mutate from UI (G9)
 - [ ] Share bar shows members; invite entry visible to Owner (G10)

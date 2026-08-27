@@ -137,6 +137,33 @@ describe("quickAdd action", () => {
     expect(rows).toHaveLength(1);
   });
 
+  it("creates a Note with a body when one is given", async () => {
+    const s = await seedSpace();
+    const [notesSection] = await testDb
+      .insert(section)
+      .values({
+        spaceId: s.spaceId,
+        name: "Ideas",
+        kind: "notes",
+        sortOrder: 3,
+      })
+      .returning();
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: notesSection.id,
+      title: "Trip ideas",
+      body: "Kyoto in the fall",
+    });
+
+    if (!result.ok || result.data.entity !== "note") {
+      throw new Error("Expected a created note");
+    }
+    expect(result.data.note.title).toBe("Trip ideas");
+    expect(result.data.note.body).toBe("Kyoto in the fall");
+  });
+
   it("creates a Monthly in the Monthlies Section when a due day is given", async () => {
     const s = await seedSpace();
     authenticateAs(s.ownerId);

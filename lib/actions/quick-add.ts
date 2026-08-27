@@ -16,6 +16,8 @@ const quickAddInputSchema = z
     spaceId: z.uuid(),
     sectionId: z.uuid(),
     title: z.string().trim().min(1, "Title cannot be empty"),
+    /** Optional body for Notes; Tasks and Monthlies ignore it. */
+    body: z.string().optional(),
     dueDayOfMonth: z
       .number()
       .int("Monthly due day must be an integer")
@@ -81,6 +83,7 @@ export const quickAdd = defineAction(
             spaceId: parsed.spaceId,
             sectionId: target.id,
             title: parsed.title,
+            body: parsed.body,
           }),
         };
       }

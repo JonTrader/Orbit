@@ -1,14 +1,14 @@
 /**
- * Streaming shell for a custom tasks Section view. Mirrors the panel anatomy -
- * section header and checklist rows - so a custom Section paints instantly
- * while its Tasks resolve.
+ * Streaming shell for a custom Section view. Mirrors the panel anatomy -
+ * section header and content rows - so any custom Section paints instantly
+ * while its items resolve.
  *
  * Purely presentational: no data access. The pulse is disabled globally for
  * reduced-motion users.
  */
 
-/** Varied row title widths so the checklist reads as content, not one slab. */
-const ROW_TITLE_WIDTHS = ["46%", "61%", "38%", "54%"];
+/** Varied row widths so the list reads as content, not one slab. */
+const ROW_WIDTHS = ["46%", "61%", "38%", "54%"];
 
 export default function CustomSectionLoading() {
   return (
@@ -22,7 +22,7 @@ export default function CustomSectionLoading() {
             <div className="h-2 w-28 rounded bg-line" />
           </div>
           <div className="border-t border-line">
-            {ROW_TITLE_WIDTHS.map((width, index) => (
+            {ROW_WIDTHS.map((width, index) => (
               <div
                 key={width}
                 className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
