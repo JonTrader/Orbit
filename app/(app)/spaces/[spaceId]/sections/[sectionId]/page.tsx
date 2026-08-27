@@ -6,6 +6,7 @@ import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection
 import { NoteRow } from "@/components/spaces/NoteRow";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
+import { note, task } from "@/lib/db/schema";
 import { resolveCustomSectionContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listNotes } from "@/lib/services/notes";
@@ -20,7 +21,7 @@ interface CustomSectionPageProps {
 /**
  * Custom Section view: dispatches by the Section's kind. Tasks Sections use
  * the same checklist pattern as Daily; Notes Sections show plain-text Notes
- * with inline editing. Mixed Sections are not implemented yet (G7).
+ * with inline editing; Mixed Sections show Tasks and Notes together.
  *
  * The content streams in behind Suspense; the route's loading.tsx does
  * double duty as the fallback so there is one skeleton per route. The
@@ -39,7 +40,7 @@ export default async function CustomSectionPage({
   if (!section) notFound();
 
   const kind = section.kind;
-  if (kind !== "tasks" && kind !== "notes") notFound();
+  if (kind !== "tasks" && kind !== "notes" && kind !== "mixed") notFound();
 
   return (
     <>
@@ -52,8 +53,16 @@ export default async function CustomSectionPage({
             sectionName={section.name}
             canMutate={viewer.can.mutateContent}
           />
-        ) : (
+        ) : kind === "notes" ? (
           <SectionNotes
+            userId={viewer.userId}
+            spaceId={spaceId}
+            sectionId={sectionId}
+            sectionName={section.name}
+            canMutate={viewer.can.mutateContent}
+          />
+        ) : (
+          <SectionMixed
             userId={viewer.userId}
             spaceId={spaceId}
             sectionId={sectionId}
@@ -62,12 +71,31 @@ export default async function CustomSectionPage({
           />
         )}
         {viewer.can.mutateContent ? (
-          <ComposeBar
-            spaceId={spaceId}
-            sectionId={sectionId}
-            label={`Add to ${section.name}`}
-            requiresBody={kind === "notes"}
-          />
+          kind === "mixed" ? (
+            // Each ComposeBar's own mt-3.5 provides the spacing, matching
+            // single-compose pages exactly.
+            <div className="flex flex-col">
+              <ComposeBar
+                spaceId={spaceId}
+                sectionId={sectionId}
+                label={`Add task to ${section.name}`}
+              />
+              <ComposeBar
+                spaceId={spaceId}
+                sectionId={sectionId}
+                label={`Add note to ${section.name}`}
+                requiresBody
+                asNote
+              />
+            </div>
+          ) : (
+            <ComposeBar
+              spaceId={spaceId}
+              sectionId={sectionId}
+              label={`Add to ${section.name}`}
+              requiresBody={kind === "notes"}
+            />
+          )
         ) : null}
       </Suspense>
     </>
@@ -186,5 +214,103 @@ async function SectionNotes({
         )}
       </div>
     </div>
+  );
+}
+
+interface SectionMixedProps {
+  userId: string;
+  spaceId: string;
+  sectionId: string;
+  sectionName: string;
+  canMutate: boolean;
+}
+
+type MixedItem =
+  | { kind: "task"; data: typeof task.$inferSelect }
+  | { kind: "note"; data: typeof note.$inferSelect };
+
+/**
+ * Mixed Section: open Tasks and Notes in one list, ordered like the tasks
+ * and notes views (`sortOrder`, then creation time), followed by completed
+ * Tasks behind the same show-completed control used by Daily. Each row
+ * renders with the component appropriate to its kind.
+ */
+async function SectionMixed({
+  userId,
+  spaceId,
+  sectionId,
+  sectionName,
+  canMutate,
+}: SectionMixedProps) {
+  const db = getDb();
+  const [tasks, notes] = await Promise.all([
+    listTasks(db, { userId, spaceId, sectionId }),
+    listNotes(db, { userId, spaceId, sectionId }),
+  ]);
+
+  const openTasks = tasks.filter((row) => !row.completedAt);
+  const completedTasks = tasks.filter((row) => row.completedAt);
+
+  const items: MixedItem[] = [
+    ...openTasks.map((task) => ({ kind: "task" as const, data: task })),
+    ...notes.map((note) => ({ kind: "note" as const, data: note })),
+  ].sort(
+    (a, b) =>
+      a.data.sortOrder - b.data.sortOrder ||
+      a.data.createdAt.getTime() - b.data.createdAt.getTime() ||
+      a.data.id.localeCompare(b.data.id),
+  );
+
+  return (
+    <>
+      <div className="overflow-hidden rounded border border-line bg-panel">
+        <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+          {sectionName} · {openTasks.length} open · {notes.length}{" "}
+          {notes.length === 1 ? "note" : "notes"}
+        </div>
+        <div className="border-t border-line">
+          {items.length === 0 ? (
+            <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
+              Nothing in {sectionName} yet.
+            </div>
+          ) : (
+            items.map((item) =>
+              item.kind === "task" ? (
+                <TaskRow
+                  key={item.data.id}
+                  spaceId={spaceId}
+                  taskId={item.data.id}
+                  title={item.data.title}
+                  dueOn={item.data.dueOn}
+                  completed={false}
+                  canMutate={canMutate}
+                />
+              ) : (
+                <NoteRow
+                  key={item.data.id}
+                  spaceId={spaceId}
+                  noteId={item.data.id}
+                  title={item.data.title}
+                  body={item.data.body}
+                  canMutate={canMutate}
+                />
+              ),
+            )
+          )}
+        </div>
+      </div>
+
+      {completedTasks.length > 0 ? (
+        <CompletedTasksSection
+          spaceId={spaceId}
+          tasks={completedTasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            dueOn: task.dueOn,
+          }))}
+          canMutate={canMutate}
+        />
+      ) : null}
+    </>
   );
 }

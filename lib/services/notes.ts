@@ -31,6 +31,13 @@ export interface ListNotesInput extends NoteAccessInput {
 
 export interface CreateNoteInput extends NoteAccessInput {
   sectionId: string;
+  /**
+   * Already-resolved target Section row. Callers that just validated the
+   * Section themselves (quick-add resolves it from the Space's Section list)
+   * pass it here to skip a redundant re-query; it must match `sectionId`,
+   * belong to the Space, and accept Notes, or the service re-validates.
+   */
+  section?: typeof section.$inferSelect;
   title: string;
   body?: string;
 }
@@ -80,11 +87,14 @@ export async function createNote(
 ): Promise<NoteRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
   const title = normalizeNoteTitle(input.title);
-  const targetSection = await findNoteSection(
-    db,
-    input.spaceId,
-    input.sectionId,
-  );
+  const resolved = input.section;
+  const targetSection =
+    resolved &&
+    resolved.id === input.sectionId &&
+    resolved.spaceId === input.spaceId &&
+    isNoteSectionKind(resolved.kind)
+      ? (resolved as typeof section.$inferSelect & { kind: NoteSectionKind })
+      : await findNoteSection(db, input.spaceId, input.sectionId);
 
   const [created] = await db
     .insert(note)

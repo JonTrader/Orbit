@@ -13,6 +13,11 @@ interface ComposeBarProps {
   requiresDueDay?: boolean;
   /** Notes take an optional plain-text body alongside the title. */
   requiresBody?: boolean;
+  /**
+   * For mixed Sections only: create a Note instead of the default Task.
+   * Ignored for other Section kinds.
+   */
+  asNote?: boolean;
 }
 
 /**
@@ -26,6 +31,7 @@ export function ComposeBar({
   label,
   requiresDueDay = false,
   requiresBody = false,
+  asNote = false,
 }: ComposeBarProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -58,6 +64,7 @@ export function ComposeBar({
         title: submittedTitle,
         ...(requiresBody ? { body: submittedBody } : {}),
         ...(requiresDueDay ? { dueDayOfMonth: parsedDueDay } : {}),
+        ...(asNote ? { asNote: true } : {}),
       });
       if (!result.ok) {
         setTitle(submittedTitle);
