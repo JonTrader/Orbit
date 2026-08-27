@@ -1,8 +1,12 @@
 /**
- * Streaming shell for the Monthlies view. Mirrors the page anatomy - "N
- * tracked" panel header, title + due-date rows ending in the Done button,
- * and the compose bar with its Day input - so a tab switch paints this
- * instantly while Monthlies resolve.
+ * Streaming shell / Suspense fallback for the Monthlies view. Mirrors the
+ * panel anatomy - "N tracked" header and title + due-date rows ending in
+ * the Done button - so a load paints instantly while Monthlies resolve.
+ * Serves double duty as the Suspense fallback in page.tsx, so there is one
+ * skeleton per route.
+ *
+ * The compose bar is not part of this shell: it needs no reads and renders
+ * statically beside the streamed slot.
  *
  * Purely presentational: no data access. The pulse is disabled globally for
  * reduced-motion users.
@@ -34,14 +38,6 @@ export default function MonthliesLoading() {
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="mt-3.5 flex gap-2">
-          <div className="min-w-0 flex-1 rounded border border-line bg-panel px-3.5 py-2.5">
-            <div className="h-4 w-2/5 rounded bg-line" />
-          </div>
-          <div className="w-20 shrink-0 rounded border border-line bg-panel px-3 py-2.5" />
-          <div className="w-16 shrink-0 rounded bg-line" />
         </div>
       </div>
     </>

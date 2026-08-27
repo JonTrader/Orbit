@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
@@ -7,6 +8,8 @@ import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listMonthlies } from "@/lib/services/monthlies";
 
+import MonthliesLoading from "./loading";
+
 interface MonthliesPageProps {
   params: Promise<{ spaceId: string }>;
 }
@@ -15,6 +18,10 @@ interface MonthliesPageProps {
  * The Monthlies view: recurring monthly obligations of the Active Space in
  * due-date order. Completing one finishes the current period and advances
  * its next due date.
+ *
+ * The list streams in behind Suspense; the route's loading.tsx does double
+ * duty as the fallback so there is one skeleton per route. The compose bar
+ * rides inside the slot so it appears with the real panel.
  */
 export default async function MonthliesPage({ params }: MonthliesPageProps) {
   const spaceId = await resolveSpaceContext(params);
@@ -26,45 +33,60 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
   );
   if (!monthliesSection) notFound();
 
-  const monthlies = await listMonthlies(getDb(), {
-    userId: viewer.userId,
-    spaceId,
-  });
-
   return (
     <>
-      <div className="overflow-hidden rounded border border-line bg-panel">
-        <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-          Monthlies · {monthlies.length} tracked
-        </div>
-        <div className="border-t border-line">
-          {monthlies.length === 0 ? (
-            <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
-              No Monthlies yet.
-            </div>
-          ) : (
-            monthlies.map((monthly) => (
-              <MonthlyRow
-                key={monthly.id}
-                spaceId={spaceId}
-                monthlyId={monthly.id}
-                title={monthly.title}
-                nextDueOn={monthly.nextDueOn}
-                canMutate={viewer.can.mutateContent}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
-      {viewer.can.mutateContent ? (
-        <ComposeBar
+      <Suspense fallback={<MonthliesLoading />}>
+        <MonthliesList
+          userId={viewer.userId}
           spaceId={spaceId}
-          sectionId={monthliesSection.id}
-          label="Add to Monthlies"
-          requiresDueDay
+          canMutate={viewer.can.mutateContent}
         />
-      ) : null}
+        {viewer.can.mutateContent ? (
+          <ComposeBar
+            spaceId={spaceId}
+            sectionId={monthliesSection.id}
+            label="Add to Monthlies"
+            requiresDueDay
+          />
+        ) : null}
+      </Suspense>
     </>
+  );
+}
+
+interface MonthliesListProps {
+  userId: string;
+  spaceId: string;
+  canMutate: boolean;
+}
+
+/** The "N tracked" counter plus rows; data-dependent, so it lives here. */
+async function MonthliesList({ userId, spaceId, canMutate }: MonthliesListProps) {
+  const monthlies = await listMonthlies(getDb(), { userId, spaceId });
+
+  return (
+    <div className="overflow-hidden rounded border border-line bg-panel">
+      <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+        Monthlies · {monthlies.length} tracked
+      </div>
+      <div className="border-t border-line">
+        {monthlies.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
+            No Monthlies yet.
+          </div>
+        ) : (
+          monthlies.map((monthly) => (
+            <MonthlyRow
+              key={monthly.id}
+              spaceId={spaceId}
+              monthlyId={monthly.id}
+              title={monthly.title}
+              nextDueOn={monthly.nextDueOn}
+              canMutate={canMutate}
+            />
+          ))
+        )}
+      </div>
+    </div>
   );
 }

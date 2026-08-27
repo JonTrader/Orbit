@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
@@ -8,6 +9,8 @@ import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listTasks } from "@/lib/services/tasks";
 
+import DailyLoading from "./loading";
+
 interface DailyPageProps {
   params: Promise<{ spaceId: string }>;
 }
@@ -16,6 +19,10 @@ interface DailyPageProps {
  * The Daily view: day-to-day Tasks of the Active Space. Completed Tasks stay
  * completed until someone reopens them and are hidden behind an explicit
  * show-completed control owned by CompletedTasksSection on the client.
+ *
+ * The task list streams in behind Suspense; the route's loading.tsx does
+ * double duty as the fallback so there is one skeleton per route. The
+ * compose bar rides inside the slot so it appears with the real panel.
  */
 export default async function DailyPage({ params }: DailyPageProps) {
   const spaceId = await resolveSpaceContext(params);
@@ -25,11 +32,47 @@ export default async function DailyPage({ params }: DailyPageProps) {
   const daily = sections.find((row) => row.isSystem && row.kind === "daily");
   if (!daily) notFound();
 
-  const tasks = await listTasks(getDb(), {
-    userId: viewer.userId,
-    spaceId,
-    sectionId: daily.id,
-  });
+  return (
+    <>
+      <Suspense fallback={<DailyLoading />}>
+        <DailyTasks
+          userId={viewer.userId}
+          spaceId={spaceId}
+          sectionId={daily.id}
+          canMutate={viewer.can.mutateContent}
+        />
+        {viewer.can.mutateContent ? (
+          <ComposeBar
+            spaceId={spaceId}
+            sectionId={daily.id}
+            label="Add to Daily"
+          />
+        ) : null}
+      </Suspense>
+    </>
+  );
+}
+
+interface DailyTasksProps {
+  userId: string;
+  spaceId: string;
+  sectionId: string;
+  canMutate: boolean;
+}
+
+/**
+ * One read feeds every Daily block: the "N open" counter and open rows live
+ * in the panel; completed rows land below it via CompletedTasksSection. They
+ * share this single listTasks call, so the section cannot be split into
+ * independent Suspense slots without paying for the query twice.
+ */
+async function DailyTasks({
+  userId,
+  spaceId,
+  sectionId,
+  canMutate,
+}: DailyTasksProps) {
+  const tasks = await listTasks(getDb(), { userId, spaceId, sectionId });
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
@@ -54,7 +97,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
                 title={task.title}
                 dueOn={task.dueOn}
                 completed={false}
-                canMutate={viewer.can.mutateContent}
+                canMutate={canMutate}
               />
             ))
           )}
@@ -69,15 +112,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
             title: task.title,
             dueOn: task.dueOn,
           }))}
-          canMutate={viewer.can.mutateContent}
-        />
-      ) : null}
-
-      {viewer.can.mutateContent ? (
-        <ComposeBar
-          spaceId={spaceId}
-          sectionId={daily.id}
-          label="Add to Daily"
+          canMutate={canMutate}
         />
       ) : null}
     </>

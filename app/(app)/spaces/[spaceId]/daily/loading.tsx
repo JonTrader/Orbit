@@ -1,7 +1,11 @@
 /**
- * Streaming shell for the Daily view. Mirrors the page anatomy - "N open"
- * panel header, checkbox row list, and the quick-add compose bar - so a tab
- * switch paints this instantly while Tasks resolve.
+ * Streaming shell / Suspense fallback for the Daily view. Mirrors the task
+ * panel's anatomy - "N open" header and checkbox row list - so a load paints
+ * instantly while Tasks resolve. Serves double duty as the Suspense fallback
+ * in page.tsx, so there is one skeleton per route.
+ *
+ * The compose bar is not part of this shell: it needs no reads and renders
+ * statically beside the streamed slot.
  *
  * Purely presentational: no data access. The pulse is disabled globally for
  * reduced-motion users.
@@ -35,13 +39,6 @@ export default function DailyLoading() {
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="mt-3.5 flex gap-2">
-          <div className="min-w-0 flex-1 rounded border border-line bg-panel px-3.5 py-2.5">
-            <div className="h-4 w-1/3 rounded bg-line" />
-          </div>
-          <div className="w-16 shrink-0 rounded bg-line" />
         </div>
       </div>
     </>

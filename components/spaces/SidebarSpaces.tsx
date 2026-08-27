@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db/client";
-import { spaceSectionPath } from "@/lib/spaces/paths";
+import { spaceLayoutPath, spaceSectionPath } from "@/lib/spaces/paths";
 import { listSpaces } from "@/lib/services/spaces";
 
 import { SidebarNavLinks } from "./SidebarNavLinks";
@@ -41,6 +41,8 @@ export async function SidebarSpaces({ userId }: SidebarSpacesProps) {
         key: space.id,
         href: spaceSectionPath(space.id, "upcoming"),
         label: space.name,
+        // Stay highlighted on every section of the Space, not just Upcoming.
+        activePrefix: spaceLayoutPath(space.id),
       }))}
     />
   );
