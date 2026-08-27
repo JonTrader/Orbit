@@ -7,12 +7,27 @@ export interface SidebarNavItem {
   key: string;
   href: string;
   label: string;
+  /**
+   * Also treat this path and anything under it as active. Used by the Spaces
+   * list: the link targets the Space's Upcoming view, but the Space stays
+   * highlighted on every one of its sections.
+   */
+  activePrefix?: string;
 }
 
 interface SidebarNavLinksProps {
   title: string;
   items: SidebarNavItem[];
   onClick?: () => void;
+}
+
+function isActive(item: SidebarNavItem, pathname: string): boolean {
+  if (item.href === pathname) return true;
+  if (item.activePrefix === undefined) return false;
+  return (
+    pathname === item.activePrefix ||
+    pathname.startsWith(`${item.activePrefix}/`)
+  );
 }
 
 export function SidebarNavLinks({ title, items, onClick }: SidebarNavLinksProps) {
@@ -24,7 +39,7 @@ export function SidebarNavLinks({ title, items, onClick }: SidebarNavLinksProps)
         {title}
       </div>
       {items.map((item) => {
-        const active = item.href === pathname;
+        const active = isActive(item, pathname);
         return (
           <Link
             key={item.key}

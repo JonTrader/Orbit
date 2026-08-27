@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import {
   calendarDateInTimeZone,
   formatCalendarDate,
@@ -8,8 +10,33 @@ import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listMonthlies } from "@/lib/services/monthlies";
 import { listTasks } from "@/lib/services/tasks";
 
+import UpcomingLoading from "./loading";
+
 interface UpcomingPageProps {
   params: Promise<{ spaceId: string }>;
+}
+
+/**
+ * The read-only Upcoming timeline: Monthlies by next due plus dated, open
+ * Tasks across all Sections of the Active Space. Days are resolved in the
+ * Space timezone; there is no compose because Upcoming is not a Section.
+ *
+ * The whole panel streams in behind Suspense; the route's loading.tsx does
+ * double duty as the fallback so there is one skeleton per route.
+ */
+export default async function UpcomingPage({ params }: UpcomingPageProps) {
+  const spaceId = await resolveSpaceContext(params);
+  const viewer = await getSpaceViewer(spaceId);
+
+  return (
+    <Suspense fallback={<UpcomingLoading />}>
+      <UpcomingGroups
+        userId={viewer.userId}
+        spaceId={spaceId}
+        timezone={viewer.space.timezone}
+      />
+    </Suspense>
+  );
 }
 
 interface UpcomingEntry {
@@ -25,6 +52,12 @@ interface DayGroup {
   label: string;
   entries: UpcomingEntry[];
   urgent: boolean;
+}
+
+interface UpcomingGroupsProps {
+  userId: string;
+  spaceId: string;
+  timezone: string;
 }
 
 /** Formats YYYY-MM-DD as a short UTC label such as "Aug 1". */
@@ -59,23 +92,28 @@ function futureLabel(
 }
 
 /**
- * The read-only Upcoming timeline: Monthlies by next due plus dated, open
- * Tasks across all Sections of the Active Space. Days are resolved in the
- * Space timezone; there is no compose because Upcoming is not a Section.
+ * The streamed content: Monthlies by next due plus dated, open Tasks across
+ * all Sections of the Active Space, grouped into days.
  */
-export default async function UpcomingPage({ params }: UpcomingPageProps) {
-  const spaceId = await resolveSpaceContext(params);
-  const viewer = await getSpaceViewer(spaceId);
+async function UpcomingGroups({
+  userId,
+  spaceId,
+  timezone,
+}: UpcomingGroupsProps) {
   const db = getDb();
-
   const [sections, monthlies, tasks] = await Promise.all([
     getSpaceSections(spaceId),
-    listMonthlies(db, { userId: viewer.userId, spaceId }),
-    listTasks(db, { userId: viewer.userId, spaceId }),
+    listMonthlies(db, { userId, spaceId }),
+    listTasks(db, {
+      userId,
+      spaceId,
+      dueOn: "dated",
+      status: "open",
+    }),
   ]);
 
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
-  const today = calendarDateInTimeZone(new Date(), viewer.space.timezone);
+  const today = calendarDateInTimeZone(new Date(), timezone);
   const todayIso = formatCalendarDate(today);
 
   const entries: UpcomingEntry[] = [
@@ -86,15 +124,13 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
       kindLabel: "Monthly" as const,
       sectionName: null,
     })),
-    ...tasks
-      .filter((task) => task.dueOn !== null && task.completedAt === null)
-      .map((task) => ({
-        key: `task-${task.id}`,
-        title: task.title,
-        date: task.dueOn as string,
-        kindLabel: "Task" as const,
-        sectionName: sectionNames.get(task.sectionId) ?? null,
-      })),
+    ...tasks.map((task) => ({
+      key: `task-${task.id}`,
+      title: task.title,
+      date: task.dueOn as string,
+      kindLabel: "Task" as const,
+      sectionName: sectionNames.get(task.sectionId) ?? null,
+    })),
   ].sort((left, right) => left.date.localeCompare(right.date));
 
   const overdue = entries.filter((entry) => entry.date < todayIso);
@@ -122,58 +158,63 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
     })),
   ];
 
-  return (
-    <>
+  if (groups.length === 0) {
+    return (
       <div className="overflow-hidden rounded border border-line bg-panel">
         <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
           Upcoming
         </div>
-        <div className="border-t border-line">
-          {groups.length === 0 ? (
-            <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
-              Nothing scheduled yet.
-            </div>
-          ) : (
-            groups.map((group, index) => (
-              <section key={group.label}>
-                <div
-                  className={[
-                    "px-4 py-2 font-mono text-[0.68rem] uppercase tracking-[0.06em]",
-                    index > 0 ? "mt-1 border-t border-line" : "",
-                    group.urgent ? "font-semibold text-accent" : "text-muted",
-                  ].join(" ")}
-                >
-                  {group.label}
-                </div>
-                {group.entries.map((entry) => (
-                  <div
-                    key={entry.key}
-                    className="flex items-start gap-3 border-t border-line px-4 py-3 first:border-t-0"
-                  >
-                    <span
-                      className={[
-                        "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-wider",
-                        group.urgent ? "text-accent" : "text-muted",
-                      ].join(" ")}
-                    >
-                      {shortDate(entry.date)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[0.95rem] font-medium text-ink">
-                        {entry.title}
-                      </div>
-                      <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
-                        {entry.kindLabel}
-                        {entry.sectionName ? ` · ${entry.sectionName}` : ""}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </section>
-            ))
-          )}
+        <div className="border-t border-line px-4 py-10 text-center text-[0.9rem] text-muted">
+          Nothing scheduled yet.
         </div>
       </div>
-    </>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded border border-line bg-panel">
+      <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+        Upcoming
+      </div>
+      <div className="border-t border-line">
+        {groups.map((group, index) => (
+          <section key={group.label}>
+            <div
+              className={[
+                "px-4 py-2 font-mono text-[0.68rem] uppercase tracking-[0.06em]",
+                index > 0 ? "mt-1 border-t border-line" : "",
+                group.urgent ? "font-semibold text-accent" : "text-muted",
+              ].join(" ")}
+            >
+              {group.label}
+            </div>
+            {group.entries.map((entry) => (
+              <div
+                key={entry.key}
+                className="flex items-start gap-3 border-t border-line px-4 py-3 first:border-t-0"
+              >
+                <span
+                  className={[
+                    "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-wider",
+                    group.urgent ? "text-accent" : "text-muted",
+                  ].join(" ")}
+                >
+                  {shortDate(entry.date)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[0.95rem] font-medium text-ink">
+                    {entry.title}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
+                    {entry.kindLabel}
+                    {entry.sectionName ? ` · ${entry.sectionName}` : ""}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }

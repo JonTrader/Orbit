@@ -14,24 +14,23 @@ export interface SpaceLayoutActiveSpace {
   name: string;
 }
 
-export interface SpaceLayoutSpace {
-  id: string;
-  name: string;
-}
-
 export interface SpaceLayoutProps {
   user?: SidebarFooterUser;
   activeSpace: SpaceLayoutActiveSpace;
-  spaces: SpaceLayoutSpace[];
+  /** Server-rendered streamed slot; see SidebarSpaces. */
+  spacesSlot?: ReactNode;
   navItems: SpaceNavItem[];
+  /** Server-rendered streamed slot; see PasswordLinkSlot. */
+  passwordSlot?: ReactNode;
   children?: ReactNode;
 }
 
 export function SpaceLayout({
   user,
   activeSpace,
-  spaces,
+  spacesSlot,
   navItems,
+  passwordSlot,
   children,
 }: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,8 +58,9 @@ export function SpaceLayout({
       >
         <SpaceSidebar
           user={user}
-          spaces={spaces}
+          spacesSlot={spacesSlot}
           navItems={navItems}
+          passwordSlot={passwordSlot}
           onNavClick={() => setSidebarOpen(false)}
         />
       </div>

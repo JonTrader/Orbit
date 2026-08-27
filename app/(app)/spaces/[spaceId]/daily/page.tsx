@@ -1,48 +1,81 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
+import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listTasks } from "@/lib/services/tasks";
 
+import DailyLoading from "./loading";
+
 interface DailyPageProps {
   params: Promise<{ spaceId: string }>;
-  searchParams: Promise<{ showCompleted?: string }>;
 }
 
 /**
  * The Daily view: day-to-day Tasks of the Active Space. Completed Tasks stay
  * completed until someone reopens them and are hidden behind an explicit
- * show-completed control.
+ * show-completed control owned by CompletedTasksSection on the client.
+ *
+ * The task list streams in behind Suspense; the route's loading.tsx does
+ * double duty as the fallback so there is one skeleton per route. The
+ * compose bar rides inside the slot so it appears with the real panel.
  */
-export default async function DailyPage({ params, searchParams }: DailyPageProps) {
-  const [parsedParams, parsedQuery] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const spaceId = await resolveSpaceContext(parsedParams);
+export default async function DailyPage({ params }: DailyPageProps) {
+  const spaceId = await resolveSpaceContext(params);
   const viewer = await getSpaceViewer(spaceId);
 
   const sections = await getSpaceSections(spaceId);
   const daily = sections.find((row) => row.isSystem && row.kind === "daily");
   if (!daily) notFound();
 
-  const tasks = await listTasks(getDb(), {
-    userId: viewer.userId,
-    spaceId,
-    sectionId: daily.id,
-  });
+  return (
+    <>
+      <Suspense fallback={<DailyLoading />}>
+        <DailyTasks
+          userId={viewer.userId}
+          spaceId={spaceId}
+          sectionId={daily.id}
+          canMutate={viewer.can.mutateContent}
+        />
+        {viewer.can.mutateContent ? (
+          <ComposeBar
+            spaceId={spaceId}
+            sectionId={daily.id}
+            label="Add to Daily"
+          />
+        ) : null}
+      </Suspense>
+    </>
+  );
+}
+
+interface DailyTasksProps {
+  userId: string;
+  spaceId: string;
+  sectionId: string;
+  canMutate: boolean;
+}
+
+/**
+ * One read feeds every Daily block: the "N open" counter and open rows live
+ * in the panel; completed rows land below it via CompletedTasksSection. They
+ * share this single listTasks call, so the section cannot be split into
+ * independent Suspense slots without paying for the query twice.
+ */
+async function DailyTasks({
+  userId,
+  spaceId,
+  sectionId,
+  canMutate,
+}: DailyTasksProps) {
+  const tasks = await listTasks(getDb(), { userId, spaceId, sectionId });
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
-  const showCompleted = parsedQuery.showCompleted === "1";
-
-  const basePath = spaceSectionPath(spaceId, "daily");
-  const toggleHref = showCompleted ? basePath : `${basePath}?showCompleted=1`;
 
   return (
     <>
@@ -64,7 +97,7 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
                 title={task.title}
                 dueOn={task.dueOn}
                 completed={false}
-                canMutate={viewer.can.mutateContent}
+                canMutate={canMutate}
               />
             ))
           )}
@@ -72,39 +105,14 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
       </div>
 
       {completedTasks.length > 0 ? (
-        <div className="mt-3">
-          <Link
-            href={toggleHref}
-            className="text-[0.85rem] font-semibold text-muted underline-offset-2 hover:text-ink hover:underline"
-            aria-expanded={showCompleted}
-          >
-            {showCompleted
-              ? "Hide completed"
-              : `Show completed (${completedTasks.length})`}
-          </Link>
-          {showCompleted ? (
-            <div className="mt-2 overflow-hidden rounded border border-line bg-[color-mix(in_srgb,var(--panel)_70%,transparent)]">
-              {completedTasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  spaceId={spaceId}
-                  taskId={task.id}
-                  title={task.title}
-                  dueOn={task.dueOn}
-                  completed={true}
-                  canMutate={viewer.can.mutateContent}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {viewer.can.mutateContent ? (
-        <ComposeBar
+        <CompletedTasksSection
           spaceId={spaceId}
-          sectionId={daily.id}
-          label="Add to Daily"
+          tasks={completedTasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            dueOn: task.dueOn,
+          }))}
+          canMutate={canMutate}
         />
       ) : null}
     </>

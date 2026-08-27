@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
@@ -27,8 +27,15 @@ export interface TaskAccessInput {
   spaceId: string;
 }
 
+export type ListTasksDueOn = "any" | "dated" | "undated";
+export type ListTasksStatus = "open" | "completed" | "all";
+
 export interface ListTasksInput extends TaskAccessInput {
   sectionId?: string;
+  /** Defaults to "any": no due-date filter. */
+  dueOn?: ListTasksDueOn;
+  /** Defaults to "all": open and completed Tasks. */
+  status?: ListTasksStatus;
 }
 
 export interface CreateTaskInput extends TaskAccessInput {
@@ -68,12 +75,14 @@ export async function listTasks(
 ): Promise<TaskRow[]> {
   await requireMembership(db, { ...input, minimumRole: "read-only" });
 
-  const where = input.sectionId
-    ? and(
-        eq(task.spaceId, input.spaceId),
-        eq(task.sectionId, input.sectionId),
-      )
-    : eq(task.spaceId, input.spaceId);
+  const where = and(
+    input.sectionId ? eq(task.sectionId, input.sectionId) : undefined,
+    eq(task.spaceId, input.spaceId),
+    input.dueOn === "dated" ? isNotNull(task.dueOn) : undefined,
+    input.dueOn === "undated" ? isNull(task.dueOn) : undefined,
+    input.status === "open" ? isNull(task.completedAt) : undefined,
+    input.status === "completed" ? isNotNull(task.completedAt) : undefined,
+  );
 
   return db
     .select()

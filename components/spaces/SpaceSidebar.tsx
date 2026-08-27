@@ -1,49 +1,44 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import type { SpaceNavItem } from "@/lib/spaces/nav";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 
 import { SidebarFooter, type SidebarFooterUser } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
 import { SidebarNavLinks } from "./SidebarNavLinks";
 
-interface SpaceSidebarSpace {
-  id: string;
-  name: string;
-}
-
 interface SpaceSidebarProps {
   user?: SidebarFooterUser;
-  spaces: SpaceSidebarSpace[];
+  /** Server-rendered streamed slot; see SidebarSpaces. */
+  spacesSlot?: ReactNode;
   navItems: SpaceNavItem[];
+  passwordSlot?: ReactNode;
   onNavClick?: () => void;
 }
 
 export function SpaceSidebar({
   user,
-  spaces,
+  spacesSlot,
   navItems,
+  passwordSlot,
   onNavClick,
 }: SpaceSidebarProps) {
-  const spaceItems = spaces.map((space) => ({
-    key: space.id,
-    href: spaceSectionPath(space.id, "upcoming"),
-    label: space.name,
-  }));
-
   return (
     <aside
       className="flex h-full flex-col gap-5 overflow-auto border-r border-line bg-[color-mix(in_srgb,var(--sidebar)_88%,white)] px-3.5 py-5"
       aria-label="Spaces and sections"
     >
       <SidebarHeader />
-      <SidebarNavLinks title="Spaces" items={spaceItems} onClick={onNavClick} />
+      {/* Clicks bubble up from the slot's links; the slot itself is a server
+          component and cannot receive the onNavClick handler directly. */}
+      <div onClick={onNavClick}>{spacesSlot}</div>
       <SidebarNavLinks
         title="In this Space"
         items={navItems}
         onClick={onNavClick}
       />
-      <SidebarFooter user={user} />
+      <SidebarFooter user={user} passwordSlot={passwordSlot} />
     </aside>
   );
 }
