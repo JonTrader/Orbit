@@ -3,13 +3,10 @@ import {
   formatCalendarDate,
 } from "@/lib/calendar-date";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/spaces/nav";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listMonthlies } from "@/lib/services/monthlies";
 import { listTasks } from "@/lib/services/tasks";
-import { SectionTabs } from "@/components/orbit/SectionTabs";
 
 interface UpcomingPageProps {
   params: Promise<{ spaceId: string }>;
@@ -127,11 +124,6 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
 
   return (
     <>
-      <SectionTabs
-        items={buildSpaceNav(spaceId, sections)}
-        activeHref={spaceSectionPath(spaceId, "upcoming")}
-      />
-
       <div className="overflow-hidden rounded border border-line bg-panel">
         <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
           Upcoming
@@ -160,7 +152,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
                   >
                     <span
                       className={[
-                        "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-[0.05em]",
+                        "w-16 shrink-0 pt-0.5 text-right font-mono text-[0.72rem] uppercase tracking-wider",
                         group.urgent ? "text-accent" : "text-muted",
                       ].join(" ")}
                     >
@@ -170,7 +162,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
                       <div className="truncate text-[0.95rem] font-medium text-ink">
                         {entry.title}
                       </div>
-                      <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-[0.05em] text-muted">
+                      <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
                         {entry.kindLabel}
                         {entry.sectionName ? ` · ${entry.sectionName}` : ""}
                       </div>

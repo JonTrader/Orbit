@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { SpaceLayout } from "@/components/orbit/SpaceLayout";
+import { SpaceLayout } from "@/components/spaces/SpaceLayout";
 import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/spaces/nav";
@@ -17,7 +17,10 @@ interface SpaceRouteLayoutProps {
  * Chrome for the Active Space: the Viewer is resolved here once, so every
  * nested section view can trust the Space scope and focus on its content.
  */
-export default async function SpaceRouteLayout({ children, params }: SpaceRouteLayoutProps) {
+export default async function SpaceRouteLayout({
+  children,
+  params,
+}: SpaceRouteLayoutProps) {
   const spaceId = await resolveSpaceContext(params);
   const viewer = await getSpaceViewer(spaceId);
   const db = getDb();

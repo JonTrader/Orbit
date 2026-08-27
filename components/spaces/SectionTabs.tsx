@@ -1,14 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 
 interface SectionTabsProps {
   items: SpaceNavItem[];
-  activeHref: string;
 }
 
 /** The horizontal section strip under the view header. */
-export function SectionTabs({ items, activeHref }: SectionTabsProps) {
+export function SectionTabs({ items }: SectionTabsProps) {
+  const pathname = usePathname();
+
   return (
     <div
       className="mb-4 flex flex-wrap gap-1 border-b border-line pb-0.5"
@@ -16,7 +20,7 @@ export function SectionTabs({ items, activeHref }: SectionTabsProps) {
       aria-label="Sections"
     >
       {items.map((item) => {
-        const active = item.href === activeHref;
+        const active = item.href === pathname;
         return (
           <Link
             key={item.key}

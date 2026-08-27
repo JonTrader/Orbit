@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-import { ComposeBar } from "@/components/orbit/ComposeBar";
-import { SectionTabs } from "@/components/orbit/SectionTabs";
-import { TaskRow } from "@/components/orbit/TaskRow";
+import { ComposeBar } from "@/components/spaces/ComposeBar";
+import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
-import { buildSpaceNav } from "@/lib/spaces/nav";
 import { spaceSectionPath } from "@/lib/spaces/paths";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
@@ -48,11 +46,6 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
 
   return (
     <>
-      <SectionTabs
-        items={buildSpaceNav(spaceId, sections)}
-        activeHref={basePath}
-      />
-
       <div className="overflow-hidden rounded border border-line bg-panel">
         <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
           Daily · {openTasks.length} open
