@@ -1,30 +1,24 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 
 import { ComposeBar } from "@/components/spaces/ComposeBar";
+import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 import { listTasks } from "@/lib/services/tasks";
 
 interface DailyPageProps {
   params: Promise<{ spaceId: string }>;
-  searchParams: Promise<{ showCompleted?: string }>;
 }
 
 /**
  * The Daily view: day-to-day Tasks of the Active Space. Completed Tasks stay
  * completed until someone reopens them and are hidden behind an explicit
- * show-completed control.
+ * show-completed control owned by CompletedTasksSection on the client.
  */
-export default async function DailyPage({ params, searchParams }: DailyPageProps) {
-  const [parsedParams, parsedQuery] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const spaceId = await resolveSpaceContext(parsedParams);
+export default async function DailyPage({ params }: DailyPageProps) {
+  const spaceId = await resolveSpaceContext(params);
   const viewer = await getSpaceViewer(spaceId);
 
   const sections = await getSpaceSections(spaceId);
@@ -39,10 +33,6 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
-  const showCompleted = parsedQuery.showCompleted === "1";
-
-  const basePath = spaceSectionPath(spaceId, "daily");
-  const toggleHref = showCompleted ? basePath : `${basePath}?showCompleted=1`;
 
   return (
     <>
@@ -72,32 +62,15 @@ export default async function DailyPage({ params, searchParams }: DailyPageProps
       </div>
 
       {completedTasks.length > 0 ? (
-        <div className="mt-3">
-          <Link
-            href={toggleHref}
-            className="text-[0.85rem] font-semibold text-muted underline-offset-2 hover:text-ink hover:underline"
-            aria-expanded={showCompleted}
-          >
-            {showCompleted
-              ? "Hide completed"
-              : `Show completed (${completedTasks.length})`}
-          </Link>
-          {showCompleted ? (
-            <div className="mt-2 overflow-hidden rounded border border-line bg-[color-mix(in_srgb,var(--panel)_70%,transparent)]">
-              {completedTasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  spaceId={spaceId}
-                  taskId={task.id}
-                  title={task.title}
-                  dueOn={task.dueOn}
-                  completed={true}
-                  canMutate={viewer.can.mutateContent}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <CompletedTasksSection
+          spaceId={spaceId}
+          tasks={completedTasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            dueOn: task.dueOn,
+          }))}
+          canMutate={viewer.can.mutateContent}
+        />
       ) : null}
 
       {viewer.can.mutateContent ? (

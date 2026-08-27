@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 import { spaceSectionPath } from "@/lib/spaces/paths";
 
@@ -16,6 +18,7 @@ interface SpaceSidebarProps {
   user?: SidebarFooterUser;
   spaces: SpaceSidebarSpace[];
   navItems: SpaceNavItem[];
+  passwordSlot?: ReactNode;
   onNavClick?: () => void;
 }
 
@@ -23,6 +26,7 @@ export function SpaceSidebar({
   user,
   spaces,
   navItems,
+  passwordSlot,
   onNavClick,
 }: SpaceSidebarProps) {
   const spaceItems = spaces.map((space) => ({
@@ -43,7 +47,7 @@ export function SpaceSidebar({
         items={navItems}
         onClick={onNavClick}
       />
-      <SidebarFooter user={user} />
+      <SidebarFooter user={user} passwordSlot={passwordSlot} />
     </aside>
   );
 }

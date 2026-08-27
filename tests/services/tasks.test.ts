@@ -385,4 +385,86 @@ describe("Task services", () => {
       }),
     ).rejects.toMatchObject({ code: "INVALID_UPDATE" });
   });
+
+  it("filters by dueOn and status without changing the default result", async () => {
+    const { space, sections, editor, customTasks } = await seedSpace();
+
+    const datedOpen = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Dated open",
+      dueOn: "2026-08-12",
+    });
+    const undatedOpen = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Undated open",
+    });
+    const datedCompleted = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: customTasks.id,
+      title: "Dated completed",
+      dueOn: "2026-08-13",
+    });
+    const undatedCompleted = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: customTasks.id,
+      title: "Undated completed",
+    });
+    await completeTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: datedCompleted.id,
+    });
+    await completeTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: undatedCompleted.id,
+    });
+
+    // Defaults return everything, which keeps /api/v1 behaviour unchanged.
+    await expect(
+      listTasks(testDb, { userId: editor.id, spaceId: space.id }),
+    ).resolves.toHaveLength(4);
+
+    await expect(
+      listTasks(testDb, { userId: editor.id, spaceId: space.id, dueOn: "dated" }),
+    ).resolves.toMatchObject([
+      { id: datedOpen.id },
+      { id: datedCompleted.id },
+    ]);
+    await expect(
+      listTasks(testDb, { userId: editor.id, spaceId: space.id, dueOn: "undated" }),
+    ).resolves.toMatchObject([
+      { id: undatedOpen.id },
+      { id: undatedCompleted.id },
+    ]);
+    await expect(
+      listTasks(testDb, { userId: editor.id, spaceId: space.id, status: "open" }),
+    ).resolves.toMatchObject([{ id: datedOpen.id }, { id: undatedOpen.id }]);
+    await expect(
+      listTasks(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        status: "completed",
+      }),
+    ).resolves.toMatchObject([
+      { id: datedCompleted.id },
+      { id: undatedCompleted.id },
+    ]);
+
+    // Upcoming's combination: exactly one row survives both filters.
+    await expect(
+      listTasks(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        dueOn: "dated",
+        status: "open",
+      }),
+    ).resolves.toMatchObject([{ id: datedOpen.id }]);
+  });
 });

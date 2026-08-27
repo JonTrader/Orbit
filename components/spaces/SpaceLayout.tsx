@@ -24,6 +24,8 @@ export interface SpaceLayoutProps {
   activeSpace: SpaceLayoutActiveSpace;
   spaces: SpaceLayoutSpace[];
   navItems: SpaceNavItem[];
+  /** Server-rendered streamed slot; see PasswordLinkSlot. */
+  passwordSlot?: ReactNode;
   children?: ReactNode;
 }
 
@@ -32,6 +34,7 @@ export function SpaceLayout({
   activeSpace,
   spaces,
   navItems,
+  passwordSlot,
   children,
 }: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,6 +64,7 @@ export function SpaceLayout({
           user={user}
           spaces={spaces}
           navItems={navItems}
+          passwordSlot={passwordSlot}
           onNavClick={() => setSidebarOpen(false)}
         />
       </div>

@@ -71,7 +71,12 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
   const [sections, monthlies, tasks] = await Promise.all([
     getSpaceSections(spaceId),
     listMonthlies(db, { userId: viewer.userId, spaceId }),
-    listTasks(db, { userId: viewer.userId, spaceId }),
+    listTasks(db, {
+      userId: viewer.userId,
+      spaceId,
+      dueOn: "dated",
+      status: "open",
+    }),
   ]);
 
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
@@ -86,15 +91,13 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
       kindLabel: "Monthly" as const,
       sectionName: null,
     })),
-    ...tasks
-      .filter((task) => task.dueOn !== null && task.completedAt === null)
-      .map((task) => ({
-        key: `task-${task.id}`,
-        title: task.title,
-        date: task.dueOn as string,
-        kindLabel: "Task" as const,
-        sectionName: sectionNames.get(task.sectionId) ?? null,
-      })),
+    ...tasks.map((task) => ({
+      key: `task-${task.id}`,
+      title: task.title,
+      date: task.dueOn as string,
+      kindLabel: "Task" as const,
+      sectionName: sectionNames.get(task.sectionId) ?? null,
+    })),
   ].sort((left, right) => left.date.localeCompare(right.date));
 
   const overdue = entries.filter((entry) => entry.date < todayIso);

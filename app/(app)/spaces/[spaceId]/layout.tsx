@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
+import { PasswordLinkSlot } from "@/components/spaces/PasswordLinkSlot";
 import { SpaceLayout } from "@/components/spaces/SpaceLayout";
-import { hasCredentialAccount } from "@/lib/auth/access";
 import { getDb } from "@/lib/db/client";
 import { buildSpaceNav } from "@/lib/spaces/nav";
 import { resolveSpaceContext } from "@/lib/spaces/params";
@@ -25,10 +25,9 @@ export default async function SpaceRouteLayout({
   const viewer = await getSpaceViewer(spaceId);
   const db = getDb();
 
-  const [spaces, sections, canChangePassword] = await Promise.all([
+  const [spaces, sections] = await Promise.all([
     listSpaces(db, viewer.userId),
     getSpaceSections(spaceId),
-    hasCredentialAccount(db, viewer.userId),
   ]);
 
   return (
@@ -36,11 +35,15 @@ export default async function SpaceRouteLayout({
       user={{
         name: viewer.user.name,
         email: viewer.user.email,
-        canChangePassword,
       }}
       activeSpace={{ id: viewer.space.id, name: viewer.space.name }}
       spaces={spaces.map((space) => ({ id: space.id, name: space.name }))}
       navItems={buildSpaceNav(spaceId, sections)}
+      passwordSlot={
+        <Suspense fallback={null}>
+          <PasswordLinkSlot userId={viewer.userId} />
+        </Suspense>
+      }
     >
       {children}
     </SpaceLayout>
