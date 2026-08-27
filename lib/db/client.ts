@@ -1,13 +1,12 @@
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
 
 import { requireEnv } from "@/lib/env";
 
 import * as schema from "./schema";
 
-// The Neon serverless driver talks WebSocket outside the edge runtime.
-neonConfig.webSocketConstructor = ws;
+// Node >= 22 provides a native global WebSocket, which the Neon driver uses
+// when no webSocketConstructor is set.
 
 export type OrbitDb = ReturnType<typeof drizzle<typeof schema>>;
 
