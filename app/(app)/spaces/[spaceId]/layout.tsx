@@ -39,6 +39,7 @@ export default async function SpaceRouteLayout({
         </Suspense>
       }
       navItems={buildSpaceNav(spaceId, sections)}
+      canMutateContent={viewer.can.mutateContent}
       passwordSlot={
         <Suspense fallback={null}>
           <PasswordLinkSlot userId={viewer.userId} />

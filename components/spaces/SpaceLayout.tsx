@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 
+import { AddSectionButton } from "./AddSectionButton";
 import { SectionTabs } from "./SectionTabs";
 import { SpaceSidebar } from "./SpaceSidebar";
 import type { SidebarFooterUser } from "./SidebarFooter";
@@ -22,6 +23,8 @@ export interface SpaceLayoutProps {
   navItems: SpaceNavItem[];
   /** Server-rendered streamed slot; see PasswordLinkSlot. */
   passwordSlot?: ReactNode;
+  /** Whether the Viewer may create or mutate content in this Space. */
+  canMutateContent?: boolean;
   children?: ReactNode;
 }
 
@@ -31,6 +34,7 @@ export function SpaceLayout({
   spacesSlot,
   navItems,
   passwordSlot,
+  canMutateContent = false,
   children,
 }: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -101,7 +105,15 @@ export function SpaceLayout({
           </button>
         </div>
 
-        <SectionTabs items={navItems} />
+        <div className="mb-4 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <SectionTabs items={navItems} />
+          </div>
+          <AddSectionButton
+            spaceId={activeSpace.id}
+            disabled={!canMutateContent}
+          />
+        </div>
 
         {children}
       </main>
