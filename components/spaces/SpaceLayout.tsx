@@ -25,6 +25,8 @@ export interface SpaceLayoutProps {
   passwordSlot?: ReactNode;
   /** Whether the Viewer may create or mutate content in this Space. */
   canMutateContent?: boolean;
+  /** Server-rendered streamed slot; see ShareBarSlot. */
+  shareBarSlot?: ReactNode;
   children?: ReactNode;
 }
 
@@ -35,6 +37,7 @@ export function SpaceLayout({
   navItems,
   passwordSlot,
   canMutateContent = false,
+  shareBarSlot,
   children,
 }: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -121,6 +124,8 @@ export function SpaceLayout({
         </div>
 
         {children}
+
+        {shareBarSlot}
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { PasswordLinkSlot } from "@/components/spaces/PasswordLinkSlot";
+import { ShareBarSlot } from "@/components/spaces/ShareBarSlot";
 import { SidebarSpaces, SidebarSpacesSkeleton } from "@/components/spaces/SidebarSpaces";
 import { SpaceLayout } from "@/components/spaces/SpaceLayout";
 import { buildSpaceNav } from "@/lib/spaces/nav";
@@ -40,6 +41,15 @@ export default async function SpaceRouteLayout({
       }
       navItems={buildSpaceNav(spaceId, sections)}
       canMutateContent={viewer.can.mutateContent}
+      shareBarSlot={
+        <Suspense fallback={null}>
+          <ShareBarSlot
+            userId={viewer.userId}
+            spaceId={spaceId}
+            canManageMembers={viewer.can.manageMembers}
+          />
+        </Suspense>
+      }
       passwordSlot={
         <Suspense fallback={null}>
           <PasswordLinkSlot userId={viewer.userId} />

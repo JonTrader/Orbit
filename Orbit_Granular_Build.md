@@ -21,8 +21,8 @@ todos:
     content: "Phase F: Web-only Server Actions (F1-F4 complete: quickAdd, toggleComplete, Sections, sendInvite)"
     status: completed
   - id: G-ui
-    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G9 done, G10 remain"
-    status: in_progress
+    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G10 done"
+    status: completed
   - id: H-sharing
     content: "Phase H: Invites + ownership transfer + RBAC audit"
     status: pending
@@ -344,7 +344,7 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 | **G7** | **Mixed** Section view: Tasks and Notes in one list | done |
 | **G8** | Add Section (name + kind) UI entry point | done |
 | **G9** | Read-only UI: disable mutations + badges | done |
-| **G10** | Share bar: avatars, roles, invite entry point | todo |
+| **G10** | Share bar: avatars, roles, invite entry point | done |
 
 **Architecture notes for G5+ (things that changed since ui-wiring)**
 
@@ -375,10 +375,10 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 
 - [x] Nav Upcoming → Daily → Monthlies → customs; no Shared (custom **tasks** Sections render as of G5; notes/mixed land in G6-G7)
 - [x] Active Space scopes all views
-- [ ] Custom section pages render Tasks/Notes/Mixed content (G5-G7; Tasks and Notes render as of G5-G6, Mixed is G7)
-- [ ] Add Section flow creates usable Sections (G8)
-- [ ] Read-only member cannot mutate from UI (G9)
-- [ ] Share bar shows members; invite entry visible to Owner (G10)
+- [x] Custom section pages render Tasks/Notes/Mixed content (G5-G7; Tasks and Notes render as of G5-G6, Mixed is G7)
+- [x] Add Section flow creates usable Sections (G8)
+- [x] Read-only member cannot mutate from UI (G9)
+- [x] Share bar shows members; invite entry visible to Owner (G10)
 - [ ] Tests: Phase G section of `Orbit_Test_Plan.md` green. Playwright and `e2e/` do not exist yet - the Phase G agent sets them up. App behaviour for E2E items 1-5 (nav, switch, Daily, Monthlies, Upcoming) is built; items 6-8 need G5-G10.
 
 **Out of scope:** Inngest, email template polish (I/H)

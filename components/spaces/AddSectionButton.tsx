@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 
 import { createSection } from "@/lib/actions/sections";
 
+import { Dialog, DialogField, DialogRadioPills } from "./Dialog";
+
 interface AddSectionButtonProps {
   spaceId: string;
   disabled?: boolean;
@@ -58,9 +60,11 @@ const SECTION_KINDS = [
   { value: "mixed", label: "Mixed" },
 ] as const;
 
+type SectionKind = (typeof SECTION_KINDS)[number]["value"];
+
 function AddSectionDialog({ spaceId, onClose }: AddSectionDialogProps) {
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"tasks" | "notes" | "mixed">("tasks");
+  const [kind, setKind] = useState<SectionKind>("tasks");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -85,97 +89,37 @@ function AddSectionDialog({ spaceId, onClose }: AddSectionDialogProps) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add Section"
-      className="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 p-4 pt-24 sm:pt-32"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <Dialog
+      title="Add Section"
+      onClose={onClose}
+      pending={pending}
+      error={error}
+      submitLabel="Add Section"
+      pendingLabel="Adding…"
+      submitDisabled={!name.trim()}
+      onSubmit={submit}
     >
-      <div className="w-full max-w-sm overflow-hidden rounded border border-line bg-panel shadow-[0_16px_48px_rgba(28,25,23,0.12)]">
-        <form onSubmit={submit} className="p-4">
-          <h2 className="mb-3 text-[1rem] font-semibold text-ink">
-            Add Section
-          </h2>
+      <DialogField label="Name" htmlFor="section-name">
+        <input
+          id="section-name"
+          type="text"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="e.g. Shopping"
+          disabled={pending}
+          autoFocus
+          className="rounded border border-line bg-page px-3 py-2 text-base outline-none focus:border-accent disabled:opacity-60"
+        />
+      </DialogField>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="section-name"
-                className="text-[0.8rem] font-semibold text-muted"
-              >
-                Name
-              </label>
-              <input
-                id="section-name"
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Shopping"
-                disabled={pending}
-                autoFocus
-                className="rounded border border-line bg-page px-3 py-2 text-base outline-none focus:border-accent disabled:opacity-60"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[0.8rem] font-semibold text-muted">
-                Kind
-              </span>
-              <div className="flex gap-2">
-                {SECTION_KINDS.map((option) => (
-                  <label
-                    key={option.value}
-                    className={[
-                      "flex-1 cursor-pointer rounded border px-2 py-2 text-center text-[0.85rem]",
-                      kind === option.value
-                        ? "border-accent bg-accent/10 font-semibold text-ink"
-                        : "border-line bg-panel text-muted hover:border-muted",
-                    ].join(" ")}
-                  >
-                    <input
-                      type="radio"
-                      name="section-kind"
-                      value={option.value}
-                      checked={kind === option.value}
-                      onChange={() => setKind(option.value)}
-                      disabled={pending}
-                      className="sr-only"
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {error ? (
-            <p role="alert" className="mt-3 text-[0.8rem] font-medium text-accent">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="rounded px-3 py-1.5 text-[0.85rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={pending || !name.trim()}
-              className="rounded bg-ink px-3 py-1.5 text-[0.85rem] font-semibold text-white disabled:opacity-50"
-            >
-              {pending ? "Adding…" : "Add Section"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      <DialogRadioPills
+        name="section-kind"
+        label="Kind"
+        value={kind}
+        options={SECTION_KINDS}
+        onChange={setKind}
+        disabled={pending}
+      />
+    </Dialog>
   );
 }
