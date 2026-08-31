@@ -324,14 +324,10 @@ Stop at Phase F acceptance. Do not start Phase G.
 | **ADRs** | 0001 |
 | **Prereq** | E and/or F |
 
-**Status after PR #9 (ui-wiring), #10-#11 (cleanup/layout), #12 (perf round 3)**
-
-G1-G4 are **done and merged**: Active Space routing + Space switcher, Daily
-(compose + optimistic complete + client-side show-completed), Monthlies
-(compose with due day + optimistic complete), Upcoming (read-only timeline,
-no compose). Custom Sections already appear in the sidebar and SectionTabs
-via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
-`/spaces/:id/sections/:sectionId` has **no page yet**, so clicking one 404s.
+**Status: complete.** G1-G10 shipped across PR #9 (ui-wiring: G1-G4) and the
+`custom-section-pages` branch (G5-G10, shared dialog primitive, share bar),
+plus Playwright E2E. Historical notes that shaped G5-G10 are kept below for
+context on why the pages look the way they do.
 
 | Step | Deliverable | Status |
 | ---- | ----------- | ------ |
@@ -346,7 +342,7 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 | **G9** | Read-only UI: disable mutations + badges | done |
 | **G10** | Share bar: avatars, roles, invite entry point | done |
 
-**Architecture notes for G5+ (things that changed since ui-wiring)**
+**Architecture notes (historical, but they describe the shipped pages)**
 
 - The read layer was refactored twice after PR #9. Space views must use
   `getSpaceViewer(spaceId)` / `getSpaceSections(spaceId)` from
@@ -379,24 +375,11 @@ via `buildSpaceNav` (`lib/spaces/nav.ts`) — but the target route
 - [x] Add Section flow creates usable Sections (G8)
 - [x] Read-only member cannot mutate from UI (G9)
 - [x] Share bar shows members; invite entry visible to Owner (G10)
-- [ ] Tests: Phase G section of `Orbit_Test_Plan.md` green. Playwright and `e2e/` do not exist yet - the Phase G agent sets them up. App behaviour for E2E items 1-5 (nav, switch, Daily, Monthlies, Upcoming) is built; items 6-8 need G5-G10.
+- [x] Tests: Phase G items 1-8 green via Playwright - `e2e/phase-g.spec.ts`, run with `npm run test:e2e` and wired into CI as the `e2e` job (dedicated Neon branch via `DATABASE_URL_TEST`).
 
 **Out of scope:** Inngest, email template polish (I/H)
 
-**Handoff prompt**
-
-```
-Continue Orbit Phase G (G5-G10) per Orbit_Granular_Build.md, starting at G5.
-Read AGENTS.md, CONTEXT.md, docs/spec.md §1 and §5, the Phase G architecture
-notes in Orbit_Granular_Build.md, and Phase G in Orbit_Test_Plan.md.
-G1-G4 are merged. Build custom section pages (tasks/notes/mixed) at
-/spaces/:id/sections/:sectionId using the existing services and actions -
-no new business logic. Follow the streaming shell + Suspense page shape and
-the viewer/getSpaceSections read layer. Then G8 (Add Section UI), G9
-(read-only gating + badges), G10 (share bar). Add Playwright for Phase G
-test items 6-8; keep prior-phase suites passing.
-Stop when the Phase G acceptance checklist passes. Do not start Phase H.
-```
+*Phase G is complete - there is no G handoff prompt. Continue with Phase H.*
 
 ---
 
