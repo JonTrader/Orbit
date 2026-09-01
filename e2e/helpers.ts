@@ -1,7 +1,7 @@
-import "dotenv/config";
-
 import { Pool } from "@neondatabase/serverless";
 import type { APIRequestContext, Page } from "@playwright/test";
+
+import { bootstrapE2eDatabaseUrl } from "./env";
 
 /**
  * E2E helpers: real verified users, real Spaces, real cookies. Users are
@@ -10,13 +10,13 @@ import type { APIRequestContext, Page } from "@playwright/test";
  * by a test address.
  */
 
+bootstrapE2eDatabaseUrl();
+
 let pool: Pool | undefined;
 
 function db(): Pool {
-  // Deliberately DATABASE_URL and nothing else: sign-up happens through the
-  // app under test, whose server reads DATABASE_URL - the verification flip
-  // below must hit the same database or it silently matches no rows. In CI
-  // the e2e job maps DATABASE_URL to the dedicated testing branch.
+  // DATABASE_URL only — bootstrapE2eDatabaseUrl() already redirected it to
+  // DATABASE_URL_TEST when configured, matching the app server under test.
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL must be set for e2e user setup");

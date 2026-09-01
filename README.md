@@ -32,3 +32,13 @@ npm run test:db
 ```
 
 CI must provide the `DATABASE_URL_TEST` secret for a dedicated Neon branch. The confirmation marker is configured in the workflow and is not a substitute for isolating the branch.
+
+## E2E tests
+
+Playwright specs live in `e2e/` and drive the real app (`npm run dev`). They create throwaway users and Spaces, so they should use the same dedicated Neon branch as the Vitest suite.
+
+Configure `DATABASE_URL_TEST` and `DATABASE_URL_TEST_CONFIRMATION` in `.env.test` or `.env` (see above). `npm run test:e2e` bootstraps `DATABASE_URL` from that test branch automatically and starts a fresh dev server when the test branch differs from your dev `DATABASE_URL`. Stop any existing `npm run dev` on the dev branch before running E2E if you rely on `reuseExistingServer` without `DATABASE_URL_TEST` set.
+
+```bash
+npm run test:e2e
+```
