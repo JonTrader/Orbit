@@ -67,6 +67,21 @@ async function seedSpace(): Promise<SeededSpace> {
   };
 }
 
+async function seedMixedSection(
+  spaceId: string,
+): Promise<string> {
+  const [mixed] = await testDb
+    .insert(section)
+    .values({
+      spaceId,
+      name: "Catch-all",
+      kind: "mixed",
+      sortOrder: 4,
+    })
+    .returning();
+  return mixed.id;
+}
+
 describe("quickAdd action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
@@ -135,6 +150,105 @@ describe("quickAdd action", () => {
     expect(result.data.note.body).toBe("");
     const rows = await testDb.select().from(note);
     expect(rows).toHaveLength(1);
+  });
+
+  it("creates a Note with a body when one is given", async () => {
+    const s = await seedSpace();
+    const [notesSection] = await testDb
+      .insert(section)
+      .values({
+        spaceId: s.spaceId,
+        name: "Ideas",
+        kind: "notes",
+        sortOrder: 3,
+      })
+      .returning();
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: notesSection.id,
+      title: "Trip ideas",
+      body: "Kyoto in the fall",
+    });
+
+    if (!result.ok || result.data.entity !== "note") {
+      throw new Error("Expected a created note");
+    }
+    expect(result.data.note.title).toBe("Trip ideas");
+    expect(result.data.note.body).toBe("Kyoto in the fall");
+  });
+
+  it("creates a Task by default in a mixed Section", async () => {
+    const s = await seedSpace();
+    const mixedId = await seedMixedSection(s.spaceId);
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: mixedId,
+      title: "Fix the shelf",
+    });
+
+    assertCreatedTask(result, mixedId, "Fix the shelf");
+    expect(await testDb.select().from(note)).toHaveLength(0);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a Note with body in a mixed Section when asNote is true", async () => {
+    const s = await seedSpace();
+    const mixedId = await seedMixedSection(s.spaceId);
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: mixedId,
+      title: "Packing list",
+      body: "Charger, passport",
+      asNote: true,
+    });
+
+    if (!result.ok || result.data.entity !== "note") {
+      throw new Error("Expected a created note");
+    }
+    expect(result.data.note.title).toBe("Packing list");
+    expect(result.data.note.body).toBe("Charger, passport");
+    expect(result.data.note.sectionKind).toBe("mixed");
+    expect(await testDb.select().from(task)).toHaveLength(0);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores asNote for tasks and notes Sections", async () => {
+    const s = await seedSpace();
+    const [notesSection] = await testDb
+      .insert(section)
+      .values({
+        spaceId: s.spaceId,
+        name: "Ideas",
+        kind: "notes",
+        sortOrder: 3,
+      })
+      .returning();
+    authenticateAs(s.ownerId);
+
+    const taskResult = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.customTasksId,
+      title: "Still a task",
+      asNote: true,
+    });
+    assertCreatedTask(taskResult, s.customTasksId, "Still a task");
+
+    const noteResult = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: notesSection.id,
+      title: "Still a note",
+      asNote: true,
+    });
+    if (!noteResult.ok || noteResult.data.entity !== "note") {
+      throw new Error("Expected a created note");
+    }
+    expect(noteResult.data.note.sectionKind).toBe("notes");
   });
 
   it("creates a Monthly in the Monthlies Section when a due day is given", async () => {

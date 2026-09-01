@@ -2,7 +2,9 @@
 #   Node 24 (npm 11) is required: npm 10 `npm ci` rejects npm-11 lockfiles
 #   (see AGENTS.md CI section). Keep this in sync with local dev.
 #   Phase B: done - `test` runs against repo secret DATABASE_URL_TEST (Neon ci branch)
-#   Phase G: uncomment `e2e`
+#   Phase G: done - `e2e` runs Playwright against the same branch; the vitest
+#     suite resets it and e2e seeds its own users, and the shared concurrency
+#     group keeps the two from interleaving.
 #   Phase J: make these required checks; document secrets in README
 name: CI
 
@@ -63,21 +65,29 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret
 
-  # e2e:
-  #   runs-on: ubuntu-latest
-  #   concurrency:
-  #     group: orbit-database-tests
-  #     cancel-in-progress: false
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: actions/setup-node@v5
-  #       with:
-  #         node-version: 24
-  #         cache: npm
-  #     - run: npm ci
-  #     - run: npx playwright install --with-deps chromium
-  #     - run: npm run test:e2e
-  #       env:
-  #         DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
-  #         BETTER_AUTH_URL: http://localhost:3000
-  #         BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret
+  e2e:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: orbit-database-tests
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # The vitest run may have reset this branch's schema; re-apply
+      # migrations so the app the tests drive has its tables.
+      - run: npx drizzle-kit migrate
+        env:
+          DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+      - run: npm run test:e2e
+        env:
+          # The dev server (Playwright webServer) and the e2e helpers both
+          # target the dedicated testing branch.
+          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          BETTER_AUTH_URL: http://localhost:3000
+          BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret

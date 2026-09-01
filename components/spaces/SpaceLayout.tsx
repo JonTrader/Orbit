@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 
+import { AddSectionButton } from "./AddSectionButton";
 import { SectionTabs } from "./SectionTabs";
 import { SpaceSidebar } from "./SpaceSidebar";
 import type { SidebarFooterUser } from "./SidebarFooter";
@@ -22,6 +23,10 @@ export interface SpaceLayoutProps {
   navItems: SpaceNavItem[];
   /** Server-rendered streamed slot; see PasswordLinkSlot. */
   passwordSlot?: ReactNode;
+  /** Whether the Viewer may create or mutate content in this Space. */
+  canMutateContent?: boolean;
+  /** Server-rendered streamed slot; see ShareBarSlot. */
+  shareBarSlot?: ReactNode;
   children?: ReactNode;
 }
 
@@ -31,6 +36,8 @@ export function SpaceLayout({
   spacesSlot,
   navItems,
   passwordSlot,
+  canMutateContent = false,
+  shareBarSlot,
   children,
 }: SpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -68,8 +75,13 @@ export function SpaceLayout({
       <main className="mx-auto w-full max-w-[720px] px-4 py-5 pb-16 sm:px-6 sm:py-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <header>
-            <div className="mb-1 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
-              Active Space · {activeSpace.name}
+            <div className="mb-1 flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
+              <span>Active Space · {activeSpace.name}</span>
+              {!canMutateContent ? (
+                <span className="rounded bg-line px-1.5 py-0.5 text-[0.6rem] font-bold tracking-[0.06em] text-muted">
+                  Read-only
+                </span>
+              ) : null}
             </div>
             <h1 className="text-[1.75rem] font-bold tracking-[-0.03em]">
               {current?.label ?? "Orbit"}
@@ -101,9 +113,19 @@ export function SpaceLayout({
           </button>
         </div>
 
-        <SectionTabs items={navItems} />
+        <div className="mb-4 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <SectionTabs items={navItems} />
+          </div>
+          <AddSectionButton
+            spaceId={activeSpace.id}
+            disabled={!canMutateContent}
+          />
+        </div>
 
         {children}
+
+        {shareBarSlot}
       </main>
     </div>
   );

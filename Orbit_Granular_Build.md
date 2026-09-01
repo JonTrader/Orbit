@@ -21,8 +21,8 @@ todos:
     content: "Phase F: Web-only Server Actions (F1-F4 complete: quickAdd, toggleComplete, Sections, sendInvite)"
     status: completed
   - id: G-ui
-    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab)"
-    status: pending
+    content: "Phase G: Wire Orbit UI (Active Space, no Shared tab) - G1-G10 done"
+    status: completed
   - id: H-sharing
     content: "Phase H: Invites + ownership transfer + RBAC audit"
     status: pending
@@ -324,35 +324,62 @@ Stop at Phase F acceptance. Do not start Phase G.
 | **ADRs** | 0001 |
 | **Prereq** | E and/or F |
 
-| Step | Deliverable |
-| ---- | ----------- |
-| **G1** | Space switcher → Active Space |
-| **G2** | Daily: list Tasks; hide completed by default + show-completed; compose + complete |
-| **G3** | Monthlies: list; complete rolls next due |
-| **G4** | Upcoming: read-only timeline; no compose |
-| **G5–G7** | Custom tasks / notes / mixed Sections |
-| **G8** | Add Section (name + kind) |
-| **G9** | Read-only UI: disable mutations + badges |
-| **G10** | Share bar: avatars, roles, invite entry point |
+**Status: complete.** G1-G10 shipped across PR #9 (ui-wiring: G1-G4) and the
+`custom-section-pages` branch (G5-G10, shared dialog primitive, share bar),
+plus Playwright E2E. Historical notes that shaped G5-G10 are kept below for
+context on why the pages look the way they do.
+
+| Step | Deliverable | Status |
+| ---- | ----------- | ------ |
+| **G1** | Space switcher → Active Space | done |
+| **G2** | Daily: list Tasks; hide completed by default + show-completed; compose + complete | done |
+| **G3** | Monthlies: list; complete rolls next due | done |
+| **G4** | Upcoming: read-only timeline; no compose | done |
+| **G5** | Custom **tasks** Section view: list + complete + compose (reuse `TaskRow`/`ComposeBar`) | done |
+| **G6** | Custom **notes** Section view: list + edit (notes are plain text, no complete) | done |
+| **G7** | **Mixed** Section view: Tasks and Notes in one list | done |
+| **G8** | Add Section (name + kind) UI entry point | done |
+| **G9** | Read-only UI: disable mutations + badges | done |
+| **G10** | Share bar: avatars, roles, invite entry point | done |
+
+**Architecture notes (historical, but they describe the shipped pages)**
+
+- The read layer was refactored twice after PR #9. Space views must use
+  `getSpaceViewer(spaceId)` / `getSpaceSections(spaceId)` from
+  `lib/spaces/viewer.ts` (single session touchpoint, React-cached per render).
+  Never call `requireVerifiedSession`/`requireMembership` from a page.
+- Pages are **streaming shells** (perf round 3, see `query-performance-plan.md`
+  and `performance.md`): each section page returns a thin shell and streams
+  its data-dependent content inside `<Suspense>`; the route's `loading.tsx`
+  doubles as the Suspense fallback (one skeleton per route). Follow that shape
+  for the new Section pages.
+- The data layer for G5-G7 is **already complete** - do not add services:
+  Tasks accept `tasks`/`mixed` Sections (`lib/services/tasks.ts`), Notes
+  accept `notes`/`mixed` (`lib/services/notes.ts`), and `quick-add`
+  (`lib/actions/quick-add.ts`) already dispatches Task/Monthly/Note by the
+  target Section's kind.
+- Section management actions exist (`lib/actions/sections.ts`:
+  `createSection`, `renameSection`, `reorderSections`, `deleteSection`) -
+  G8 is a UI entry point over these, not new actions.
+- `viewer.can.mutateContent` (editor+) gates every compose/toggle; G9 makes
+  that gating systematic plus visible badges for read-only Members.
+- Server components cannot live inside client-component trees: cross the
+  boundary with React-element slot props (see `PasswordLinkSlot` /
+  `SidebarSpaces` passed into `SpaceLayout`).
 
 **Acceptance**
 
-- [ ] Nav Upcoming → Daily → Monthlies → customs; no Shared
-- [ ] Active Space scopes all views
-- [ ] Read-only member cannot mutate from UI
-- [ ] Tests: Phase G section of `Orbit_Test_Plan.md` green (Playwright starts here)
+- [x] Nav Upcoming → Daily → Monthlies → customs; no Shared (custom **tasks** Sections render as of G5; notes/mixed land in G6-G7)
+- [x] Active Space scopes all views
+- [x] Custom section pages render Tasks/Notes/Mixed content (G5-G7; Tasks and Notes render as of G5-G6, Mixed is G7)
+- [x] Add Section flow creates usable Sections (G8)
+- [x] Read-only member cannot mutate from UI (G9)
+- [x] Share bar shows members; invite entry visible to Owner (G10)
+- [x] Tests: Phase G items 1-8 green via Playwright - `e2e/phase-g.spec.ts`, run with `npm run test:e2e` and wired into CI as the `e2e` job (dedicated Neon branch via `DATABASE_URL_TEST`).
 
 **Out of scope:** Inngest, email template polish (I/H)
 
-**Handoff prompt**
-
-```
-Implement Orbit Phase G only (G1–G10) per Orbit_Granular_Build.md.
-Read AGENTS.md, CONTEXT.md, docs/spec.md §1 and §5, and Phase G in Orbit_Test_Plan.md.
-Wire Orbit v2 UI to real data: Active Space, no Shared tab, Upcoming read-only, completed Daily hidden by default.
-Add Playwright and Phase G e2e cases from the test plan; keep prior-phase suites passing.
-Stop at Phase G acceptance. Do not start Phase H.
-```
+*Phase G is complete - there is no G handoff prompt. Continue with Phase H.*
 
 ---
 

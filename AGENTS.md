@@ -14,6 +14,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Service layout
 
+- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
 - `lib/spaces/viewer.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
@@ -22,6 +23,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
   - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. The layout and Daily / Monthlies / Upcoming pages call it instead of `listSections` directly so they share one query per render pass.
   - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
   - Pages and layouts must use this module instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
+- Layouts and pages render **concurrently** in the App Router: a page must not assume a layout's side effects (e.g. `ensurePersonalSpace`) have committed. Code that depends on them needs its own fallback - see the entry route `app/(app)/page.tsx`, which re-runs onboarding when `listSpaces` comes back empty.
 
 ## Action layout
 

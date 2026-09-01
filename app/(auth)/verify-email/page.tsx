@@ -5,7 +5,7 @@ import { ResendVerification } from "@/components/auth/ResendVerification";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
-import { getAppSession } from "@/lib/auth/session";
+import { getAppSession, redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Verify your email · Orbit" };
 
@@ -14,6 +14,7 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: Promise<{ email?: string }>;
 }) {
+  await redirectIfVerified();
   const [{ email }, session] = await Promise.all([
     searchParams,
     getAppSession(),

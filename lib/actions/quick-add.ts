@@ -16,12 +16,19 @@ const quickAddInputSchema = z
     spaceId: z.uuid(),
     sectionId: z.uuid(),
     title: z.string().trim().min(1, "Title cannot be empty"),
+    /** Optional body for Notes; Tasks and Monthlies ignore it. */
+    body: z.string().optional(),
     dueDayOfMonth: z
       .number()
       .int("Monthly due day must be an integer")
       .min(1, "Monthly due day must be between 1 and 31")
       .max(31, "Monthly due day must be between 1 and 31")
       .optional(),
+    /**
+     * For mixed Sections only: explicitly create a Note instead of the
+     * default Task. Ignored for other Section kinds.
+     */
+    asNote: z.boolean().optional(),
   })
   .strict();
 
@@ -38,9 +45,10 @@ export type QuickAddResult = ActionResult<QuickAddCreated>;
 /**
  * Adds one item to the selected Section of the Active Space from the compose
  * bar. Dispatches to the owning domain service by resolved Section kind:
- * Tasks for Daily and custom tasks/mixed Sections, Notes for notes Sections,
- * Monthlies (which need a due day) for the Monthlies Section. Upcoming is a
- * view, not a Section, so it can never be a quick-add target.
+ * Tasks for Daily and custom tasks/mixed Sections (default), Notes for notes
+ * Sections and for mixed Sections when `asNote` is true, Monthlies (which
+ * need a due day) for the Monthlies Section. Upcoming is a view, not a
+ * Section, so it can never be a quick-add target.
  */
 export const quickAdd = defineAction(
   quickAddInputSchema,
@@ -73,14 +81,31 @@ export const quickAdd = defineAction(
           }),
         };
       }
-      case "notes": {
+      case "notes":
+      case "mixed": {
+        if (target.kind === "mixed" && !parsed.asNote) {
+          return {
+            entity: "task",
+            task: await createTask(db, {
+              userId,
+              spaceId: parsed.spaceId,
+              sectionId: target.id,
+              // The switch already validated the kind; skip createTask's re-query.
+              section: target,
+              title: parsed.title,
+            }),
+          };
+        }
         return {
           entity: "note",
           note: await createNote(db, {
             userId,
             spaceId: parsed.spaceId,
             sectionId: target.id,
+            // The switch already validated the kind; skip createNote's re-query.
+            section: target,
             title: parsed.title,
+            body: parsed.body,
           }),
         };
       }
