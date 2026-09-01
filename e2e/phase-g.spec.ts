@@ -49,8 +49,10 @@ test.afterAll(async () => {
 
 async function authenticate(page: Page): Promise<void> {
   await authenticatePage(page, ownerSession);
-  await page.goto("/");
+  // Land on a Space view directly; "/" only redirects and is racy on cold CI starts.
+  await page.goto(`/spaces/${personalSpaceId}/upcoming`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByLabel("Spaces and sections")).toBeVisible();
 }
 
 async function sectionIdByKind(
@@ -73,27 +75,26 @@ test.describe("Phase G", () => {
   }) => {
     await authenticate(page);
 
-    const links = page
-      .getByLabel("Spaces and sections")
-      .getByRole("link", { name: "In this Space" })
-      .or(page.getByLabel("Spaces and sections").locator("div"))
-      .locator("a");
+    const sidebar = page.getByLabel("Spaces and sections");
+    const inThisSpace = sidebar.locator(
+      '[class*="flex flex-col gap-0.5"]:has-text("In this Space") a',
+    );
+    await expect(inThisSpace.first()).toBeVisible();
 
-    // Assert on the "In this Space" block directly.
-    const inThisSpace = page.locator(
-      'aside [class*="flex flex-col gap-0.5"]:has-text("In this Space") a',
+    const entries = await inThisSpace.evaluateAll((anchors) =>
+      anchors.map((anchor) => ({
+        href: anchor.getAttribute("href"),
+        label: anchor.textContent?.trim() ?? "",
+      })),
     );
-    const hrefs = await inThisSpace.evaluateAll((anchors) =>
-      anchors.map((anchor) => anchor.getAttribute("href")),
-    );
-    expect(hrefs[0]).toMatch(/\/upcoming$/);
-    expect(hrefs[1]).toMatch(/\/daily$/);
-    expect(hrefs[2]).toMatch(/\/monthlies$/);
-    expect(hrefs.slice(3).every((href) => href?.includes("/sections/"))).toBe(
-      true,
-    );
-    expect(page.getByText("Shared", { exact: true })).toHaveCount(0);
-    void links;
+
+    expect(entries[0]?.href).toMatch(/\/upcoming$/);
+    expect(entries[1]?.href).toMatch(/\/daily$/);
+    expect(entries[2]?.href).toMatch(/\/monthlies$/);
+    expect(
+      entries.slice(3).every((entry) => entry.href?.includes("/sections/")),
+    ).toBe(true);
+    expect(entries.map((entry) => entry.label)).not.toContain("Shared");
   });
 
   test("2. switching Active Space switches the listed content", async ({
