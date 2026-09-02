@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 
 import { quickAdd } from "@/lib/actions/quick-add";
 
+import { Button } from "./Button";
+
 interface ComposeBarProps {
   spaceId: string;
   sectionId: string;
@@ -78,48 +80,73 @@ export function ComposeBar({
   return (
     <div className="mt-3.5">
       <form onSubmit={submit} className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={`${label}…`}
-            aria-label={label}
-            disabled={pending}
-            className="min-w-0 flex-1 rounded border border-line bg-panel px-3.5 py-2.5 text-base outline-none focus:border-accent disabled:opacity-60"
-          />
-          {requiresDueDay ? (
-            <input
-              type="number"
-              min={1}
-              max={31}
-              value={dueDay}
-              onChange={(event) => setDueDay(event.target.value)}
-              placeholder="Day"
-              aria-label="Due day of month"
-              disabled={pending}
-              className="w-20 rounded border border-line bg-panel px-3 py-2.5 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-60"
-            />
-          ) : null}
-          <button
-            type="submit"
-            disabled={pending || !title.trim()}
-            className="rounded bg-ink px-4 text-[0.85rem] font-semibold text-white disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
         {requiresBody ? (
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="Body (optional)…"
-            aria-label="Note body"
-            rows={2}
-            disabled={pending}
-            className="w-full resize-y rounded border border-line bg-panel px-3.5 py-2.5 text-[0.9rem] leading-relaxed outline-none focus:border-accent disabled:opacity-60"
-          />
-        ) : null}
+          <div className="flex flex-col gap-[0.65rem] rounded-lg border border-line bg-panel px-4 py-[0.9rem] pb-3 transition-[border-color,box-shadow] focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgba(194,65,12,0.08)]">
+            <div className="flex min-w-0 flex-col gap-[0.55rem]">
+              <input
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder={`${label}…`}
+                aria-label={label}
+                disabled={pending}
+                className="w-full border-0 border-b border-line bg-transparent py-[0.1rem] text-[0.92rem] font-medium text-ink outline-none placeholder:text-muted placeholder:opacity-75 disabled:opacity-60"
+              />
+              <textarea
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder="Body (optional)…"
+                aria-label="Note body"
+                rows={3}
+                disabled={pending}
+                className="min-h-[3.25rem] w-full resize-y border-0 bg-transparent py-[0.1rem] text-[0.86rem] leading-[1.55] text-muted outline-none placeholder:text-muted placeholder:opacity-75 disabled:opacity-60"
+              />
+            </div>
+            <div className="flex justify-end pt-[0.15rem]">
+              <Button
+                type="submit"
+                pending={pending}
+                disabled={!title.trim()}
+                className="rounded bg-ink px-[0.85rem] py-[0.32rem] text-[0.76rem] font-semibold text-white hover:bg-[#3a3631] disabled:opacity-50"
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={`${label}…`}
+              aria-label={label}
+              disabled={pending}
+              className="min-w-0 flex-1 rounded border border-line bg-panel px-3.5 py-2.5 text-base outline-none focus:border-accent disabled:opacity-60"
+            />
+            {requiresDueDay ? (
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={dueDay}
+                onChange={(event) => setDueDay(event.target.value)}
+                placeholder="Day"
+                aria-label="Due day of month"
+                disabled={pending}
+                className="w-20 rounded border border-line bg-panel px-3 py-2.5 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-60"
+              />
+            ) : null}
+            <Button
+              type="submit"
+              pending={pending}
+              disabled={!title.trim()}
+              className="rounded bg-ink px-4 text-[0.85rem] font-semibold text-white disabled:opacity-50"
+            >
+              Add
+            </Button>
+          </div>
+        )}
       </form>
       {error ? (
         <p role="alert" className="mt-2 text-[0.8rem] font-medium text-accent">

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 
 import { updateNote } from "@/lib/actions/notes";
 
+import { Button } from "./Button";
+
 interface NoteRowProps {
   spaceId: string;
   noteId: string;
@@ -69,38 +71,39 @@ export function NoteRow({
 
   if (isEditing) {
     return (
-      <div className="border-b border-line px-4 py-3 last:border-b-0">
-        <div className="flex flex-col gap-2">
+      <div className="border-b border-line px-[1.15rem] py-4 last:border-b-0">
+        <div className="flex flex-col gap-[0.65rem] py-[0.15rem]">
           <input
             type="text"
             value={draftTitle}
             onChange={(event) => setDraftTitle(event.target.value)}
             placeholder="Note title"
             disabled={pending}
-            className="w-full rounded border border-line bg-panel px-3 py-2 text-[0.95rem] font-medium outline-none focus:border-accent disabled:opacity-60"
+            className="w-full rounded-md border border-line bg-bg px-3 py-[0.55rem] text-[0.92rem] font-medium outline-none focus:border-accent focus:bg-panel disabled:opacity-60"
           />
           <textarea
             value={draftBody}
             onChange={(event) => setDraftBody(event.target.value)}
             placeholder="Write something…"
-            rows={4}
+            rows={3}
             disabled={pending}
-            className="w-full resize-y rounded border border-line bg-panel px-3 py-2 text-[0.9rem] leading-relaxed outline-none focus:border-accent disabled:opacity-60"
+            className="min-h-[5rem] w-full resize-y rounded-md border border-line bg-bg px-3 py-[0.55rem] text-[0.86rem] leading-[1.6] outline-none focus:border-accent focus:bg-panel disabled:opacity-60"
           />
-          <div className="flex items-center gap-2">
-            <button
+          <div className="flex flex-wrap items-center gap-[0.45rem] pt-[0.15rem]">
+            <Button
               type="button"
               onClick={save}
-              disabled={pending}
-              className="rounded bg-ink px-3 py-1.5 text-[0.8rem] font-semibold text-white disabled:opacity-50"
+              pending={pending}
+              pendingLabel="Saving…"
+              className="rounded bg-ink px-3 py-[0.32rem] text-[0.76rem] font-semibold text-white hover:bg-[#3a3631] disabled:opacity-50"
             >
-              {pending ? "Saving…" : "Save"}
-            </button>
+              Save
+            </Button>
             <button
               type="button"
               onClick={cancelEdit}
               disabled={pending}
-              className="rounded px-3 py-1.5 text-[0.8rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
+              className="rounded border-0 bg-transparent px-[0.55rem] py-[0.32rem] text-[0.76rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
             >
               Cancel
             </button>
@@ -116,14 +119,14 @@ export function NoteRow({
   }
 
   return (
-    <div className="border-b border-line px-4 py-3 last:border-b-0">
-      <div className="flex items-start justify-between gap-3">
+    <div className="border-b border-line px-[1.15rem] py-4 last:border-b-0">
+      <div className="flex items-start justify-between gap-5">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[0.95rem] font-medium text-ink">
+          <div className="truncate text-[0.94rem] font-medium leading-[1.35] text-ink">
             {title}
           </div>
           {body ? (
-            <div className="mt-1 whitespace-pre-wrap text-[0.9rem] leading-relaxed text-muted">
+            <div className="mt-[0.4rem] whitespace-pre-wrap text-[0.88rem] leading-[1.6] text-muted">
               {body}
             </div>
           ) : null}
@@ -132,7 +135,7 @@ export function NoteRow({
           <button
             type="button"
             onClick={startEdit}
-            className="shrink-0 rounded border border-line bg-panel px-2.5 py-1 text-[0.75rem] font-semibold text-muted hover:border-muted hover:text-ink"
+            className="shrink-0 rounded border-0 bg-transparent px-[0.35rem] py-[0.15rem] pt-[0.1rem] text-[0.72rem] font-semibold text-muted hover:bg-[rgba(255,253,249,0.8)] hover:text-ink"
           >
             Edit
           </button>

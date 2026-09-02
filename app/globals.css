@@ -10,7 +10,7 @@
   --teal: #0f766e;
   --blue: #1d4ed8;
   --sidebar: #f3ece0;
-  --sidebar-w: 15.5rem;
+  --sidebar-w: 14.5rem;
   --bg-top: #faf6ef;
   --bg-bottom: #efe8da;
   --row-hover: #faf6ef;
@@ -147,7 +147,32 @@ body {
   outline-offset: 3px;
 }
 
+/* Space pending · underline progress */
+@keyframes pending-underline-slide {
+  to {
+    left: 100%;
+  }
+}
+
+.pending-underline[data-pending]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  height: 2px;
+  background: var(--accent);
+  animation: pending-underline-slide 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .pending-underline[data-pending]::after {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.5;
+  }
+
   *,
   *::before,
   *::after {
