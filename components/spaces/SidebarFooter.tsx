@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { CHANGE_PASSWORD_PATH } from "@/lib/auth/paths";
 
 export interface SidebarFooterUser {
   name: string;
@@ -9,14 +10,13 @@ export interface SidebarFooterUser {
 
 interface SidebarFooterProps {
   user?: SidebarFooterUser;
-  /**
-   * Pre-rendered slot from the server layout (the streamed "Change password"
-   * link). Passed as a prop because this component sits inside a client tree.
-   */
-  passwordSlot?: ReactNode;
+  canChangePassword?: boolean;
 }
 
-export function SidebarFooter({ user, passwordSlot }: SidebarFooterProps) {
+export function SidebarFooter({
+  user,
+  canChangePassword = false,
+}: SidebarFooterProps) {
   return (
     <div className="mt-auto flex flex-col gap-1 border-t border-line px-1.5 pt-3">
       <button
@@ -37,7 +37,14 @@ export function SidebarFooter({ user, passwordSlot }: SidebarFooterProps) {
           <div className="truncate px-2 font-mono text-[0.62rem] text-muted">
             {user.email}
           </div>
-          {passwordSlot}
+          {canChangePassword ? (
+            <Link
+              href={CHANGE_PASSWORD_PATH}
+              className="rounded px-2 py-1.5 text-left text-[0.8rem] font-medium text-muted hover:bg-panel/60 hover:text-ink"
+            >
+              Change password
+            </Link>
+          ) : null}
           <SignOutButton />
         </div>
       ) : null}

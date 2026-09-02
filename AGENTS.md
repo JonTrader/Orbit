@@ -14,7 +14,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Service layout
 
-- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
+- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `requireCredentialSession` is the single credential decision point for password management (redirects OAuth-only users); the sidebar reads `viewer.can.changePassword` from `getSpaceViewer`, which batches `hasCredentialAccount` in its existing `Promise.all`. `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
 - `lib/spaces/viewer.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.

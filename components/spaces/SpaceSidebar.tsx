@@ -10,18 +10,18 @@ import { SidebarNavLinks } from "./SidebarNavLinks";
 
 interface SpaceSidebarProps {
   user?: SidebarFooterUser;
+  canChangePassword?: boolean;
   /** Server-rendered streamed slot; see SidebarSpaces. */
   spacesSlot?: ReactNode;
   navItems: SpaceNavItem[];
-  passwordSlot?: ReactNode;
   onNavClick?: () => void;
 }
 
 export function SpaceSidebar({
   user,
+  canChangePassword,
   spacesSlot,
   navItems,
-  passwordSlot,
   onNavClick,
 }: SpaceSidebarProps) {
   return (
@@ -38,7 +38,7 @@ export function SpaceSidebar({
         items={navItems}
         onClick={onNavClick}
       />
-      <SidebarFooter user={user} passwordSlot={passwordSlot} />
+      <SidebarFooter user={user} canChangePassword={canChangePassword} />
     </aside>
   );
 }

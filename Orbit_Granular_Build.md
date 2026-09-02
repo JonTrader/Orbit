@@ -364,8 +364,11 @@ context on why the pages look the way they do.
 - `viewer.can.mutateContent` (editor+) gates every compose/toggle; G9 makes
   that gating systematic plus visible badges for read-only Members.
 - Server components cannot live inside client-component trees: cross the
-  boundary with React-element slot props (see `PasswordLinkSlot` /
-  `SidebarSpaces` passed into `SpaceLayout`).
+  boundary with React-element slot props (see `ShareBarSlot` /
+  `SidebarSpaces` passed into `SpaceLayout`). Change-password visibility
+  is batched in `getSpaceViewer` as `viewer.can.changePassword` and passed
+  to the sidebar via `canChangePassword`; the change-password page still
+  enforces via `requireCredentialSession`.
 
 **Acceptance**
 
