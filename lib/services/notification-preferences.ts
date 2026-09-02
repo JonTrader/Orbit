@@ -29,30 +29,37 @@ export interface UpdateNotificationPreferenceInput
   emailEnabled?: boolean;
 }
 
-/** Returns the caller's per-Space preference, creating the documented defaults when absent. */
-export async function getNotificationPreference(
+async function findOrCreatePreference(
   db: OrbitDb,
-  input: NotificationPreferenceAccessInput,
+  spaceId: string,
+  userId: string,
 ): Promise<typeof notificationPreference.$inferSelect> {
-  await requireMembership(db, { ...input, minimumRole: "read-only" });
-
-  const existing = await findPreference(db, input.spaceId, input.userId);
+  const existing = await findPreference(db, spaceId, userId);
   if (existing) return existing;
 
   const [created] = await db
     .insert(notificationPreference)
-    .values({ userId: input.userId, spaceId: input.spaceId })
+    .values({ userId, spaceId })
     .onConflictDoNothing()
     .returning();
   if (created) return created;
 
-  const concurrent = await findPreference(db, input.spaceId, input.userId);
+  const concurrent = await findPreference(db, spaceId, userId);
   if (concurrent) return concurrent;
 
   throw new NotificationPreferenceError(
     "NOTIFICATION_PREFERENCE_NOT_FOUND",
     "Notification preference was not found",
   );
+}
+
+/** Returns the caller's per-Space preference, creating the documented defaults when absent. */
+export async function getNotificationPreference(
+  db: OrbitDb,
+  input: NotificationPreferenceAccessInput,
+): Promise<typeof notificationPreference.$inferSelect> {
+  await requireMembership(db, { ...input, minimumRole: "read-only" });
+  return findOrCreatePreference(db, input.spaceId, input.userId);
 }
 
 /**
@@ -83,7 +90,7 @@ export async function updateNotificationPreference(
     );
   }
 
-  const current = await getNotificationPreference(db, input);
+  const current = await findOrCreatePreference(db, input.spaceId, input.userId);
   const updates: Partial<typeof notificationPreference.$inferInsert> = {};
   if (input.daysBefore !== undefined) updates.daysBefore = input.daysBefore;
   if (input.emailEnabled !== undefined) updates.emailEnabled = input.emailEnabled;
