@@ -1,6 +1,7 @@
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
+import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
 import type { OrbitDb } from "@/lib/db/client";
 import { section, task, type SectionKind } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
@@ -74,21 +75,12 @@ export async function listTasks(
   input: ListTasksInput,
 ): Promise<TaskRow[]> {
   await requireMembership(db, { ...input, minimumRole: "read-only" });
-
-  const where = and(
-    input.sectionId ? eq(task.sectionId, input.sectionId) : undefined,
-    eq(task.spaceId, input.spaceId),
-    input.dueOn === "dated" ? isNotNull(task.dueOn) : undefined,
-    input.dueOn === "undated" ? isNull(task.dueOn) : undefined,
-    input.status === "open" ? isNull(task.completedAt) : undefined,
-    input.status === "completed" ? isNotNull(task.completedAt) : undefined,
-  );
-
-  return db
-    .select()
-    .from(task)
-    .where(where)
-    .orderBy(asc(task.sortOrder), asc(task.createdAt), asc(task.id));
+  return fetchTasks(db, {
+    spaceId: input.spaceId,
+    sectionId: input.sectionId,
+    dueOn: input.dueOn,
+    status: input.status,
+  });
 }
 
 /** Gets one Task after confirming Space membership. */

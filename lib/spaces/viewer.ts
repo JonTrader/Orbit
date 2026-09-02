@@ -5,7 +5,7 @@ import { cache } from "react";
 import { APP_PATH } from "@/lib/auth/paths";
 import { getDb } from "@/lib/db/client";
 import { space, type SpaceRole } from "@/lib/db/schema";
-import { listSections } from "@/lib/services/sections";
+import { fetchSections } from "@/lib/spaces/queries/fetch-sections";
 import { requireVerifiedSession } from "@/lib/auth/session";
 
 import { findMembership } from "./membership";
@@ -81,6 +81,6 @@ export const getSpaceViewer = cache(
  * same rows. Failure modes are the Viewer's (404 / root redirect).
  */
 export const getSpaceSections = cache(async (spaceId: string) => {
-  const { userId } = await getSpaceViewer(spaceId);
-  return listSections(getDb(), { userId, spaceId });
+  await getSpaceViewer(spaceId);
+  return fetchSections(getDb(), spaceId);
 });
