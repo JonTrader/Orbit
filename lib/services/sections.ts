@@ -1,6 +1,7 @@
 import { asc, and, desc, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
+import { fetchSections } from "@/lib/spaces/queries/fetch-sections";
 import type { OrbitDb } from "@/lib/db/client";
 import { section, type SectionKind } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
@@ -57,12 +58,7 @@ export async function listSections(
   input: SectionAccessInput,
 ): Promise<SectionRow[]> {
   await requireMembership(db, { ...input, minimumRole: "read-only" });
-
-  return db
-    .select()
-    .from(section)
-    .where(eq(section.spaceId, input.spaceId))
-    .orderBy(desc(section.isSystem), asc(section.sortOrder), asc(section.id));
+  return fetchSections(db, input.spaceId);
 }
 
 /** Fetches one Section row for a Member after the membership gate. */

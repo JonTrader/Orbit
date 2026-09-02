@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
+import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
 import {
   calendarDateInTimeZone,
   formatCalendarDate,
@@ -56,12 +57,7 @@ export async function listMonthlies(
   input: MonthlyAccessInput,
 ): Promise<MonthlyRow[]> {
   await requireMembership(db, { ...input, minimumRole: "read-only" });
-
-  return db
-    .select()
-    .from(monthly)
-    .where(eq(monthly.spaceId, input.spaceId))
-    .orderBy(asc(monthly.nextDueOn), asc(monthly.sortOrder), asc(monthly.id));
+  return fetchMonthlies(db, input.spaceId);
 }
 
 /** Gets one Monthly after confirming Space membership. */

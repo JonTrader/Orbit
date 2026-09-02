@@ -1,6 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
+import { fetchNotes } from "@/lib/spaces/queries/fetch-notes";
 import type { OrbitDb } from "@/lib/db/client";
 import { note, section, type SectionKind } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
@@ -59,16 +60,10 @@ export async function listNotes(
   input: ListNotesInput,
 ): Promise<NoteRow[]> {
   await requireMembership(db, { ...input, minimumRole: "read-only" });
-
-  const where = input.sectionId
-    ? and(eq(note.spaceId, input.spaceId), eq(note.sectionId, input.sectionId))
-    : eq(note.spaceId, input.spaceId);
-
-  return db
-    .select()
-    .from(note)
-    .where(where)
-    .orderBy(asc(note.sortOrder), asc(note.createdAt), asc(note.id));
+  return fetchNotes(db, {
+    spaceId: input.spaceId,
+    sectionId: input.sectionId,
+  });
 }
 
 /** Gets one Note after confirming Space membership. */
