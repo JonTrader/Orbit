@@ -3,9 +3,9 @@
 import { z } from "zod";
 
 import type { monthly, note, task } from "@/lib/db/schema";
-import { createMonthly, MonthlyError } from "@/lib/services/monthlies";
+import { createMonthly } from "@/lib/services/monthlies";
 import { createNote } from "@/lib/services/notes";
-import { listSections, SectionError } from "@/lib/services/sections";
+import { getSectionForMember } from "@/lib/services/sections";
 import { createTask } from "@/lib/services/tasks";
 
 import { defineAction } from "./framework";
@@ -53,31 +53,21 @@ export type QuickAddResult = ActionResult<QuickAddCreated>;
 export const quickAdd = defineAction(
   quickAddInputSchema,
   async (parsed, { userId, db }): Promise<QuickAddCreated> => {
-    const sections = await listSections(db, {
+    const target = await getSectionForMember(db, {
       userId,
       spaceId: parsed.spaceId,
+      sectionId: parsed.sectionId,
     });
-    // Upcoming and any unknown id reject here: they have no Section row.
-    const target = sections.find((row) => row.id === parsed.sectionId);
-    if (!target) {
-      throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
-    }
 
     switch (target.kind) {
       case "monthlies": {
-        if (!parsed.dueDayOfMonth) {
-          throw new MonthlyError(
-            "INVALID_DUE_DAY",
-            "Adding a Monthly needs a due day of month",
-          );
-        }
         return {
           entity: "monthly",
           monthly: await createMonthly(db, {
             userId,
             spaceId: parsed.spaceId,
             title: parsed.title,
-            dueDayOfMonth: parsed.dueDayOfMonth,
+            dueDayOfMonth: parsed.dueDayOfMonth!,
           }),
         };
       }
