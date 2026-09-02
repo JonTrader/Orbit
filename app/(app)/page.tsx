@@ -10,8 +10,7 @@ import { spaceSectionPath } from "@/lib/spaces/paths";
  * Upcoming view so no redirect page runs a second render pass.
  *
  * resolveEntrySpace idempotently ensures a Personal Space when the user has
- * none yet, so this page does not depend on the (app) layout's concurrent
- * onboarding finishing first.
+ * none yet before redirecting into their default Active Space.
  */
 export default async function HomePage() {
   const session = await requireVerifiedSession();

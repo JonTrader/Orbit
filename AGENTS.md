@@ -23,7 +23,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
   - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. Prefer `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` in layout and pages so Viewer + Sections resolve together; it delegates here under the hood.
   - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
   - Pages and layouts must use this module instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
-- Layouts and pages render **concurrently** in the App Router: a page must not assume a layout's side effects (e.g. `ensurePersonalSpace`) have committed. The entry route calls `resolveEntrySpace` from `lib/onboarding.ts`, which idempotently ensures a Personal Space when the user has none yet.
+- Layouts and pages render **concurrently** in the App Router. Onboarding (Personal Space creation) is owned by the entry route via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards.
 
 ## Action layout
 
