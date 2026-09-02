@@ -6,9 +6,9 @@ import {
 } from "@/lib/calendar-date";
 import { getDb } from "@/lib/db/client";
 import { resolveSpaceContext } from "@/lib/spaces/params";
+import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
+import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
-import { listMonthlies } from "@/lib/services/monthlies";
-import { listTasks } from "@/lib/services/tasks";
 
 import UpcomingLoading from "./loading";
 
@@ -31,7 +31,6 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
   return (
     <Suspense fallback={<UpcomingLoading />}>
       <UpcomingGroups
-        userId={viewer.userId}
         spaceId={spaceId}
         timezone={viewer.space.timezone}
       />
@@ -55,7 +54,6 @@ interface DayGroup {
 }
 
 interface UpcomingGroupsProps {
-  userId: string;
   spaceId: string;
   timezone: string;
 }
@@ -96,16 +94,14 @@ function futureLabel(
  * all Sections of the Active Space, grouped into days.
  */
 async function UpcomingGroups({
-  userId,
   spaceId,
   timezone,
 }: UpcomingGroupsProps) {
   const db = getDb();
   const [sections, monthlies, tasks] = await Promise.all([
     getSpaceSections(spaceId),
-    listMonthlies(db, { userId, spaceId }),
-    listTasks(db, {
-      userId,
+    fetchMonthlies(db, spaceId),
+    fetchTasks(db, {
       spaceId,
       dueOn: "dated",
       status: "open",
