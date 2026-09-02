@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { SpaceNavItem } from "@/lib/spaces/nav";
 
@@ -44,8 +44,17 @@ export function SpaceLayout({
   const pathname = usePathname();
   const current = navItems.find((item) => item.href === pathname);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [sidebarOpen]);
+
   return (
-    <div className="grid min-h-screen lg:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]">
+    <div className="grid min-h-screen w-full max-w-[100vw] overflow-x-hidden lg:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]">
       {sidebarOpen ? (
         <button
           type="button"
@@ -71,11 +80,11 @@ export function SpaceLayout({
         />
       </div>
 
-      <main className="mx-auto w-full max-w-[720px] px-4 py-5 pb-16 sm:px-6 sm:py-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <header>
-            <div className="mb-1 flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
-              <span>Active Space · {activeSpace.name}</span>
+      <main className="mx-auto w-full min-w-0 max-w-[720px] overflow-x-hidden px-4 py-5 pb-16 sm:px-6 sm:py-6">
+        <div className="mb-5 flex min-w-0 items-start justify-between gap-3 sm:gap-4">
+          <header className="min-w-0 flex-1">
+            <div className="mb-1 flex min-w-0 items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
+              <span className="truncate">Active Space · {activeSpace.name}</span>
               {!canMutateContent ? (
                 <span className="rounded bg-line px-1.5 py-0.5 text-[0.6rem] font-bold tracking-[0.06em] text-muted">
                   Read-only
@@ -92,7 +101,7 @@ export function SpaceLayout({
           <button
             type="button"
             aria-label="Open spaces"
-            className="inline-flex items-center gap-1.5 rounded border border-line bg-panel px-2.5 py-1.5 text-[0.8rem] font-semibold transition-colors hover:border-muted hover:bg-panel/70 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded border border-line bg-panel px-2.5 py-1.5 text-[0.8rem] font-semibold transition-colors hover:border-muted hover:bg-panel/70 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <svg
@@ -112,8 +121,8 @@ export function SpaceLayout({
           </button>
         </div>
 
-        <div className="mb-4 flex items-end gap-2">
-          <div className="min-w-0 flex-1">
+        <div className="mb-4 flex min-w-0 items-end gap-1.5 sm:gap-2">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <SectionTabs items={navItems} />
           </div>
           <AddSectionButton
