@@ -45,6 +45,10 @@ export interface DeleteSectionInput extends SectionAccessInput {
   sectionId: string;
 }
 
+export interface GetSectionForMemberInput extends SectionAccessInput {
+  sectionId: string;
+}
+
 type SectionRow = typeof section.$inferSelect;
 
 /** Lists all Sections for a Member, with system Sections fixed at the top. */
@@ -59,6 +63,15 @@ export async function listSections(
     .from(section)
     .where(eq(section.spaceId, input.spaceId))
     .orderBy(desc(section.isSystem), asc(section.sortOrder), asc(section.id));
+}
+
+/** Fetches one Section row for a Member after the membership gate. */
+export async function getSectionForMember(
+  db: OrbitDb,
+  input: GetSectionForMemberInput,
+): Promise<SectionRow> {
+  await requireMembership(db, { ...input, minimumRole: "read-only" });
+  return findSection(db, input.spaceId, input.sectionId);
 }
 
 /** Creates a custom Section after the existing system and custom Sections. */
