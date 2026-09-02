@@ -67,7 +67,6 @@ export function SpaceLayout({
           user={user}
           canChangePassword={canChangePassword}
           spacesSlot={spacesSlot}
-          navItems={navItems}
           onNavClick={() => setSidebarOpen(false)}
         />
       </div>

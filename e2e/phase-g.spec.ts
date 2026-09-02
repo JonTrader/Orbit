@@ -52,7 +52,7 @@ async function authenticate(page: Page): Promise<void> {
   // Land on a Space view directly; "/" only redirects and is racy on cold CI starts.
   await page.goto(`/spaces/${personalSpaceId}/upcoming`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByLabel("Spaces and sections")).toBeVisible();
+  await expect(page.getByLabel("Spaces")).toBeVisible();
 }
 
 async function sectionIdByKind(
@@ -75,16 +75,13 @@ test.describe("Phase G", () => {
   }) => {
     await authenticate(page);
 
-    const sidebar = page.getByLabel("Spaces and sections");
-    const inThisSpace = sidebar.locator(
-      '[class*="flex flex-col gap-0.5"]:has-text("In this Space") a',
-    );
-    await expect(inThisSpace.first()).toBeVisible();
+    const tablist = page.getByRole("tablist", { name: "Sections" });
+    await expect(tablist.getByRole("tab").first()).toBeVisible();
 
-    const entries = await inThisSpace.evaluateAll((anchors) =>
-      anchors.map((anchor) => ({
-        href: anchor.getAttribute("href"),
-        label: anchor.textContent?.trim() ?? "",
+    const entries = await tablist.getByRole("tab").evaluateAll((tabs) =>
+      tabs.map((tab) => ({
+        href: tab.getAttribute("href"),
+        label: tab.textContent?.trim() ?? "",
       })),
     );
 
@@ -127,7 +124,7 @@ test.describe("Phase G", () => {
     ).toHaveCount(0);
 
     await page
-      .getByLabel("Spaces and sections")
+      .getByLabel("Spaces")
       .getByRole("link", { name: "Personal", exact: true })
       .click();
     await expect(page).toHaveURL(new RegExp(`${personalSpaceId}/upcoming`));
@@ -222,10 +219,10 @@ test.describe("Phase G", () => {
       await dialog.getByRole("button", { name: "Add Section" }).click();
       await expect(dialog).toBeHidden();
 
-      const customHref = page
-        .getByLabel("Spaces and sections")
-        .locator(`a:has-text("${name}")`);
-      await customHref.click();
+      const customTab = page
+        .getByRole("tablist", { name: "Sections" })
+        .getByRole("tab", { name, exact: true });
+      await customTab.click();
       await expect(
         page.getByRole("heading", { name, exact: true }),
       ).toBeVisible();
@@ -233,16 +230,16 @@ test.describe("Phase G", () => {
 
     // Content: a Task in the tasks Section and a Note with body in notes.
     await page
-      .getByLabel("Spaces and sections")
-      .locator(`a:has-text("E2E tasks ${runSuffix()}")`)
+      .getByRole("tablist", { name: "Sections" })
+      .getByRole("tab", { name: `E2E tasks ${runSuffix()}`, exact: true })
       .click();
     await page.getByLabel(`Add to E2E tasks ${runSuffix()}`).fill(`E2E task ${runSuffix()}`);
     await page.getByLabel(`Add to E2E tasks ${runSuffix()}`).press("Enter");
     await expect(page.getByText(`E2E task ${runSuffix()}`)).toBeVisible();
 
     await page
-      .getByLabel("Spaces and sections")
-      .locator(`a:has-text("E2E notes ${runSuffix()}")`)
+      .getByRole("tablist", { name: "Sections" })
+      .getByRole("tab", { name: `E2E notes ${runSuffix()}`, exact: true })
       .click();
     await page
       .getByLabel(`Add to E2E notes ${runSuffix()}`)

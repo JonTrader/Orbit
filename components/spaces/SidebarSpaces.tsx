@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db/client";
 import { spaceLayoutPath, spaceSectionPath } from "@/lib/spaces/paths";
 import { listSpaces } from "@/lib/services/spaces";
 
-import { SidebarNavLinks } from "./SidebarNavLinks";
+import { SpaceRailLinks } from "./SpaceRailLinks";
 
 interface SidebarSpacesProps {
   userId: string;
@@ -16,10 +16,10 @@ export function SidebarSpacesSkeleton() {
         Spaces
       </div>
       {[0, 1].map((row) => (
-        <div
-          key={row}
-          className="ml-5 h-6 w-3/4 animate-pulse rounded bg-panel"
-        />
+        <div key={row} className="flex items-center gap-2.5 px-1.5 py-2">
+          <div className="size-[1.65rem] shrink-0 animate-pulse rounded-full border-[1.5px] border-line bg-panel" />
+          <div className="h-4 w-3/4 animate-pulse rounded bg-panel" />
+        </div>
       ))}
     </div>
   );
@@ -35,7 +35,7 @@ export async function SidebarSpaces({ userId }: SidebarSpacesProps) {
   const spaces = await listSpaces(getDb(), userId);
 
   return (
-    <SidebarNavLinks
+    <SpaceRailLinks
       title="Spaces"
       items={spaces.map((space) => ({
         key: space.id,
