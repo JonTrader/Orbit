@@ -6,6 +6,7 @@ import {
   DEFAULT_SPACE_TIMEZONE,
   createSpaceWithSystemSections,
 } from "@/lib/db/seed";
+import { listSpaces } from "@/lib/services/spaces";
 
 export const PERSONAL_SPACE_NAME = "Personal";
 
@@ -58,4 +59,20 @@ export async function ensurePersonalSpace(
     if (raced) return { spaceId: raced, created: false };
     throw error;
   }
+}
+
+/**
+ * Resolves the Space id the entry route should open: the caller's default
+ * Active Space (first membership by creation order), idempotently ensuring a
+ * Personal Space when they have none yet.
+ */
+export async function resolveEntrySpace(
+  db: OrbitDb,
+  input: EnsurePersonalSpaceInput,
+): Promise<string> {
+  const spaces = await listSpaces(db, input.userId);
+  if (spaces[0]) return spaces[0].id;
+
+  const ensured = await ensurePersonalSpace(db, input);
+  return ensured.spaceId;
 }
