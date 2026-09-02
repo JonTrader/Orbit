@@ -20,7 +20,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 - `lib/spaces/viewer.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
   - `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route; malformed ids 404.
   - `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner).
-  - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. The layout and Daily / Monthlies / Upcoming pages call it instead of `listSections` directly so they share one query per render pass.
+  - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. Prefer `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` in layout and pages so Viewer + Sections resolve together; it delegates here under the hood.
   - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
   - Pages and layouts must use this module instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
 - Layouts and pages render **concurrently** in the App Router: a page must not assume a layout's side effects (e.g. `ensurePersonalSpace`) have committed. Code that depends on them needs its own fallback - see the entry route `app/(app)/page.tsx`, which re-runs onboarding when `listSpaces` comes back empty.
@@ -40,6 +40,7 @@ App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `u
 ## Component layout
 
 - `components/spaces/` owns the Active Space chrome and rows:
+  - `ActiveSpaceProvider.tsx` - client context for the Active Space (`useActiveSpace()`). The layout wraps children after resolving Viewer + Sections once; client descendants read from context. RSC pages cannot use the hook and call `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` instead.
   - `SpaceLayout.tsx` - client shell used by `app/(app)/spaces/[spaceId]/layout.tsx`. Owns the mobile sidebar open/close state, renders `SpaceSidebar`, the view header, and the `SectionTabs` strip above `{children}`.
   - `SpaceSidebar.tsx` / `SidebarHeader.tsx` / `SidebarNavLinks.tsx` / `SidebarFooter.tsx` - sidebar breakdown. `SidebarNavLinks` is the client link list deriving active state from `usePathname()` and takes an optional `onClick` (used to close the mobile sidebar).
   - `SectionTabs.tsx` - client tab strip; derives the active tab from `usePathname()` and takes only `items`. Do not render it inside section pages - it lives in `SpaceLayout`, and section pages render content only.

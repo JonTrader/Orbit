@@ -7,10 +7,10 @@ import { NoteRow } from "@/components/spaces/NoteRow";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { note, task } from "@/lib/db/schema";
+import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveCustomSectionContext } from "@/lib/spaces/params";
 import { fetchNotes } from "@/lib/spaces/queries/fetch-notes";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
-import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 import CustomSectionLoading from "./loading";
 
@@ -31,9 +31,7 @@ export default async function CustomSectionPage({
   params,
 }: CustomSectionPageProps) {
   const { spaceId, sectionId } = await resolveCustomSectionContext(params);
-  const viewer = await getSpaceViewer(spaceId);
-
-  const sections = await getSpaceSections(spaceId);
+  const { viewer, sections } = await getActiveSpace(spaceId);
   const section = sections.find(
     (row) => row.id === sectionId && !row.isSystem,
   );
