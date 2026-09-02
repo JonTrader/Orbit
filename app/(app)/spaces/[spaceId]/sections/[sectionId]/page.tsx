@@ -8,9 +8,9 @@ import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { note, task } from "@/lib/db/schema";
 import { resolveCustomSectionContext } from "@/lib/spaces/params";
+import { fetchNotes } from "@/lib/spaces/queries/fetch-notes";
+import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
-import { listNotes } from "@/lib/services/notes";
-import { listTasks } from "@/lib/services/tasks";
 
 import CustomSectionLoading from "./loading";
 
@@ -47,7 +47,6 @@ export default async function CustomSectionPage({
       <Suspense fallback={<CustomSectionLoading />}>
         {kind === "tasks" ? (
           <SectionTasks
-            userId={viewer.userId}
             spaceId={spaceId}
             sectionId={sectionId}
             sectionName={section.name}
@@ -55,7 +54,6 @@ export default async function CustomSectionPage({
           />
         ) : kind === "notes" ? (
           <SectionNotes
-            userId={viewer.userId}
             spaceId={spaceId}
             sectionId={sectionId}
             sectionName={section.name}
@@ -63,7 +61,6 @@ export default async function CustomSectionPage({
           />
         ) : (
           <SectionMixed
-            userId={viewer.userId}
             spaceId={spaceId}
             sectionId={sectionId}
             sectionName={section.name}
@@ -103,7 +100,6 @@ export default async function CustomSectionPage({
 }
 
 interface SectionTasksProps {
-  userId: string;
   spaceId: string;
   sectionId: string;
   sectionName: string;
@@ -112,17 +108,16 @@ interface SectionTasksProps {
 
 /**
  * One read feeds the open Task list and the completed list below it. They
- * share this single listTasks call, so the section cannot be split into
+ * share this single fetchTasks call, so the section cannot be split into
  * independent Suspense slots without paying for the query twice.
  */
 async function SectionTasks({
-  userId,
   spaceId,
   sectionId,
   sectionName,
   canMutate,
 }: SectionTasksProps) {
-  const tasks = await listTasks(getDb(), { userId, spaceId, sectionId });
+  const tasks = await fetchTasks(getDb(), { spaceId, sectionId });
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
@@ -170,7 +165,6 @@ async function SectionTasks({
 }
 
 interface SectionNotesProps {
-  userId: string;
   spaceId: string;
   sectionId: string;
   sectionName: string;
@@ -182,13 +176,12 @@ interface SectionNotesProps {
  * so the panel is a simple list with inline editing.
  */
 async function SectionNotes({
-  userId,
   spaceId,
   sectionId,
   sectionName,
   canMutate,
 }: SectionNotesProps) {
-  const notes = await listNotes(getDb(), { userId, spaceId, sectionId });
+  const notes = await fetchNotes(getDb(), { spaceId, sectionId });
 
   return (
     <div className="overflow-hidden rounded border border-line bg-panel">
@@ -218,7 +211,6 @@ async function SectionNotes({
 }
 
 interface SectionMixedProps {
-  userId: string;
   spaceId: string;
   sectionId: string;
   sectionName: string;
@@ -236,7 +228,6 @@ type MixedItem =
  * renders with the component appropriate to its kind.
  */
 async function SectionMixed({
-  userId,
   spaceId,
   sectionId,
   sectionName,
@@ -244,8 +235,8 @@ async function SectionMixed({
 }: SectionMixedProps) {
   const db = getDb();
   const [tasks, notes] = await Promise.all([
-    listTasks(db, { userId, spaceId, sectionId }),
-    listNotes(db, { userId, spaceId, sectionId }),
+    fetchTasks(db, { spaceId, sectionId }),
+    fetchNotes(db, { spaceId, sectionId }),
   ]);
 
   const openTasks = tasks.filter((row) => !row.completedAt);
