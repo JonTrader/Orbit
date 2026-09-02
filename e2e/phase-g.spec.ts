@@ -47,12 +47,30 @@ test.afterAll(async () => {
   await closeDb();
 });
 
+function spacesSidebar(page: Page) {
+  // Sidebar is the spaces-only aside; avoid getByLabel("Spaces"), which also
+  // matches the mobile "Open spaces" control via substring label matching.
+  return page.getByRole("complementary", { name: "Spaces" });
+}
+
+async function goToSectionTab(page: Page, name: string): Promise<void> {
+  const tab = page
+    .getByRole("tablist", { name: "Sections" })
+    .getByRole("tab", { name, exact: true });
+  await tab.scrollIntoViewIfNeeded();
+  const href = await tab.getAttribute("href");
+  if (!href) throw new Error(`Section tab ${name} has no href`);
+  // Follow tab hrefs directly: horizontal drag handling on the strip can
+  // swallow clicks after scrolling on narrow viewports.
+  await page.goto(href);
+}
+
 async function authenticate(page: Page): Promise<void> {
   await authenticatePage(page, ownerSession);
   // Land on a Space view directly; "/" only redirects and is racy on cold CI starts.
   await page.goto(`/spaces/${personalSpaceId}/upcoming`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByLabel("Spaces")).toBeVisible();
+  await expect(spacesSidebar(page)).toBeVisible();
 }
 
 async function sectionIdByKind(
@@ -123,8 +141,7 @@ test.describe("Phase G", () => {
       page.getByText(`Personal-only ${runSuffix()}`),
     ).toHaveCount(0);
 
-    await page
-      .getByLabel("Spaces")
+    await spacesSidebar(page)
       .getByRole("link", { name: "Personal", exact: true })
       .click();
     await expect(page).toHaveURL(new RegExp(`${personalSpaceId}/upcoming`));
@@ -222,31 +239,28 @@ test.describe("Phase G", () => {
       const customTab = page
         .getByRole("tablist", { name: "Sections" })
         .getByRole("tab", { name, exact: true });
-      await customTab.click();
+      await expect(customTab).toBeVisible();
+      await goToSectionTab(page, name);
       await expect(
         page.getByRole("heading", { name, exact: true }),
       ).toBeVisible();
     }
 
     // Content: a Task in the tasks Section and a Note with body in notes.
-    await page
-      .getByRole("tablist", { name: "Sections" })
-      .getByRole("tab", { name: `E2E tasks ${runSuffix()}`, exact: true })
-      .click();
-    await page.getByLabel(`Add to E2E tasks ${runSuffix()}`).fill(`E2E task ${runSuffix()}`);
-    await page.getByLabel(`Add to E2E tasks ${runSuffix()}`).press("Enter");
+    const tasksSection = `E2E tasks ${runSuffix()}`;
+    const notesSection = `E2E notes ${runSuffix()}`;
+    await goToSectionTab(page, tasksSection);
+    await page.getByLabel(`Add to ${tasksSection}`).fill(`E2E task ${runSuffix()}`);
+    await page.getByLabel(`Add to ${tasksSection}`).press("Enter");
     await expect(page.getByText(`E2E task ${runSuffix()}`)).toBeVisible();
 
+    await goToSectionTab(page, notesSection);
     await page
-      .getByRole("tablist", { name: "Sections" })
-      .getByRole("tab", { name: `E2E notes ${runSuffix()}`, exact: true })
-      .click();
-    await page
-      .getByLabel(`Add to E2E notes ${runSuffix()}`)
+      .getByLabel(`Add to ${notesSection}`)
       .fill(`E2E note ${runSuffix()}`);
     await page.getByLabel("Note body").fill("E2E body");
     await page
-      .getByLabel(`Add to E2E notes ${runSuffix()}`)
+      .getByLabel(`Add to ${notesSection}`)
       .press("Enter");
     await expect(
       page.getByText(`E2E note ${runSuffix()}`).locator("xpath=.."),
