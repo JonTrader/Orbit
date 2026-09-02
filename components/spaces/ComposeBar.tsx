@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 
 import { quickAdd } from "@/lib/actions/quick-add";
 
+import { Button } from "./Button";
+
 interface ComposeBarProps {
   spaceId: string;
   sectionId: string;
@@ -101,13 +103,14 @@ export function ComposeBar({
               className="w-20 rounded border border-line bg-panel px-3 py-2.5 text-center font-mono text-sm outline-none focus:border-accent disabled:opacity-60"
             />
           ) : null}
-          <button
+          <Button
             type="submit"
-            disabled={pending || !title.trim()}
+            pending={pending}
+            disabled={!title.trim()}
             className="rounded bg-ink px-4 text-[0.85rem] font-semibold text-white disabled:opacity-50"
           >
             Add
-          </button>
+          </Button>
         </div>
         {requiresBody ? (
           <textarea

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 
 import { updateNote } from "@/lib/actions/notes";
 
+import { Button } from "./Button";
+
 interface NoteRowProps {
   spaceId: string;
   noteId: string;
@@ -88,14 +90,15 @@ export function NoteRow({
             className="w-full resize-y rounded border border-line bg-panel px-3 py-2 text-[0.9rem] leading-relaxed outline-none focus:border-accent disabled:opacity-60"
           />
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
               onClick={save}
-              disabled={pending}
+              pending={pending}
+              pendingLabel="Saving…"
               className="rounded bg-ink px-3 py-1.5 text-[0.8rem] font-semibold text-white disabled:opacity-50"
             >
-              {pending ? "Saving…" : "Save"}
-            </button>
+              Save
+            </Button>
             <button
               type="button"
               onClick={cancelEdit}
