@@ -19,11 +19,11 @@ export const getAppSession = cache(
 );
 
 /** Redirects rather than returning for unauthenticated or unverified users. */
-export async function requireVerifiedSession(): Promise<AppSession> {
+export const requireVerifiedSession = cache(async (): Promise<AppSession> => {
   const access = resolveAppAccess({ session: await getAppSession() });
   if (!access.allowed) redirect(access.redirectTo);
   return access.session;
-}
+});
 
 /** Allows only users with a local password to reach password-management pages. */
 export async function requireCredentialSession(): Promise<AppSession> {
