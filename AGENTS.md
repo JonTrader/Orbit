@@ -62,7 +62,7 @@ npm run test:auth # auth suite only
 npm run test:watch
 ```
 
-`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. Test files share that one branch, so `vitest.config.mts` disables file parallelism, sets `maxWorkers: 1`, and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch. Service tests that spy on shared modules (e.g. `requireMembership`) must use `vi.spyOn` + `vi.restoreAllMocks()` in `afterEach`, not `vi.mock` on `@/lib/spaces/membership`.
+`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. Test files share that one branch, so `vitest.config.mts` disables file parallelism, sets `maxWorkers: 1`, and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch. `tests/setup/global-setup.ts` holds a Postgres advisory lock (`TEST_DB_LOCK_KEY`) for the entire `npm test` run so CI jobs and local runs cannot interleave schema resets. Service tests that spy on shared modules (e.g. `requireMembership`) must use `vi.spyOn` + `vi.restoreAllMocks()` in `afterEach`, not `vi.mock` on `@/lib/spaces/membership`.
 
 Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`.
 

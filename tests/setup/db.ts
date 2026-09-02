@@ -1,15 +1,42 @@
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
-import { createDbClient } from "@/lib/db/client";
+import { createDbClient, type DbClient } from "@/lib/db/client";
 
 import { resolveTestDatabaseUrl } from "./env";
 
 export const MIGRATIONS_FOLDER = "drizzle";
 
+/** Serializes destructive schema work across CI jobs and local runs. */
+export const TEST_DB_LOCK_KEY = 0x4f524249;
+
 const client = createDbClient(resolveTestDatabaseUrl());
 
 export const testDb = client.db;
+
+let closed = false;
+
+let lockClient: DbClient | undefined;
+
+/** Blocks until this runner owns the shared Neon test branch. */
+export async function acquireTestDbLock(): Promise<void> {
+  if (!lockClient) {
+    lockClient = createDbClient(resolveTestDatabaseUrl());
+  }
+  await lockClient.db.execute(
+    sql`select pg_advisory_lock(${TEST_DB_LOCK_KEY})`,
+  );
+}
+
+/** Releases the branch lock for the next runner. */
+export async function releaseTestDbLock(): Promise<void> {
+  if (!lockClient) return;
+  await lockClient.db.execute(
+    sql`select pg_advisory_unlock(${TEST_DB_LOCK_KEY})`,
+  );
+  await lockClient.close();
+  lockClient = undefined;
+}
 
 export async function migrateTestDb(): Promise<void> {
   await migrate(testDb, { migrationsFolder: MIGRATIONS_FOLDER });
@@ -48,5 +75,7 @@ export async function countAppliedMigrations(): Promise<number> {
 }
 
 export async function closeTestDb(): Promise<void> {
+  if (closed) return;
+  closed = true;
   await client.close();
 }

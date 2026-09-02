@@ -50,6 +50,7 @@ jobs:
     concurrency:
       group: orbit-database-tests
       cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -70,6 +71,7 @@ jobs:
     concurrency:
       group: orbit-database-tests
       cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
