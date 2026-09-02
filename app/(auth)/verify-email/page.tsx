@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
-import { SIGN_IN_PATH } from "@/lib/auth/paths";
-import { getAppSession, redirectIfVerified } from "@/lib/auth/session";
+import { APP_PATH, SIGN_IN_PATH } from "@/lib/auth/paths";
+import { getAppSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Verify your email · Orbit" };
 
@@ -14,11 +15,11 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: Promise<{ email?: string }>;
 }) {
-  await redirectIfVerified();
   const [{ email }, session] = await Promise.all([
     searchParams,
     getAppSession(),
   ]);
+  if (session?.user.emailVerified) redirect(APP_PATH);
   const address = email ?? session?.user.email;
 
   return (
