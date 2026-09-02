@@ -1,19 +1,8 @@
-import { vi } from "vitest";
-
-const requireMembership = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/spaces/membership", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/spaces/membership")>();
-  return {
-    ...actual,
-    requireMembership,
-  };
-});
-
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { spaceMember } from "@/lib/db/schema";
+import * as membership from "@/lib/spaces/membership";
 import {
   getNotificationPreference,
   updateNotificationPreference,
@@ -24,13 +13,9 @@ import { createUser } from "../setup/fixtures";
 
 describe("Notification preference services", () => {
   beforeAll(migrateTestDb);
-  beforeEach(async () => {
-    await truncateAll();
-    requireMembership.mockReset();
-    const actual = await vi.importActual<typeof import("@/lib/spaces/membership")>(
-      "@/lib/spaces/membership",
-    );
-    requireMembership.mockImplementation(actual.requireMembership);
+  beforeEach(() => truncateAll());
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   async function seedSpace() {
@@ -130,6 +115,7 @@ describe("Notification preference services", () => {
 
   it("checks membership once on update", async () => {
     const { readOnly, space } = await seedSpace();
+    const requireMembership = vi.spyOn(membership, "requireMembership");
 
     await updateNotificationPreference(testDb, {
       userId: readOnly.id,
