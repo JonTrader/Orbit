@@ -6,8 +6,8 @@ import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { resolveSpaceContext } from "@/lib/spaces/params";
+import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
-import { listTasks } from "@/lib/services/tasks";
 
 import DailyLoading from "./loading";
 
@@ -36,7 +36,6 @@ export default async function DailyPage({ params }: DailyPageProps) {
     <>
       <Suspense fallback={<DailyLoading />}>
         <DailyTasks
-          userId={viewer.userId}
           spaceId={spaceId}
           sectionId={daily.id}
           canMutate={viewer.can.mutateContent}
@@ -54,7 +53,6 @@ export default async function DailyPage({ params }: DailyPageProps) {
 }
 
 interface DailyTasksProps {
-  userId: string;
   spaceId: string;
   sectionId: string;
   canMutate: boolean;
@@ -63,16 +61,15 @@ interface DailyTasksProps {
 /**
  * One read feeds every Daily block: the "N open" counter and open rows live
  * in the panel; completed rows land below it via CompletedTasksSection. They
- * share this single listTasks call, so the section cannot be split into
+ * share this single fetchTasks call, so the section cannot be split into
  * independent Suspense slots without paying for the query twice.
  */
 async function DailyTasks({
-  userId,
   spaceId,
   sectionId,
   canMutate,
 }: DailyTasksProps) {
-  const tasks = await listTasks(getDb(), { userId, spaceId, sectionId });
+  const tasks = await fetchTasks(getDb(), { spaceId, sectionId });
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);

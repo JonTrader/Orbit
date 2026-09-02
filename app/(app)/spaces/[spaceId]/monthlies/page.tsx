@@ -5,8 +5,8 @@ import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { MonthlyRow } from "@/components/spaces/MonthlyRow";
 import { getDb } from "@/lib/db/client";
 import { resolveSpaceContext } from "@/lib/spaces/params";
+import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
 import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
-import { listMonthlies } from "@/lib/services/monthlies";
 
 import MonthliesLoading from "./loading";
 
@@ -37,7 +37,6 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
     <>
       <Suspense fallback={<MonthliesLoading />}>
         <MonthliesList
-          userId={viewer.userId}
           spaceId={spaceId}
           canMutate={viewer.can.mutateContent}
         />
@@ -55,14 +54,13 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
 }
 
 interface MonthliesListProps {
-  userId: string;
   spaceId: string;
   canMutate: boolean;
 }
 
 /** The "N tracked" counter plus rows; data-dependent, so it lives here. */
-async function MonthliesList({ userId, spaceId, canMutate }: MonthliesListProps) {
-  const monthlies = await listMonthlies(getDb(), { userId, spaceId });
+async function MonthliesList({ spaceId, canMutate }: MonthliesListProps) {
+  const monthlies = await fetchMonthlies(getDb(), spaceId);
 
   return (
     <div className="overflow-hidden rounded border border-line bg-panel">
