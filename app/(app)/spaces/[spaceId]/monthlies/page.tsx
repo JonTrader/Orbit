@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { MonthlyRow } from "@/components/spaces/MonthlyRow";
 import { getDb } from "@/lib/db/client";
+import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
-import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 import MonthliesLoading from "./loading";
 
@@ -25,9 +25,7 @@ interface MonthliesPageProps {
  */
 export default async function MonthliesPage({ params }: MonthliesPageProps) {
   const spaceId = await resolveSpaceContext(params);
-  const viewer = await getSpaceViewer(spaceId);
-
-  const sections = await getSpaceSections(spaceId);
+  const { viewer, sections } = await getActiveSpace(spaceId);
   const monthliesSection = sections.find(
     (row) => row.isSystem && row.kind === "monthlies",
   );

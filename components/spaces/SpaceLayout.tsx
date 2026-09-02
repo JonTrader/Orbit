@@ -21,10 +21,10 @@ export interface SpaceLayoutProps {
   /** Server-rendered streamed slot; see SidebarSpaces. */
   spacesSlot?: ReactNode;
   navItems: SpaceNavItem[];
-  /** Server-rendered streamed slot; see PasswordLinkSlot. */
-  passwordSlot?: ReactNode;
   /** Whether the Viewer may create or mutate content in this Space. */
   canMutateContent?: boolean;
+  /** Whether the Viewer has an email/password account. */
+  canChangePassword?: boolean;
   /** Server-rendered streamed slot; see ShareBarSlot. */
   shareBarSlot?: ReactNode;
   children?: ReactNode;
@@ -35,8 +35,8 @@ export function SpaceLayout({
   activeSpace,
   spacesSlot,
   navItems,
-  passwordSlot,
   canMutateContent = false,
+  canChangePassword = false,
   shareBarSlot,
   children,
 }: SpaceLayoutProps) {
@@ -65,9 +65,9 @@ export function SpaceLayout({
       >
         <SpaceSidebar
           user={user}
+          canChangePassword={canChangePassword}
           spacesSlot={spacesSlot}
           navItems={navItems}
-          passwordSlot={passwordSlot}
           onNavClick={() => setSidebarOpen(false)}
         />
       </div>

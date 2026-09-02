@@ -5,9 +5,9 @@ import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
+import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
-import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 import DailyLoading from "./loading";
 
@@ -26,9 +26,7 @@ interface DailyPageProps {
  */
 export default async function DailyPage({ params }: DailyPageProps) {
   const spaceId = await resolveSpaceContext(params);
-  const viewer = await getSpaceViewer(spaceId);
-
-  const sections = await getSpaceSections(spaceId);
+  const { viewer, sections } = await getActiveSpace(spaceId);
   const daily = sections.find((row) => row.isSystem && row.kind === "daily");
   if (!daily) notFound();
 

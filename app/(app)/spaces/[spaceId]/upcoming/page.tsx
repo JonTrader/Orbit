@@ -5,10 +5,11 @@ import {
   formatCalendarDate,
 } from "@/lib/calendar-date";
 import { getDb } from "@/lib/db/client";
+import type { section } from "@/lib/db/schema";
+import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
-import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
 
 import UpcomingLoading from "./loading";
 
@@ -26,13 +27,14 @@ interface UpcomingPageProps {
  */
 export default async function UpcomingPage({ params }: UpcomingPageProps) {
   const spaceId = await resolveSpaceContext(params);
-  const viewer = await getSpaceViewer(spaceId);
+  const { viewer, sections } = await getActiveSpace(spaceId);
 
   return (
     <Suspense fallback={<UpcomingLoading />}>
       <UpcomingGroups
         spaceId={spaceId}
         timezone={viewer.space.timezone}
+        sections={sections}
       />
     </Suspense>
   );
@@ -56,6 +58,7 @@ interface DayGroup {
 interface UpcomingGroupsProps {
   spaceId: string;
   timezone: string;
+  sections: (typeof section.$inferSelect)[];
 }
 
 /** Formats YYYY-MM-DD as a short UTC label such as "Aug 1". */
@@ -96,10 +99,10 @@ function futureLabel(
 async function UpcomingGroups({
   spaceId,
   timezone,
+  sections,
 }: UpcomingGroupsProps) {
   const db = getDb();
-  const [sections, monthlies, tasks] = await Promise.all([
-    getSpaceSections(spaceId),
+  const [monthlies, tasks] = await Promise.all([
     fetchMonthlies(db, spaceId),
     fetchTasks(db, {
       spaceId,

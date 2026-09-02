@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { spaceMember, type SpaceRole } from "@/lib/db/schema";
+import { spaceMember, account, type SpaceRole } from "@/lib/db/schema";
+import { CREDENTIAL_PROVIDER_ID } from "@/lib/auth/access";
 import { createSpace } from "@/lib/services/spaces";
 
 import { migrateTestDb, testDb, truncateAll } from "../../setup/db";
@@ -145,9 +146,9 @@ describe("Space viewer context", () => {
 
   describe("getSpaceViewer capability matrix", () => {
     it.each([
-      ["owner", { mutateContent: true, manageMembers: true }],
-      ["editor", { mutateContent: true, manageMembers: false }],
-      ["read-only", { mutateContent: false, manageMembers: false }],
+      ["owner", { mutateContent: true, manageMembers: true, changePassword: false }],
+      ["editor", { mutateContent: true, manageMembers: false, changePassword: false }],
+      ["read-only", { mutateContent: false, manageMembers: false, changePassword: false }],
     ] as const)(
       "resolves %s capabilities",
       async (role, can) => {
@@ -177,6 +178,24 @@ describe("Space viewer context", () => {
         expect(viewer.space.name).toBe("Home");
       },
     );
+
+    it("exposes changePassword for credential accounts", async () => {
+      const owner = await createUser({ email: "owner@orbit.test" });
+      await testDb.insert(account).values({
+        id: crypto.randomUUID(),
+        accountId: owner.id,
+        providerId: CREDENTIAL_PROVIDER_ID,
+        userId: owner.id,
+      });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      authenticateAs(owner.id);
+
+      const viewer = await getSpaceViewer(created.id);
+      expect(viewer.can.changePassword).toBe(true);
+    });
   });
 
   describe("getSpaceViewer failure modes", () => {

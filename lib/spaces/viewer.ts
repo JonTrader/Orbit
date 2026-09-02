@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
+import { hasCredentialAccount } from "@/lib/auth/access";
 import { APP_PATH } from "@/lib/auth/paths";
 import { getDb } from "@/lib/db/client";
 import { space, type SpaceRole } from "@/lib/db/schema";
@@ -15,12 +16,18 @@ export interface SpaceViewerCapabilities {
   mutateContent: boolean;
   /** Owner only: invites, roles, removal, ownership transfer. */
   manageMembers: boolean;
+  /** Email/password account: change-password page and sidebar link. */
+  changePassword: boolean;
 }
 
-function capabilitiesFor(role: SpaceRole): SpaceViewerCapabilities {
+function capabilitiesFor(
+  role: SpaceRole,
+  changePassword: boolean,
+): SpaceViewerCapabilities {
   return {
     mutateContent: role !== "read-only",
     manageMembers: role === "owner",
+    changePassword,
   };
 }
 
@@ -57,9 +64,10 @@ export const getSpaceViewer = cache(
     const db = getDb();
     const userId = session.user.id;
 
-    const [membership, activeSpace] = await Promise.all([
+    const [membership, activeSpace, changePassword] = await Promise.all([
       findMembership(db, userId, spaceId),
       db.select().from(space).where(eq(space.id, spaceId)).limit(1),
+      hasCredentialAccount(db, userId),
     ]);
 
     if (!activeSpace[0]) notFound();
@@ -70,7 +78,7 @@ export const getSpaceViewer = cache(
       user: { name: session.user.name, email: session.user.email },
       space: activeSpace[0],
       role: membership.role,
-      can: capabilitiesFor(membership.role),
+      can: capabilitiesFor(membership.role, changePassword),
     };
   },
 );

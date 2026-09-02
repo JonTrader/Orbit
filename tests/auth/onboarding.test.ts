@@ -6,7 +6,11 @@ import {
   DEFAULT_SPACE_TIMEZONE,
   createSpaceWithSystemSections,
 } from "@/lib/db/seed";
-import { PERSONAL_SPACE_NAME, ensurePersonalSpace } from "@/lib/onboarding";
+import {
+  PERSONAL_SPACE_NAME,
+  ensurePersonalSpace,
+  resolveEntrySpace,
+} from "@/lib/onboarding";
 
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -130,5 +134,51 @@ describe("ensurePersonalSpace", () => {
 
     expect(result.created).toBe(true);
     expect(result.spaceId).not.toBe(shared.space.id);
+  });
+});
+
+describe("resolveEntrySpace", () => {
+  beforeAll(migrateTestDb);
+  beforeEach(truncateAll);
+
+  it("returns the Personal Space id for a first-time user", async () => {
+    const user = await createUser();
+
+    const spaceId = await resolveEntrySpace(testDb, {
+      userId: user.id,
+      timezone: "America/Chicago",
+    });
+
+    const [created] = await testDb
+      .select()
+      .from(space)
+      .where(eq(space.id, spaceId));
+    expect(created.name).toBe(PERSONAL_SPACE_NAME);
+    expect(created.isPersonal).toBe(true);
+  });
+
+  it("returns the default Space when the user already has memberships", async () => {
+    const user = await createUser();
+    const personal = await ensurePersonalSpace(testDb, { userId: user.id });
+    const home = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: user.id,
+    });
+
+    const spaceId = await resolveEntrySpace(testDb, { userId: user.id });
+
+    expect(spaceId).toBe(personal.spaceId);
+    expect(spaceId).not.toBe(home.space.id);
+  });
+
+  it("does not create a second Personal Space on repeat calls", async () => {
+    const user = await createUser();
+
+    const first = await resolveEntrySpace(testDb, { userId: user.id });
+    const second = await resolveEntrySpace(testDb, { userId: user.id });
+
+    expect(second).toBe(first);
+    const spaces = await testDb.select().from(space);
+    expect(spaces).toHaveLength(1);
   });
 });
