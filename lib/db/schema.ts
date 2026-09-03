@@ -259,6 +259,10 @@ export const task = pgTable(
     ),
     index("task_section_idx").on(t.sectionId),
     index("task_space_due_idx").on(t.spaceId, t.dueOn),
+    /** Upcoming timeline: dated open Tasks only. */
+    index("task_space_open_due_idx")
+      .on(t.spaceId, t.dueOn)
+      .where(sql`${t.completedAt} is null and ${t.dueOn} is not null`),
   ],
 );
 

@@ -1,0 +1,1 @@
+CREATE INDEX "task_space_open_due_idx" ON "task" USING btree ("space_id","due_on") WHERE "task"."completed_at" is null and "task"."due_on" is not null;
