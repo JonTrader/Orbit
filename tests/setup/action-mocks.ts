@@ -10,12 +10,14 @@ import { vi } from "vitest";
  */
 const actionMocks = vi.hoisted(() => ({
   requireVerifiedSession: vi.fn(),
+  readCreatorTimeZone: vi.fn(),
   revalidatePath: vi.fn(),
   sendEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
   requireVerifiedSession: actionMocks.requireVerifiedSession,
+  readCreatorTimeZone: actionMocks.readCreatorTimeZone,
 }));
 
 vi.mock("next/cache", () => ({
@@ -31,6 +33,11 @@ export function getRequireVerifiedSessionMock() {
   return actionMocks.requireVerifiedSession;
 }
 
+/** Browser timezone cookie reader used by createSpace. */
+export function getReadCreatorTimeZoneMock() {
+  return actionMocks.readCreatorTimeZone;
+}
+
 /** The shared revalidatePath mock; assert calls per test. */
 export function getRevalidatePathMock() {
   return actionMocks.revalidatePath;
@@ -41,6 +48,11 @@ export function authenticateAs(userId: string): void {
   actionMocks.requireVerifiedSession.mockResolvedValue({
     user: { id: userId },
   });
+}
+
+/** Sets the creator timezone the action will read from the cookie. */
+export function setCreatorTimeZone(timezone: string | undefined): void {
+  actionMocks.readCreatorTimeZone.mockResolvedValue(timezone);
 }
 
 /**
