@@ -1,15 +1,19 @@
-import { eq } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
-import { hasCredentialAccount } from "@/lib/auth/access";
+import { CREDENTIAL_PROVIDER_ID } from "@/lib/auth/access";
 import { APP_PATH } from "@/lib/auth/paths";
-import { getDb } from "@/lib/db/client";
-import { space, type SpaceRole } from "@/lib/db/schema";
-import { fetchSections } from "@/lib/spaces/queries/fetch-sections";
 import { requireVerifiedSession } from "@/lib/auth/session";
-
-import { findMembership } from "./membership";
+import { getDb } from "@/lib/db/client";
+import {
+  account,
+  section,
+  space,
+  spaceMember,
+  user,
+  type SpaceRole,
+} from "@/lib/db/schema";
 
 export interface SpaceViewerCapabilities {
   /** Editor or Owner: compose, complete/reopen, Notes, custom Sections. */
@@ -20,7 +24,7 @@ export interface SpaceViewerCapabilities {
   changePassword: boolean;
 }
 
-function capabilitiesFor(
+export function capabilitiesFor(
   role: SpaceRole,
   changePassword: boolean,
 ): SpaceViewerCapabilities {
@@ -46,49 +50,171 @@ export interface SpaceViewer {
   can: SpaceViewerCapabilities;
 }
 
+/** ShareBar / chrome preview of a Space Member (no email or image). */
+export interface SpaceMemberPreview {
+  userId: string;
+  name: string;
+  role: SpaceRole;
+}
+
+export interface SpaceLayoutData {
+  viewer: SpaceViewer;
+  sections: (typeof section.$inferSelect)[];
+  members: SpaceMemberPreview[];
+}
+
+type SectionJson = {
+  id: string;
+  spaceId: string;
+  name: string;
+  kind: (typeof section.$inferSelect)["kind"];
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+};
+
+function parseSections(value: unknown): (typeof section.$inferSelect)[] {
+  if (!Array.isArray(value)) return [];
+  return (value as SectionJson[]).map((row) => ({
+    id: row.id,
+    spaceId: row.spaceId,
+    name: row.name,
+    kind: row.kind,
+    isSystem: row.isSystem,
+    sortOrder: row.sortOrder,
+    createdAt:
+      row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
+    updatedAt:
+      row.updatedAt instanceof Date ? row.updatedAt : new Date(row.updatedAt),
+  }));
+}
+
+function parseMembers(value: unknown): SpaceMemberPreview[] {
+  if (!Array.isArray(value)) return [];
+  return value as SpaceMemberPreview[];
+}
+
 /**
- * Resolves the Viewer of one Active Space: verified session, membership, and
- * role-derived capabilities in a single memoised read per render pass.
+ * One-query Active Space layout data: space + Viewer role + credential flag +
+ * Sections + ShareBar member preview. Grouped into `{ viewer, sections,
+ * members }` in app code. Prefer getActiveSpace in layouts/pages; this is the
+ * SQL loader behind that facade.
  *
- * Failure modes are owned here so views never branch on them. An unknown or
- * deleted Space is a 404; a Space the caller does not belong to redirects to
- * the app root (the Active Space picker); unauthenticated or unverified
- * callers get the session guard's redirect.
- *
- * Memoised via React cache so a request's layout and page share one lookup;
- * services keep their own membership checks for the API boundary.
+ * Failure modes: unknown Space → notFound(); non-member → redirect `/`;
+ * unverified → session-guard redirect.
  */
-export const getSpaceViewer = cache(
-  async (spaceId: string): Promise<SpaceViewer> => {
+export const getSpaceLayoutData = cache(
+  async (spaceId: string): Promise<SpaceLayoutData> => {
     const session = await requireVerifiedSession();
     const db = getDb();
     const userId = session.user.id;
 
-    const [membership, activeSpace, changePassword] = await Promise.all([
-      findMembership(db, userId, spaceId),
-      db.select().from(space).where(eq(space.id, spaceId)).limit(1),
-      hasCredentialAccount(db, userId),
-    ]);
+    const [row] = await db
+      .select({
+        ...getTableColumns(space),
+        role: spaceMember.role,
+        changePassword: sql<boolean>`exists (
+          select 1 from ${account}
+          where ${account.userId} = ${userId}
+            and ${account.providerId} = ${CREDENTIAL_PROVIDER_ID}
+        )`.mapWith(Boolean),
+        sections: sql<SectionJson[]>`(
+          select coalesce(
+            json_agg(
+              json_build_object(
+                'id', ${section.id},
+                'spaceId', ${section.spaceId},
+                'name', ${section.name},
+                'kind', ${section.kind},
+                'isSystem', ${section.isSystem},
+                'sortOrder', ${section.sortOrder},
+                'createdAt', ${section.createdAt},
+                'updatedAt', ${section.updatedAt}
+              )
+              order by ${section.isSystem} desc, ${section.sortOrder}, ${section.id}
+            ),
+            '[]'::json
+          )
+          from ${section}
+          where ${section.spaceId} = ${space.id}
+        )`,
+        members: sql<SpaceMemberPreview[]>`(
+          select coalesce(
+            json_agg(
+              json_build_object(
+                'userId', ${spaceMember.userId},
+                'name', ${user.name},
+                'role', ${spaceMember.role}
+              )
+              order by ${spaceMember.createdAt}, ${spaceMember.id}
+            ),
+            '[]'::json
+          )
+          from ${spaceMember}
+          inner join ${user} on ${user.id} = ${spaceMember.userId}
+          where ${spaceMember.spaceId} = ${space.id}
+        )`,
+      })
+      .from(space)
+      .innerJoin(
+        spaceMember,
+        and(
+          eq(spaceMember.spaceId, space.id),
+          eq(spaceMember.userId, userId),
+        ),
+      )
+      .where(eq(space.id, spaceId))
+      .limit(1);
 
-    if (!activeSpace[0]) notFound();
-    if (!membership) redirect(APP_PATH);
+    if (!row) {
+      const [found] = await db
+        .select({ id: space.id })
+        .from(space)
+        .where(eq(space.id, spaceId))
+        .limit(1);
+      if (!found) notFound();
+      redirect(APP_PATH);
+    }
+
+    const {
+      role,
+      changePassword,
+      sections: sectionsJson,
+      members: membersJson,
+      ...spaceRow
+    } = row;
 
     return {
-      userId,
-      user: { name: session.user.name, email: session.user.email },
-      space: activeSpace[0],
-      role: membership.role,
-      can: capabilitiesFor(membership.role, changePassword),
+      viewer: {
+        userId,
+        user: { name: session.user.name, email: session.user.email },
+        space: spaceRow,
+        role,
+        can: capabilitiesFor(role, changePassword),
+      },
+      sections: parseSections(sectionsJson),
+      members: parseMembers(membersJson),
     };
   },
 );
 
 /**
- * Lists the Active Space's Sections for the Viewer, memoised per render pass
- * so a request's layout and page share one query instead of each fetching the
- * same rows. Failure modes are the Viewer's (404 / root redirect).
+ * Resolves the Viewer of one Active Space. Delegates to getSpaceLayoutData so
+ * callers share one SQL round trip with Sections and the ShareBar preview.
+ */
+export const getSpaceViewer = cache(
+  async (spaceId: string): Promise<SpaceViewer> => {
+    const layoutData = await getSpaceLayoutData(spaceId);
+    return layoutData.viewer;
+  },
+);
+
+/**
+ * Lists the Active Space's Sections for the Viewer. Delegates to
+ * getSpaceLayoutData (same round trip as the Viewer).
  */
 export const getSpaceSections = cache(async (spaceId: string) => {
-  await getSpaceViewer(spaceId);
-  return fetchSections(getDb(), spaceId);
+  const layoutData = await getSpaceLayoutData(spaceId);
+  return layoutData.sections;
 });

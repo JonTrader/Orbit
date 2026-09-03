@@ -80,7 +80,11 @@ export const account = pgTable(
     createdAt,
     updatedAt,
   },
-  (t) => [index("account_user_idx").on(t.userId)],
+  (t) => [
+    index("account_user_idx").on(t.userId),
+    // Layout credential EXISTS filters by (user_id, provider_id).
+    index("account_user_provider_idx").on(t.userId, t.providerId),
+  ],
 );
 
 export const verification = pgTable(

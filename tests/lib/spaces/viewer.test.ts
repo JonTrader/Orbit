@@ -39,7 +39,12 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   };
 });
 
-import { getSpaceSections, getSpaceViewer } from "@/lib/spaces/viewer";
+import {
+  getSpaceSections,
+  getSpaceLayoutData,
+  getSpaceViewer,
+} from "@/lib/spaces/viewer";
+import { getActiveSpace } from "@/lib/spaces/active-space";
 
 /** Points the mocked session guard at one verified Viewer. */
 function authenticateAs(userId: string, name = "Jonathan"): void {
@@ -66,6 +71,89 @@ describe("Space viewer context", () => {
     });
     viewMocks.notFound.mockImplementation(() => {
       throw new NotFoundSignal("not found");
+    });
+  });
+
+  describe("getSpaceLayoutData", () => {
+    it("returns viewer, sections, and member preview in one load", async () => {
+      const owner = await createUser({ email: "owner@orbit.test", name: "Owner" });
+      const editor = await createUser({
+        email: "editor@orbit.test",
+        name: "Editor",
+      });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      await testDb.insert(spaceMember).values({
+        spaceId: created.id,
+        userId: editor.id,
+        role: "editor",
+      });
+      await testDb.insert(account).values({
+        id: crypto.randomUUID(),
+        accountId: owner.id,
+        providerId: CREDENTIAL_PROVIDER_ID,
+        userId: owner.id,
+      });
+      authenticateAs(owner.id, "Owner");
+
+      const layoutData = await getSpaceLayoutData(created.id);
+
+      expect(layoutData.viewer.userId).toBe(owner.id);
+      expect(layoutData.viewer.role).toBe("owner");
+      expect(layoutData.viewer.can).toEqual({
+        mutateContent: true,
+        manageMembers: true,
+        changePassword: true,
+      });
+      expect(layoutData.viewer.space.name).toBe("Home");
+
+      const kinds = layoutData.sections.map((row) => row.kind);
+      expect(kinds).toContain("daily");
+      expect(kinds).toContain("monthlies");
+      const firstCustomIndex = layoutData.sections.findIndex((row) => !row.isSystem);
+      if (firstCustomIndex !== -1) {
+        const tail = layoutData.sections.slice(firstCustomIndex);
+        expect(tail.some((row) => row.isSystem)).toBe(false);
+      }
+
+      expect(layoutData.members).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: owner.id,
+            name: "Owner",
+            role: "owner",
+          }),
+          expect.objectContaining({
+            userId: editor.id,
+            name: "Editor",
+            role: "editor",
+          }),
+        ]),
+      );
+      expect(layoutData.members).toHaveLength(2);
+    });
+
+    it("exposes getActiveSpace members from the same layout load", async () => {
+      const owner = await createUser({ email: "owner@orbit.test", name: "Owner" });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      authenticateAs(owner.id, "Owner");
+
+      const active = await getActiveSpace(created.id);
+      expect(active.spaceId).toBe(created.id);
+      expect(active.members).toEqual([
+        expect.objectContaining({
+          userId: owner.id,
+          name: "Owner",
+          role: "owner",
+        }),
+      ]);
+      expect(active.sections.length).toBeGreaterThan(0);
+      expect(active.viewer.space.id).toBe(created.id);
     });
   });
 
