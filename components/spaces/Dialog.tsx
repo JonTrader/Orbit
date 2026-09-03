@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "./Button";
 
@@ -18,10 +19,22 @@ interface DialogProps {
   children: ReactNode;
 }
 
+/** True after hydration so portals can target document.body. */
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 /**
  * Shared modal scaffold for Space dialogs: backdrop with click-outside
  * close, Escape-to-close, a focus trap, the error line, and the Cancel /
  * submit footer. Form fields arrive as children inside the form.
+ *
+ * Portaled to document.body so fixed positioning is not trapped by
+ * transformed ancestors (mobile sidebar translate, overflow clipping).
  */
 export function Dialog({
   title,
@@ -35,6 +48,7 @@ export function Dialog({
   children,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const isClient = useIsClient();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -69,7 +83,9 @@ export function Dialog({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [pending, onClose]);
 
-  return (
+  if (!isClient) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -115,7 +131,8 @@ export function Dialog({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

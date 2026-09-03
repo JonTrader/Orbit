@@ -9,6 +9,7 @@ import {
   createSpace,
   deleteSpace,
   getSpace,
+  listSpaceDirectoryEntries,
   listSpaces,
   updateSpaceTimezone,
 } from "@/lib/services/spaces";
@@ -81,6 +82,96 @@ describe("Space services", () => {
     ]);
     await expect(listSpaces(testDb, outsider.id)).resolves.toMatchObject([
       { id: privateSpace.id, name: "Private" },
+    ]);
+  });
+
+  it("lists directory entries with Viewer roles, Member counts, and creation order", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const readOnly = await createUser({ email: "read-only@orbit.test" });
+    const outsider = await createUser({ email: "outsider@orbit.test" });
+
+    const first = await createSpace(testDb, {
+      userId: owner.id,
+      name: "Alpha",
+      timezone: "America/Chicago",
+    });
+    const second = await createSpace(testDb, {
+      userId: owner.id,
+      name: "Beta",
+      timezone: "Europe/London",
+    });
+    const privateSpace = await createSpace(testDb, {
+      userId: outsider.id,
+      name: "Private",
+    });
+
+    await testDb.insert(spaceMember).values([
+      { spaceId: first.id, userId: editor.id, role: "editor" },
+      { spaceId: first.id, userId: readOnly.id, role: "read-only" },
+      { spaceId: second.id, userId: readOnly.id, role: "read-only" },
+    ]);
+
+    await expect(
+      listSpaceDirectoryEntries(testDb, owner.id),
+    ).resolves.toEqual([
+      {
+        id: first.id,
+        name: "Alpha",
+        timezone: "America/Chicago",
+        role: "owner",
+        memberCount: 3,
+      },
+      {
+        id: second.id,
+        name: "Beta",
+        timezone: "Europe/London",
+        role: "owner",
+        memberCount: 2,
+      },
+    ]);
+
+    await expect(
+      listSpaceDirectoryEntries(testDb, editor.id),
+    ).resolves.toEqual([
+      {
+        id: first.id,
+        name: "Alpha",
+        timezone: "America/Chicago",
+        role: "editor",
+        memberCount: 3,
+      },
+    ]);
+
+    await expect(
+      listSpaceDirectoryEntries(testDb, readOnly.id),
+    ).resolves.toEqual([
+      {
+        id: first.id,
+        name: "Alpha",
+        timezone: "America/Chicago",
+        role: "read-only",
+        memberCount: 3,
+      },
+      {
+        id: second.id,
+        name: "Beta",
+        timezone: "Europe/London",
+        role: "read-only",
+        memberCount: 2,
+      },
+    ]);
+
+    await expect(
+      listSpaceDirectoryEntries(testDb, outsider.id),
+    ).resolves.toEqual([
+      {
+        id: privateSpace.id,
+        name: "Private",
+        timezone: DEFAULT_SPACE_TIMEZONE,
+        role: "owner",
+        memberCount: 1,
+      },
     ]);
   });
 

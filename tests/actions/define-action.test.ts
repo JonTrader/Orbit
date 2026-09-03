@@ -67,10 +67,7 @@ describe("defineAction", () => {
       ok: true,
       data: { title: "Water plants", userId: "user-1", db: { marker: "test-db" } },
     });
-    expect(getRevalidatePathMock()).toHaveBeenCalledWith(
-      "/spaces/[spaceId]",
-      "layout",
-    );
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/spaces", "layout");
   });
 
   it("revalidates the acting Space's layout when the schema carries spaceId", async () => {
@@ -87,7 +84,7 @@ describe("defineAction", () => {
       "layout",
     );
     expect(getRevalidatePathMock()).not.toHaveBeenCalledWith(
-      "/spaces/[spaceId]",
+      "/spaces",
       "layout",
     );
   });

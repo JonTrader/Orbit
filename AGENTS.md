@@ -76,6 +76,10 @@ Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editi
 - `tests/setup/api.ts` - shared helpers: `authenticateAs`, `unauthenticate`, `jsonRequest`, `responseJson`, route context builders, `ErrorBody`, and `apiTestLifecycle`.
 - Each API test file still owns its `beforeAll`/`beforeEach` wiring via `apiTestLifecycle()`.
 
+### E2E helpers
+
+- `e2e/helpers.ts` creates users via Better Auth HTTP endpoints. Auth POSTs must send a trusted `Origin` (see `BETTER_AUTH_URL` / `http://localhost:3000`): once the Playwright `request` fixture holds cookies from a prior sign-in, Better Auth rejects cookie-bearing auth calls with `MISSING_OR_NULL_ORIGIN`.
+
 ## CI
 
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) defines the CI pipeline. When adding tests, enable the matching job in that file rather than creating a second workflow. The `test` job needs the GitHub secret `DATABASE_URL_TEST` (dedicated Neon branch, not production).
