@@ -28,8 +28,9 @@ export function SidebarSpacesSkeleton() {
 /**
  * The sidebar's Spaces list, streamed separately: only this block needs the
  * listSpaces query, so nothing else in the layout should wait for it.
- * Rendered inside <Suspense> by the Space layout and passed down as a plain
- * prop, because server components cannot live inside client-component trees.
+ * Rendered inside <Suspense> by the `(active)` layout and passed down as a
+ * plain prop, because server components cannot live inside client-component
+ * trees.
  */
 export async function SidebarSpaces({ userId }: SidebarSpacesProps) {
   const spaces = await listSpaces(getDb(), userId);
