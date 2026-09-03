@@ -80,7 +80,11 @@ export const account = pgTable(
     createdAt,
     updatedAt,
   },
-  (t) => [index("account_user_idx").on(t.userId)],
+  (t) => [
+    index("account_user_idx").on(t.userId),
+    // Layout credential EXISTS filters by (user_id, provider_id).
+    index("account_user_provider_idx").on(t.userId, t.providerId),
+  ],
 );
 
 export const verification = pgTable(
@@ -255,6 +259,10 @@ export const task = pgTable(
     ),
     index("task_section_idx").on(t.sectionId),
     index("task_space_due_idx").on(t.spaceId, t.dueOn),
+    /** Upcoming timeline: dated open Tasks only. */
+    index("task_space_open_due_idx")
+      .on(t.spaceId, t.dueOn)
+      .where(sql`${t.completedAt} is null and ${t.dueOn} is not null`),
   ],
 );
 

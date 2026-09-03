@@ -14,11 +14,11 @@ interface SpaceRouteLayoutProps {
 }
 
 /**
- * Chrome for the Active Space: the Viewer is resolved here once, so every
- * nested section view can trust the Space scope and focus on its content.
- * The sidebar's Spaces list streams in via a Suspense slot so its query never
- * blocks the layout. Credential access for the change-password link is batched
- * in the Viewer; the change-password page still enforces via
+ * Chrome for the Active Space: getActiveSpace loads Viewer, Sections, and
+ * ShareBar member preview in one layout query so nested section views can trust
+ * the Space scope. The sidebar's Spaces list streams in via Suspense so that
+ * query never blocks the layout. Credential access for the change-password
+ * link comes from that layout load; the change-password page still enforces via
  * requireCredentialSession.
  */
 export default async function SpaceRouteLayout({
@@ -27,7 +27,7 @@ export default async function SpaceRouteLayout({
 }: SpaceRouteLayoutProps) {
   const spaceId = await resolveSpaceContext(params);
   const activeSpace = await getActiveSpace(spaceId);
-  const { viewer, sections } = activeSpace;
+  const { viewer, sections, members } = activeSpace;
 
   return (
     <ActiveSpaceProvider value={activeSpace}>
@@ -46,13 +46,11 @@ export default async function SpaceRouteLayout({
         canMutateContent={viewer.can.mutateContent}
         canChangePassword={viewer.can.changePassword}
         shareBarSlot={
-          <Suspense fallback={null}>
-            <ShareBarSlot
-              userId={viewer.userId}
-              spaceId={spaceId}
-              canManageMembers={viewer.can.manageMembers}
-            />
-          </Suspense>
+          <ShareBarSlot
+            spaceId={spaceId}
+            members={members}
+            canManageMembers={viewer.can.manageMembers}
+          />
         }
       >
         {children}

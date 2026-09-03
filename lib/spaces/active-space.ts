@@ -2,26 +2,30 @@ import { cache } from "react";
 
 import type { section } from "@/lib/db/schema";
 
-import { getSpaceSections, getSpaceViewer, type SpaceViewer } from "./viewer";
+import {
+  getSpaceLayoutData,
+  type SpaceMemberPreview,
+  type SpaceViewer,
+} from "./viewer";
+
+export type { SpaceMemberPreview };
 
 export interface ActiveSpace {
   spaceId: string;
   viewer: SpaceViewer;
   sections: (typeof section.$inferSelect)[];
+  /** ShareBar member preview from the layout query (not listMembers). */
+  members: SpaceMemberPreview[];
 }
 
 /**
- * Active Space context for RSC views: Viewer plus Sections in one memoised
- * read per render pass. Layout and pages call this instead of getSpaceViewer
- * and getSpaceSections separately; React cache dedupes the underlying lookups.
+ * Active Space facade for RSC views: one memoised layout load per render pass
+ * (Viewer, Sections, ShareBar member preview). Layout and pages call this;
+ * getSpaceLayoutData owns the SQL.
  */
 export const getActiveSpace = cache(
   async (spaceId: string): Promise<ActiveSpace> => {
-    const [viewer, sections] = await Promise.all([
-      getSpaceViewer(spaceId),
-      getSpaceSections(spaceId),
-    ]);
-
-    return { spaceId, viewer, sections };
+    const { viewer, sections, members } = await getSpaceLayoutData(spaceId);
+    return { spaceId, viewer, sections, members };
   },
 );

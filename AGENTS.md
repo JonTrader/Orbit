@@ -14,15 +14,18 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Service layout
 
-- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `requireCredentialSession` is the single credential decision point for password management (redirects OAuth-only users); the sidebar reads `viewer.can.changePassword` from `getSpaceViewer`, which batches `hasCredentialAccount` in its existing `Promise.all`. `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
+- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `requireCredentialSession` is the single credential decision point for password management (redirects OAuth-only users); the sidebar reads `viewer.can.changePassword` from the Active Space layout data (`getSpaceLayoutData` / `getActiveSpace`). `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
 - `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
 - `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
-- `lib/spaces/viewer.ts` - RSC-only Viewer resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
+- `lib/spaces/viewer.ts` - RSC-only Viewer / layout-data resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
   - `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route; malformed ids 404.
-  - `getSpaceViewer(spaceId)` is React-cached per render pass and returns `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+) and `can.manageMembers` (owner).
-  - `getSpaceSections(spaceId)` is the React-cached Section read for Space views. Prefer `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` in layout and pages so Viewer + Sections resolve together; it delegates here under the hood.
+  - `getSpaceLayoutData(spaceId)` is the one-query layout loader: space + membership role + credential `EXISTS` + Sections `json_agg` + ShareBar member preview `json_agg`. Returns `{ viewer, sections, members }`. Prefer `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` in layout and pages (facade over the layout load; also carries `members`).
+  - `getSpaceViewer` / `getSpaceSections` are thin wrappers over `getSpaceLayoutData` for callers that only need one slice; they share the same React cache / SQL round trip.
+  - Viewer shape: `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+), `can.manageMembers` (owner), and `can.changePassword` (credential account).
   - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
-  - Pages and layouts must use this module instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
+  - `ShareBarSlot` reads layout `members` from the route layout; it must not call `listMembers` on render. `listMembers` remains for API / mutation paths.
+  - Pages and layouts must use this module (via `getActiveSpace`) instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
+- `lib/spaces/queries/` - pure RSC content SELECTs (no auth). Prefer these after `getActiveSpace` on Space pages. `fetchUpcomingTimeline` is the Upcoming page's one content query (`UNION ALL` of Monthlies + dated open Tasks); Section names come from layout `sections` in memory, not a JOIN. `fetchMixedSectionContent` is the mixed custom Section's one content query (two `json_agg` subqueries for Tasks + Notes - not UNION, different row shapes). Keep `fetchTasks` / `fetchMonthlies` / `fetchNotes` for Daily, Monthlies, single-kind custom sections, and for services wrapping API routes.
 - Layouts and pages render **concurrently** in the App Router. Onboarding (Personal Space creation) is owned by the entry route via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards.
 
 ## Action layout
@@ -40,7 +43,7 @@ App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `u
 ## Component layout
 
 - `components/spaces/` owns the Active Space chrome and rows:
-  - `ActiveSpaceProvider.tsx` - client context for the Active Space (`useActiveSpace()`). The layout wraps children after resolving Viewer + Sections once; client descendants read from context. RSC pages cannot use the hook and call `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` instead.
+  - `ActiveSpaceProvider.tsx` - client context for the Active Space (`useActiveSpace()`). The layout wraps children after resolving layout data once (`viewer`, `sections`, `members`); client descendants read from context. RSC pages cannot use the hook and call `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` instead.
   - `SpaceLayout.tsx` - client shell used by `app/(app)/spaces/[spaceId]/layout.tsx`. Owns the mobile sidebar open/close state, renders `SpaceSidebar`, the view header, and the `SectionTabs` strip above `{children}`.
   - `SpaceSidebar.tsx` / `SidebarHeader.tsx` / `SpaceRailLinks.tsx` / `SpaceOrbit.tsx` / `SidebarFooter.tsx` - sidebar breakdown. The sidebar is Spaces-only (orbit rail rows with active dot); Sections live in `SectionTabs` only. `SpaceRailLinks` is the client Space list deriving active state from `usePathname()` and takes an optional `onClick` (used to close the mobile sidebar). `SidebarNavLinks.tsx` remains for plain link lists if needed elsewhere.
   - `SectionTabs.tsx` - client tab strip; derives the active tab from `usePathname()` and takes only `items`. Do not render it inside section pages - it lives in `SpaceLayout`, and section pages render content only.

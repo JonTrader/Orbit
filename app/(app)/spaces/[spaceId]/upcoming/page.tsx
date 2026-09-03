@@ -8,8 +8,7 @@ import { getDb } from "@/lib/db/client";
 import type { section } from "@/lib/db/schema";
 import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveSpaceContext } from "@/lib/spaces/params";
-import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
-import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
+import { fetchUpcomingTimeline } from "@/lib/spaces/queries/fetch-upcoming-timeline";
 
 import UpcomingLoading from "./loading";
 
@@ -101,36 +100,20 @@ async function UpcomingGroups({
   timezone,
   sections,
 }: UpcomingGroupsProps) {
-  const db = getDb();
-  const [monthlies, tasks] = await Promise.all([
-    fetchMonthlies(db, spaceId),
-    fetchTasks(db, {
-      spaceId,
-      dueOn: "dated",
-      status: "open",
-    }),
-  ]);
-
+  const timeline = await fetchUpcomingTimeline(getDb(), spaceId);
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
   const today = calendarDateInTimeZone(new Date(), timezone);
   const todayIso = formatCalendarDate(today);
 
-  const entries: UpcomingEntry[] = [
-    ...monthlies.map((monthly) => ({
-      key: `monthly-${monthly.id}`,
-      title: monthly.title,
-      date: monthly.nextDueOn,
-      kindLabel: "Monthly" as const,
-      sectionName: null,
-    })),
-    ...tasks.map((task) => ({
-      key: `task-${task.id}`,
-      title: task.title,
-      date: task.dueOn as string,
-      kindLabel: "Task" as const,
-      sectionName: sectionNames.get(task.sectionId) ?? null,
-    })),
-  ].sort((left, right) => left.date.localeCompare(right.date));
+  // Section names come from layout sections in memory - no JOIN in the UNION.
+  const entries: UpcomingEntry[] = timeline.map((row) => ({
+    key: `${row.kind}-${row.id}`,
+    title: row.title,
+    date: row.date,
+    kindLabel: row.kind === "monthly" ? ("Monthly" as const) : ("Task" as const),
+    sectionName:
+      row.kind === "task" ? (sectionNames.get(row.sectionId) ?? null) : null,
+  }));
 
   const overdue = entries.filter((entry) => entry.date < todayIso);
   const dueToday = entries.filter((entry) => entry.date === todayIso);

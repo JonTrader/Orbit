@@ -29,6 +29,20 @@
       "when": 1786920369117,
       "tag": "0003_section_immutability_and_updated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788409994805,
+      "tag": "0004_sudden_wallow",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788411009626,
+      "tag": "0005_nebulous_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

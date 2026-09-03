@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db/client";
 import { note, task } from "@/lib/db/schema";
 import { getActiveSpace } from "@/lib/spaces/active-space";
 import { resolveCustomSectionContext } from "@/lib/spaces/params";
+import { fetchMixedSectionContent } from "@/lib/spaces/queries/fetch-mixed-section-content";
 import { fetchNotes } from "@/lib/spaces/queries/fetch-notes";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
 
@@ -222,8 +223,8 @@ type MixedItem =
 /**
  * Mixed Section: open Tasks and Notes in one list, ordered like the tasks
  * and notes views (`sortOrder`, then creation time), followed by completed
- * Tasks behind the same show-completed control used by Daily. Each row
- * renders with the component appropriate to its kind.
+ * Tasks behind the same show-completed control used by Daily. One content
+ * query (two json_agg subqueries) feeds both lists.
  */
 async function SectionMixed({
   spaceId,
@@ -231,11 +232,10 @@ async function SectionMixed({
   sectionName,
   canMutate,
 }: SectionMixedProps) {
-  const db = getDb();
-  const [tasks, notes] = await Promise.all([
-    fetchTasks(db, { spaceId, sectionId }),
-    fetchNotes(db, { spaceId, sectionId }),
-  ]);
+  const { tasks, notes } = await fetchMixedSectionContent(getDb(), {
+    spaceId,
+    sectionId,
+  });
 
   const openTasks = tasks.filter((row) => !row.completedAt);
   const completedTasks = tasks.filter((row) => row.completedAt);
