@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 
+// `ShareBar` imports the server action `sendInvite` (and that action pulls in
+// Better Auth config at import-time). This component test only verifies
+// prop plumbing, so we stub the server action to avoid requiring DATABASE_URL.
+vi.mock("@/lib/actions/invites", () => ({
+  sendInvite: vi.fn().mockResolvedValue({ ok: true, data: null }),
+}));
+
 import { ShareBarSlot } from "@/components/spaces/ShareBarSlot";
 import * as membersService from "@/lib/services/members";
 
