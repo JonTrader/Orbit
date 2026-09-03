@@ -109,7 +109,7 @@ test.describe("Spaces directory and creation", () => {
 
     const filter = page.getByPlaceholder("Filter by name");
     await filter.fill("zzzz-no-match");
-    await expect(page.getByText(/0 of \d+ Spaces/)).toBeVisible();
+    await expect(page.getByText(/0 of \d+ Spaces?/)).toBeVisible();
     await expect(page.getByText("No matching Spaces")).toBeVisible();
 
     await filter.fill("Personal");

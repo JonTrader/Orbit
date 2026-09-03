@@ -12,6 +12,13 @@ import { bootstrapE2eDatabaseUrl } from "./env";
 
 bootstrapE2eDatabaseUrl();
 
+/** Matches playwright.config baseURL and BETTER_AUTH_URL default. */
+const AUTH_ORIGIN =
+  process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "http://localhost:3000";
+
+/** Better Auth rejects cookie-bearing auth POSTs without a trusted Origin. */
+const authHeaders = { origin: AUTH_ORIGIN };
+
 let pool: Pool | undefined;
 
 function db(): Pool {
@@ -56,6 +63,7 @@ export async function createVerifiedUser(
   };
 
   const response = await request.post("/api/auth/sign-up/email", {
+    headers: authHeaders,
     data: { email: user.email, password: user.password, name: user.name },
   });
   if (response.status() !== 200) {
@@ -79,6 +87,7 @@ export async function signIn(
   user: TestUser,
 ): Promise<string> {
   const response = await request.post("/api/auth/sign-in/email", {
+    headers: authHeaders,
     data: { email: user.email, password: user.password },
   });
   if (response.status() !== 200) {
