@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
 import { getDb, type OrbitDb } from "@/lib/db/client";
-import { spaceLayoutPath, SPACE_LAYOUT_PATTERN } from "@/lib/spaces/paths";
+import { spaceLayoutPath, SPACES_PATH } from "@/lib/spaces/paths";
 import { requireVerifiedSession } from "@/lib/auth/session";
 
 import { toActionError, type ActionResult } from "./result";
@@ -14,10 +14,9 @@ export interface ActionContext {
 }
 
 /**
- * The revalidation scope for one action run. Every action schema carries a
- * validated `spaceId`, so success refreshes just that Space's layout tree.
- * A schema without `spaceId` falls back to the generic pattern: broader
- * than needed, never wrong.
+ * The revalidation scope for one action run. Schemas with `spaceId` refresh
+ * only that Space's layout tree. Schemas without (e.g. create-Space) refresh
+ * the `/spaces` layout tree so the directory and nested Space sidebars update.
  */
 function revalidateTarget(parsed: unknown): string {
   if (
@@ -28,7 +27,7 @@ function revalidateTarget(parsed: unknown): string {
   ) {
     return spaceLayoutPath(parsed.spaceId);
   }
-  return SPACE_LAYOUT_PATTERN;
+  return SPACES_PATH;
 }
 
 /**
@@ -41,7 +40,8 @@ function revalidateTarget(parsed: unknown): string {
  *    instead of being masked into an action error payload.
  * 2. The schema parses input; Zod failures become VALIDATION_ERROR results.
  * 3. The handler runs with the verified userId and the application db.
- * 4. Success refreshes the acting Space's layout before resolving ok.
+ * 4. Success refreshes the acting Space layout (or `/spaces` when unscoped)
+ *    before resolving ok.
  * 5. Anything thrown maps through toActionError: DomainErrors keep their
  *    code and message, unexpected errors are logged and masked.
  */
