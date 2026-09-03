@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
@@ -6,7 +6,7 @@ import {
   DEFAULT_SPACE_TIMEZONE,
   createSpaceWithSystemSections,
 } from "@/lib/db/seed";
-import { space, spaceMember } from "@/lib/db/schema";
+import { space, spaceMember, type SpaceRole } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
 import { normalizeTimeZone } from "@/lib/timezone";
 
@@ -39,6 +39,17 @@ export interface UpdateSpaceTimezoneInput extends SpaceAccessInput {
   timezone: string;
 }
 
+/** One membership-scoped row for the all-Spaces directory. */
+export interface SpaceDirectoryEntry {
+  id: string;
+  name: string;
+  timezone: string;
+  /** The caller's role in this Space (Viewer role, not every Member). */
+  role: SpaceRole;
+  /** Total Members of the Space, including the Viewer. */
+  memberCount: number;
+}
+
 /** Lists only Spaces where the caller is a Member, in creation order. */
 export async function listSpaces(
   db: OrbitDb,
@@ -52,6 +63,37 @@ export async function listSpaces(
     .orderBy(asc(space.createdAt), asc(space.id));
 
   return rows.map((row) => row.space);
+}
+
+/**
+ * Membership-scoped directory read model: each Space the Viewer belongs to,
+ * with their role and the Space's total Member count, in creation order.
+ */
+export async function listSpaceDirectoryEntries(
+  db: OrbitDb,
+  userId: string,
+): Promise<SpaceDirectoryEntry[]> {
+  return db
+    .select({
+      id: space.id,
+      name: space.name,
+      timezone: space.timezone,
+      role: spaceMember.role,
+      memberCount: sql<number>`(
+        select count(*)::int
+        from ${spaceMember} as members
+        where members.space_id = ${space.id}
+      )`.mapWith(Number),
+    })
+    .from(space)
+    .innerJoin(
+      spaceMember,
+      and(
+        eq(spaceMember.spaceId, space.id),
+        eq(spaceMember.userId, userId),
+      ),
+    )
+    .orderBy(asc(space.createdAt), asc(space.id));
 }
 
 /** Gets a Space after confirming the caller is a Member of it. */
