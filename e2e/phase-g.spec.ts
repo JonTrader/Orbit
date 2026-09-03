@@ -106,8 +106,14 @@ test.describe("Phase G", () => {
     expect(entries[0]?.href).toMatch(/\/upcoming$/);
     expect(entries[1]?.href).toMatch(/\/daily$/);
     expect(entries[2]?.href).toMatch(/\/monthlies$/);
+    const systemSlugs = new Set(["upcoming", "daily", "monthlies"]);
     expect(
-      entries.slice(3).every((entry) => entry.href?.includes("/sections/")),
+      entries.slice(3).every((entry) => {
+        const match = entry.href?.match(
+          /^\/spaces\/[^/]+\/([0-9a-f-]{36})$/i,
+        );
+        return Boolean(match && !systemSlugs.has(match[1]!));
+      }),
     ).toBe(true);
     expect(entries.map((entry) => entry.label)).not.toContain("Shared");
   });
