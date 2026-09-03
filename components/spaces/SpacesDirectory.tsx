@@ -21,16 +21,36 @@ function roleLabel(role: SpaceDirectoryEntry["role"]): string {
   return "Read-only";
 }
 
+function memberLabel(count: number): string {
+  return count === 1 ? "1 Member" : `${count} Members`;
+}
+
+function spacesCountLabel(visible: number, total: number): string {
+  const unit = total === 1 ? "Space" : "Spaces";
+  if (visible === total) {
+    return `${total} ${unit}`;
+  }
+  return `${visible} of ${total} ${unit}`;
+}
+
 /**
- * All-Spaces directory shell with a New Space entry point. Search/filter
- * polish lands in a later step; creation opens CreateSpaceDialog from the
- * header button or the `?new=space` deep link.
+ * Membership-scoped all-Spaces directory: filterable list with role, Member
+ * count, and timezone metadata, plus New Space via CreateSpaceDialog (header
+ * button or `?new=space` deep link).
  */
 export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
   const router = useRouter();
   // Deep link drives open via prop; the header button uses local state only.
   const [localOpen, setLocalOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const dialogOpen = openCreate || localOpen;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = normalizedQuery
+    ? entries.filter((entry) =>
+        entry.name.toLowerCase().includes(normalizedQuery),
+      )
+    : entries;
 
   function closeDialog() {
     setLocalOpen(false);
@@ -39,10 +59,21 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
     }
   }
 
+  const total = entries.length;
+  const visible = filtered.length;
+  const hasFilter = normalizedQuery.length > 0;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Spaces</h1>
+    <div className="flex flex-col gap-4 sm:gap-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
+          <p className="mb-1 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-accent">
+            Directory
+          </p>
+          <h1 className="text-[1.75rem] font-bold tracking-[-0.03em] text-ink">
+            Spaces
+          </h1>
+        </div>
         <button
           type="button"
           onClick={() => setLocalOpen(true)}
@@ -61,41 +92,76 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
         </button>
       </div>
 
-      {entries.length === 0 ? (
-        <div className="overflow-hidden rounded border border-line bg-panel px-4 py-10 text-center text-[0.9rem] text-muted">
-          No Spaces yet.
+      {total === 0 ? (
+        <div className="overflow-hidden rounded border border-line bg-panel px-4 py-10 text-center">
+          <p className="text-[0.95rem] font-medium text-ink">No Spaces yet</p>
+          <p className="mt-1 text-[0.85rem] text-muted">
+            Create a Space to get started.
+          </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded border border-line bg-panel">
-          <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-            {entries.length} {entries.length === 1 ? "Space" : "Spaces"}
+        <>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+              Filter
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter by name"
+              autoComplete="off"
+              className="w-full rounded border border-line bg-panel px-3 py-2 text-[0.92rem] text-ink outline-none placeholder:text-muted placeholder:opacity-75 focus:border-accent"
+            />
+          </label>
+
+          <div className="overflow-hidden rounded border border-line bg-panel">
+            <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
+              {spacesCountLabel(visible, total)}
+            </div>
+
+            {visible === 0 && hasFilter ? (
+              <div className="border-t border-line px-4 py-10 text-center">
+                <p className="text-[0.95rem] font-medium text-ink">
+                  No matching Spaces
+                </p>
+                <p className="mt-1 text-[0.85rem] text-muted">
+                  Try a different name, or clear the filter.
+                </p>
+              </div>
+            ) : (
+              <ul className="border-t border-line">
+                {filtered.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex items-start gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-(--row-hover) sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[0.95rem] font-medium text-ink">
+                        {entry.name}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[0.68rem] uppercase tracking-wider text-muted">
+                        <span>{roleLabel(entry.role)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{memberLabel(entry.memberCount)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="normal-case tracking-normal">
+                          {entry.timezone}
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      href={spaceSectionPath(entry.id, "upcoming")}
+                      className="shrink-0 pt-0.5 font-mono text-[0.72rem] uppercase tracking-wider text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:pt-0"
+                    >
+                      Open
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <ul className="border-t border-line">
-            {entries.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex items-start gap-3 border-t border-line px-4 py-3 first:border-t-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[0.95rem] font-medium text-ink">
-                    {entry.name}
-                  </div>
-                  <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
-                    {roleLabel(entry.role)} · {entry.memberCount}{" "}
-                    {entry.memberCount === 1 ? "Member" : "Members"} ·{" "}
-                    {entry.timezone}
-                  </div>
-                </div>
-                <Link
-                  href={spaceSectionPath(entry.id, "upcoming")}
-                  className="shrink-0 pt-0.5 font-mono text-[0.72rem] uppercase tracking-wider text-muted hover:text-ink"
-                >
-                  Open
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        </>
       )}
 
       {dialogOpen ? <CreateSpaceDialog onClose={closeDialog} /> : null}

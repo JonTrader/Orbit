@@ -30,7 +30,11 @@ export function SpaceSidebar({
       <div className="flex min-h-0 flex-1 flex-col" onClick={onNavClick}>
         {spacesSlot}
       </div>
-      <SidebarFooter user={user} canChangePassword={canChangePassword} />
+      <SidebarFooter
+        user={user}
+        canChangePassword={canChangePassword}
+        onNavClick={onNavClick}
+      />
     </aside>
   );
 }

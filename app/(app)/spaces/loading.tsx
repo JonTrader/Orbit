@@ -16,7 +16,9 @@ export default function SpacesLoading() {
       <div role="status">
         <span className="sr-only">Loading…</span>
         <div aria-hidden className="animate-pulse">
-          <div className="mb-4 h-6 w-28 rounded bg-line" />
+          <div className="mb-1 h-2 w-16 rounded bg-line" />
+          <div className="mb-5 h-7 w-28 rounded bg-line" />
+          <div className="mb-4 h-10 w-full rounded border border-line bg-panel" />
           <div className="overflow-hidden rounded border border-line bg-panel">
             <div className="px-4 pb-1.5 pt-3.5">
               <div className="h-2 w-16 rounded bg-line" />
