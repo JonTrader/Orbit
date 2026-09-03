@@ -10,7 +10,7 @@ export const SPACES_PATH = "/spaces";
 
 /** Directory deep link that opens the create-Space dialog. */
 export function spacesCreateDialogPath(): string {
-  return `${SPACES_PATH}?create=1`;
+  return `${SPACES_PATH}?new=space`;
 }
 
 export function spaceSectionPath(
