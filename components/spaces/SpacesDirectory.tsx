@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import type { SpaceDirectoryEntry } from "@/lib/services/spaces";
-import { spaceSectionPath } from "@/lib/spaces/paths";
+import { SPACES_PATH, spaceSectionPath } from "@/lib/spaces/paths";
+
+import { CreateSpaceDialog } from "./CreateSpaceDialog";
 
 export interface SpacesDirectoryProps {
   entries: SpaceDirectoryEntry[];
@@ -18,19 +22,43 @@ function roleLabel(role: SpaceDirectoryEntry["role"]): string {
 }
 
 /**
- * All-Spaces directory shell. Step 2 ships a readable membership list;
- * search/filter polish and CreateSpaceDialog land in later steps.
+ * All-Spaces directory shell with a New Space entry point. Search/filter
+ * polish lands in a later step; creation opens CreateSpaceDialog from the
+ * header button or the `?new=space` deep link.
  */
 export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
+  const router = useRouter();
+  // Deep link drives open via prop; the header button uses local state only.
+  const [localOpen, setLocalOpen] = useState(false);
+  const dialogOpen = openCreate || localOpen;
+
+  function closeDialog() {
+    setLocalOpen(false);
+    if (openCreate) {
+      router.replace(SPACES_PATH);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight text-ink">Spaces</h1>
-        {openCreate ? (
-          <p className="font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-            New Space (dialog next)
-          </p>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => setLocalOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-panel px-[0.7rem] py-[0.42rem] text-[0.78rem] font-semibold text-ink transition-colors hover:border-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="size-[0.85rem]"
+            aria-hidden="true"
+          >
+            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+          </svg>
+          New Space
+        </button>
       </div>
 
       {entries.length === 0 ? (
@@ -69,6 +97,8 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
           </ul>
         </div>
       )}
+
+      {dialogOpen ? <CreateSpaceDialog onClose={closeDialog} /> : null}
     </div>
   );
 }
