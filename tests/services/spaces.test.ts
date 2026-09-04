@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { MembershipError } from "@/lib/spaces/membership";
-import { DEFAULT_SPACE_TIMEZONE } from "@/lib/db/seed";
+import {
+  DEFAULT_SPACE_TIMEZONE,
+  createSpaceWithSystemSections,
+} from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
 import {
   SpaceError,
@@ -11,6 +14,7 @@ import {
   getSpace,
   listSpaceDirectoryEntries,
   listSpaces,
+  renameSpace,
   updateSpaceTimezone,
 } from "@/lib/services/spaces";
 
@@ -119,6 +123,7 @@ describe("Space services", () => {
         id: first.id,
         name: "Alpha",
         timezone: "America/Chicago",
+        isPersonal: false,
         role: "owner",
         memberCount: 3,
       },
@@ -126,6 +131,7 @@ describe("Space services", () => {
         id: second.id,
         name: "Beta",
         timezone: "Europe/London",
+        isPersonal: false,
         role: "owner",
         memberCount: 2,
       },
@@ -138,6 +144,7 @@ describe("Space services", () => {
         id: first.id,
         name: "Alpha",
         timezone: "America/Chicago",
+        isPersonal: false,
         role: "editor",
         memberCount: 3,
       },
@@ -150,6 +157,7 @@ describe("Space services", () => {
         id: first.id,
         name: "Alpha",
         timezone: "America/Chicago",
+        isPersonal: false,
         role: "read-only",
         memberCount: 3,
       },
@@ -157,6 +165,7 @@ describe("Space services", () => {
         id: second.id,
         name: "Beta",
         timezone: "Europe/London",
+        isPersonal: false,
         role: "read-only",
         memberCount: 2,
       },
@@ -169,6 +178,7 @@ describe("Space services", () => {
         id: privateSpace.id,
         name: "Private",
         timezone: DEFAULT_SPACE_TIMEZONE,
+        isPersonal: false,
         role: "owner",
         memberCount: 1,
       },
@@ -248,6 +258,85 @@ describe("Space services", () => {
     });
   });
 
+  it("renames a Space and bumps updated_at", async () => {
+    const owner = await createUser();
+    const created = await createSpace(testDb, {
+      userId: owner.id,
+      name: "Home",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const renamed = await renameSpace(testDb, {
+      userId: owner.id,
+      spaceId: created.id,
+      name: "Renamed Home",
+    });
+
+    expect(renamed.name).toBe("Renamed Home");
+    expect(renamed.updatedAt.getTime()).toBeGreaterThan(
+      created.updatedAt.getTime(),
+    );
+  });
+
+  it("requires the Owner role to rename a Space", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const readOnly = await createUser({ email: "read-only@orbit.test" });
+    const stranger = await createUser({ email: "stranger@orbit.test" });
+    const created = await createSpace(testDb, {
+      userId: owner.id,
+      name: "Home",
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: created.id, userId: editor.id, role: "editor" },
+      { spaceId: created.id, userId: readOnly.id, role: "read-only" },
+    ]);
+
+    for (const userId of [editor.id, readOnly.id]) {
+      await expect(
+        renameSpace(testDb, {
+          userId,
+          spaceId: created.id,
+          name: "Nope",
+        }),
+      ).rejects.toMatchObject({
+        code: "INSUFFICIENT_ROLE",
+        status: 403,
+      });
+    }
+
+    await expect(
+      renameSpace(testDb, {
+        userId: stranger.id,
+        spaceId: created.id,
+        name: "Nope",
+      }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+  });
+
+  it("rejects renaming the Personal Space", async () => {
+    const owner = await createUser();
+    const { space: personal } = await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: owner.id,
+      isPersonal: true,
+    });
+
+    await expect(
+      renameSpace(testDb, {
+        userId: owner.id,
+        spaceId: personal.id,
+        name: "Renamed Personal",
+      }),
+    ).rejects.toMatchObject({
+      code: "PERSONAL_SPACE",
+    });
+    await expect(
+      getSpace(testDb, { userId: owner.id, spaceId: personal.id }),
+    ).resolves.toMatchObject({ name: "Personal", isPersonal: true });
+  });
+
   it("blocks deleting the Owner's last remaining Space", async () => {
     const owner = await createUser();
     const created = await createSpace(testDb, {
@@ -261,6 +350,39 @@ describe("Space services", () => {
     await expect(
       getSpace(testDb, { userId: owner.id, spaceId: created.id }),
     ).resolves.toMatchObject({ id: created.id });
+  });
+
+  it("rejects deleting the Personal Space when another Space remains", async () => {
+    const owner = await createUser();
+    const { space: personal } = await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: owner.id,
+      isPersonal: true,
+    });
+    await createSpace(testDb, {
+      userId: owner.id,
+      name: "Other",
+    });
+
+    await expect(
+      deleteSpace(testDb, { userId: owner.id, spaceId: personal.id }),
+    ).rejects.toMatchObject({ code: "PERSONAL_SPACE" });
+    await expect(
+      getSpace(testDb, { userId: owner.id, spaceId: personal.id }),
+    ).resolves.toMatchObject({ id: personal.id, isPersonal: true });
+  });
+
+  it("reports LAST_SPACE before PERSONAL_SPACE when Personal is the only Space", async () => {
+    const owner = await createUser();
+    const { space: personal } = await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: owner.id,
+      isPersonal: true,
+    });
+
+    await expect(
+      deleteSpace(testDb, { userId: owner.id, spaceId: personal.id }),
+    ).rejects.toMatchObject({ code: "LAST_SPACE" });
   });
 
   it("lets the Owner delete a Space when another Space remains", async () => {

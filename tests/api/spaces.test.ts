@@ -262,4 +262,30 @@ describe("Spaces API", () => {
       error: { code: "LAST_SPACE" },
     });
   });
+
+  it("maps Personal Space delete to a conflict response", async () => {
+    const owner = await createUser();
+    const { space: personal } = await createSpaceWithSystemSections(testDb, {
+      name: "Personal",
+      ownerUserId: owner.id,
+      isPersonal: true,
+    });
+    await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: owner.id,
+    });
+    authenticateAs(owner.id);
+
+    const deleteResponse = await deleteSpaceRoute(
+      new Request(`http://localhost/api/v1/spaces/${personal.id}`, {
+        method: "DELETE",
+      }),
+      routeContext(personal.id),
+    );
+
+    expect(deleteResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(deleteResponse)).resolves.toMatchObject({
+      error: { code: "PERSONAL_SPACE" },
+    });
+  });
 });

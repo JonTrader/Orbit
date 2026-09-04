@@ -13,6 +13,7 @@ import { normalizeTimeZone } from "@/lib/timezone";
 export type SpaceErrorCode =
   | "INVALID_TIMEZONE"
   | "LAST_SPACE"
+  | "PERSONAL_SPACE"
   | "SPACE_NOT_FOUND";
 
 export class SpaceError extends DomainError<SpaceErrorCode> {
@@ -39,11 +40,16 @@ export interface UpdateSpaceTimezoneInput extends SpaceAccessInput {
   timezone: string;
 }
 
+export interface RenameSpaceInput extends SpaceAccessInput {
+  name: string;
+}
+
 /** One membership-scoped row for the all-Spaces directory. */
 export interface SpaceDirectoryEntry {
   id: string;
   name: string;
   timezone: string;
+  isPersonal: boolean;
   /** The caller's role in this Space (Viewer role, not every Member). */
   role: SpaceRole;
   /** Total Members of the Space, including the Viewer. */
@@ -78,6 +84,7 @@ export async function listSpaceDirectoryEntries(
       id: space.id,
       name: space.name,
       timezone: space.timezone,
+      isPersonal: space.isPersonal,
       role: spaceMember.role,
       memberCount: sql<number>`(
         select count(*)::int
@@ -152,11 +159,35 @@ export async function updateSpaceTimezone(
   return updated;
 }
 
+/** Renames a Space. Only the Owner may rename; the Personal Space cannot. */
+export async function renameSpace(
+  db: OrbitDb,
+  input: RenameSpaceInput,
+): Promise<typeof space.$inferSelect> {
+  await requireMembership(db, { ...input, minimumRole: "owner" });
+
+  const [updated] = await db
+    .update(space)
+    .set({ name: input.name })
+    .where(and(eq(space.id, input.spaceId), eq(space.isPersonal, false)))
+    .returning();
+
+  if (!updated) {
+    throw new SpaceError(
+      "PERSONAL_SPACE",
+      "The Personal Space cannot be renamed",
+    );
+  }
+
+  return updated;
+}
+
 /**
  * Deletes a Space when the Owner has another Space to keep.
  *
  * The Owner's membership rows are locked while checking the guard so two
  * concurrent deletes cannot both pass a last-Space check for the same user.
+ * The Personal Space cannot be deleted (LAST_SPACE wins when it is also last).
  */
 export async function deleteSpace(
   db: OrbitDb,
@@ -180,11 +211,14 @@ export async function deleteSpace(
 
     const [deleted] = await tx
       .delete(space)
-      .where(eq(space.id, input.spaceId))
+      .where(and(eq(space.id, input.spaceId), eq(space.isPersonal, false)))
       .returning();
 
     if (!deleted) {
-      throw new SpaceError("SPACE_NOT_FOUND", "Space was not found");
+      throw new SpaceError(
+        "PERSONAL_SPACE",
+        "The Personal Space cannot be deleted",
+      );
     }
 
     return deleted;
