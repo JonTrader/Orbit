@@ -19,6 +19,8 @@ import {
 /**
  * Spaces directory + create-Space UI: Browse all, membership-scoped rows,
  * filter, Open, in-place sidebar creation, and deep link on /spaces.
+ * Also covers Space/Section rename and delete from the directory and
+ * Section panel header.
  */
 
 let ownerApi: APIRequestContext;
@@ -198,5 +200,210 @@ test.describe("Spaces directory and creation", () => {
     await expect(
       page.getByRole("heading", { name: "Spaces", exact: true }),
     ).toBeVisible();
+  });
+});
+
+test.describe("Space and Section rename/delete", () => {
+  async function createOwnedSpace(name: string): Promise<string> {
+    const created = await ownerApi.post("/api/v1/spaces", { data: { name } });
+    expect(created.status()).toBe(201);
+    return ((await created.json()) as { id: string }).id;
+  }
+
+  async function createCustomSection(
+    spaceId: string,
+    name: string,
+  ): Promise<string> {
+    const created = await ownerApi.post(`/api/v1/spaces/${spaceId}/sections`, {
+      data: { name, kind: "tasks" },
+    });
+    expect(created.status()).toBe(201);
+    return ((await created.json()) as { id: string }).id;
+  }
+
+  function directoryRow(page: Page, spaceName: string) {
+    return page.locator("li").filter({ hasText: spaceName }).first();
+  }
+
+  test("renames a Space from the directory and shows the name in the Active Space header", async ({
+    page,
+  }) => {
+    const original = `Rename Me ${runSuffix()}`;
+    const renamed = `Renamed ${runSuffix()}`;
+    const spaceId = await createOwnedSpace(original);
+
+    await authenticate(page);
+    await page.goto("/spaces");
+
+    const row = directoryRow(page, original);
+    await row.getByRole("button", { name: `Actions for ${original}` }).click();
+    await page.getByRole("menuitem", { name: "Rename" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Rename Space" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Name").fill(renamed);
+    await dialog.getByRole("button", { name: "Rename" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+    await expect(page.getByText(original, { exact: true })).toHaveCount(0);
+
+    await page.goto(`/spaces/${spaceId}/upcoming`);
+    await expect(page.getByText(`Active Space · ${renamed}`)).toBeVisible();
+  });
+
+  test("deletes a Space with typed-name confirm and removes the directory row", async ({
+    page,
+  }) => {
+    const name = `Delete Me ${runSuffix()}`;
+    await createOwnedSpace(name);
+
+    await authenticate(page);
+    await page.goto("/spaces");
+
+    const row = directoryRow(page, name);
+    await row.getByRole("button", { name: `Actions for ${name}` }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Delete Space" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel(`Type "${name}" to confirm`).fill(name);
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+  });
+
+  test("Personal Space row has no overflow menu", async ({ page }) => {
+    await authenticate(page);
+    await page.goto("/spaces");
+
+    await expect(page.getByText("Personal", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Actions for Personal" }),
+    ).toHaveCount(0);
+  });
+
+  test("renames a custom Section; tab label and meta bar update", async ({
+    page,
+  }) => {
+    const spaceName = `Section Host ${runSuffix()}`;
+    const original = `Inbox ${runSuffix()}`;
+    const renamed = `Renamed Inbox ${runSuffix()}`;
+    const spaceId = await createOwnedSpace(spaceName);
+    const sectionId = await createCustomSection(spaceId, original);
+
+    await authenticate(page);
+    await page.goto(`/spaces/${spaceId}/${sectionId}`);
+    await expect(
+      page.getByRole("heading", { name: original, exact: true }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", { name: `Actions for ${original}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Rename" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Rename Section" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Name").fill(renamed);
+    await dialog.getByRole("button", { name: "Rename" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(
+      page.getByRole("tablist", { name: "Sections" }).getByRole("tab", {
+        name: renamed,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: renamed, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(new RegExp(`^${renamed} ·`))).toBeVisible();
+  });
+
+  test("deletes a custom Section and redirects to Upcoming", async ({
+    page,
+  }) => {
+    const spaceName = `Delete Section Host ${runSuffix()}`;
+    const sectionName = `Temp Section ${runSuffix()}`;
+    const spaceId = await createOwnedSpace(spaceName);
+    const sectionId = await createCustomSection(spaceId, sectionName);
+
+    await authenticate(page);
+    await page.goto(`/spaces/${spaceId}/${sectionId}`);
+
+    await page
+      .getByRole("button", { name: `Actions for ${sectionName}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Delete Section" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Delete Section" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming$`));
+    await expect(
+      page.getByRole("heading", { name: "Upcoming", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("tablist", { name: "Sections" }).getByRole("tab", {
+        name: sectionName,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+
+  test("Daily and Monthlies have no Section overflow menu", async ({
+    page,
+  }) => {
+    await authenticate(page);
+
+    await page.goto(`/spaces/${personalSpaceId}/daily`);
+    await expect(
+      page.getByRole("heading", { name: "Daily", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Actions for Daily" }),
+    ).toHaveCount(0);
+
+    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
+    await expect(
+      page.getByRole("heading", { name: "Monthlies", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Actions for Monthlies" }),
+    ).toHaveCount(0);
+  });
+
+  test("read-only Viewer sees no Section overflow menu", async ({
+    page,
+    request,
+  }) => {
+    const spaceName = `Viewer Host ${runSuffix()}`;
+    const sectionName = `Viewer Section ${runSuffix()}`;
+    const spaceId = await createOwnedSpace(spaceName);
+    const sectionId = await createCustomSection(spaceId, sectionName);
+
+    const member = await createVerifiedUser(request, "Rename Delete Viewer");
+    const memberSession = await signIn(request, member);
+    await addMemberReadOnly(
+      request,
+      ownerSession,
+      spaceId,
+      member,
+      memberSession,
+    );
+
+    await authenticatePage(page, memberSession);
+    await page.goto(`/spaces/${spaceId}/${sectionId}`);
+    await expect(
+      page.getByRole("heading", { name: sectionName, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Read-only", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Actions for ${sectionName}` }),
+    ).toHaveCount(0);
   });
 });
