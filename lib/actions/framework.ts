@@ -48,6 +48,8 @@ function revalidateTarget(parsed: unknown): string {
 export function defineAction<TSchema extends z.ZodType, TData>(
   schema: TSchema,
   handler: (input: z.output<TSchema>, ctx: ActionContext) => Promise<TData>,
+  /** Fixed revalidation path, replacing the target derived from the input. */
+  options: { revalidate?: string } = {},
 ): (input: unknown) => Promise<ActionResult<TData>> {
   return async (input) => {
     const session = await requireVerifiedSession();
@@ -59,7 +61,7 @@ export function defineAction<TSchema extends z.ZodType, TData>(
         db: getDb(),
       });
 
-      revalidatePath(revalidateTarget(parsed), "layout");
+      revalidatePath(options.revalidate ?? revalidateTarget(parsed), "layout");
       return { ok: true, data };
     } catch (error) {
       return toActionError(error);

@@ -89,6 +89,57 @@ describe("defineAction", () => {
     );
   });
 
+  it("uses options.revalidate instead of the path derived from input", async () => {
+    authenticateAs("user-1");
+
+    const fixedPathAction = defineAction(
+      z
+        .object({
+          spaceId: z.uuid(),
+          title: z.string().trim().min(1, "Title cannot be empty"),
+        })
+        .strict(),
+      async (parsed) => ({ title: parsed.title }),
+      { revalidate: "/spaces" },
+    );
+
+    const result = await fixedPathAction({
+      spaceId: SPACE_ID,
+      title: "x",
+    });
+    expect(result.ok).toBe(true);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith("/spaces", "layout");
+    expect(getRevalidatePathMock()).not.toHaveBeenCalledWith(
+      `/spaces/${SPACE_ID}`,
+      "layout",
+    );
+  });
+
+  it("preserves derived revalidation when options.revalidate is omitted", async () => {
+    authenticateAs("user-1");
+
+    const withoutOptions = defineAction(
+      z
+        .object({
+          spaceId: z.uuid(),
+          title: z.string().trim().min(1, "Title cannot be empty"),
+        })
+        .strict(),
+      async (parsed) => ({ title: parsed.title }),
+    );
+
+    const result = await withoutOptions({
+      spaceId: SPACE_ID,
+      title: "x",
+    });
+    expect(result.ok).toBe(true);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(
+      `/spaces/${SPACE_ID}`,
+      "layout",
+    );
+  });
+
   it("maps schema failures to VALIDATION_ERROR with issues", async () => {
     authenticateAs("user-1");
 
