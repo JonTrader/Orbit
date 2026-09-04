@@ -40,9 +40,13 @@ function useIsClient(): boolean {
   );
 }
 
+const MENU_GAP = 4;
+const VIEWPORT_PAD = 8;
+
 /**
- * Portaled overflow menu for Space rows and Section tabs. Positions once from
- * the trigger's bounding rect on open and closes on scroll/resize instead of
+ * Portaled overflow menu for Space rows and Section tabs. Positions from the
+ * trigger's bounding rect on open, flipping above when there is not enough
+ * room below (last directory rows). Closes on scroll/resize instead of
  * tracking continuously (SectionTabs is overflow-x-auto and would clip a
  * non-portaled menu).
  */
@@ -68,12 +72,42 @@ export function RowMenu({
     const trigger = triggerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
-    setPosition({ top: rect.bottom + 4, left: rect.right });
+    // Tentative below-trigger placement; useLayoutEffect measures and flips.
+    setPosition({ top: rect.bottom + MENU_GAP, left: rect.right });
     setOpen(true);
   }
 
   useLayoutEffect(() => {
     if (!open) return;
+
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    if (menu && trigger) {
+      const triggerRect = trigger.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const maxBottom = window.innerHeight - VIEWPORT_PAD;
+      const maxRight = window.innerWidth - VIEWPORT_PAD;
+
+      let top = triggerRect.bottom + MENU_GAP;
+      if (top + menuRect.height > maxBottom) {
+        top = triggerRect.top - MENU_GAP - menuRect.height;
+      }
+      if (top < VIEWPORT_PAD) {
+        top = VIEWPORT_PAD;
+      }
+
+      // Menu is right-aligned via translateX(-100%); `left` is the right edge.
+      let left = triggerRect.right;
+      if (left > maxRight) {
+        left = maxRight;
+      }
+      if (left - menuRect.width < VIEWPORT_PAD) {
+        left = VIEWPORT_PAD + menuRect.width;
+      }
+
+      setPosition({ top, left });
+    }
+
     const itemsEls = menuRef.current?.querySelectorAll<HTMLElement>(
       '[role="menuitem"]',
     );
@@ -187,10 +221,10 @@ export function RowMenu({
                     item.onSelect();
                   }}
                   className={[
-                    "block w-full px-3 py-1.5 text-left text-[0.85rem] font-medium focus-visible:outline-none focus-visible:bg-page",
+                    "block w-full px-3 py-1.5 text-left text-[0.85rem] font-medium transition-colors focus-visible:outline-none",
                     item.tone === "danger"
-                      ? "text-accent hover:bg-accent/10"
-                      : "text-ink hover:bg-page",
+                      ? "text-accent hover:bg-accent/10 focus-visible:bg-accent/10"
+                      : "text-ink hover:bg-line focus-visible:bg-line",
                   ].join(" ")}
                 >
                   {item.label}
