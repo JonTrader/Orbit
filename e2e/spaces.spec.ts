@@ -143,7 +143,7 @@ test.describe("Spaces directory and creation", () => {
     ]);
 
     const name = `Created ${runSuffix()}`;
-    await spacesSidebar(page).getByRole("button", { name: "New Space…" }).click();
+    await spacesSidebar(page).getByRole("button", { name: "New Space" }).click();
 
     const dialog = page.getByRole("dialog", { name: "New Space" });
     await expect(dialog).toBeVisible();
