@@ -44,11 +44,10 @@ const MENU_GAP = 4;
 const VIEWPORT_PAD = 8;
 
 /**
- * Portaled overflow menu for Space rows and Section tabs. Positions from the
- * trigger's bounding rect on open, flipping above when there is not enough
- * room below (last directory rows). Closes on scroll/resize instead of
- * tracking continuously (SectionTabs is overflow-x-auto and would clip a
- * non-portaled menu).
+ * Portaled overflow menu for Space rows and Section panel headers. Positions
+ * from the trigger's bounding rect on open, flipping above when there is not
+ * enough room below (last directory rows). Closes on scroll/resize instead of
+ * tracking continuously (overflow parents would clip a non-portaled menu).
  */
 export function RowMenu({
   items,
@@ -187,12 +186,18 @@ export function RowMenu({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => (open ? close() : openMenu())}
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded text-muted hover:bg-panel hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="inline-flex size-7 shrink-0 items-center justify-center rounded text-muted transition-colors hover:bg-line hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {children ?? (
-          <span aria-hidden="true" className="text-[1.1rem] leading-none">
-            …
-          </span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="size-[1rem]"
+            aria-hidden="true"
+          >
+            <path d="M6 10a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm5.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM16.5 10a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+          </svg>
         )}
       </button>
 

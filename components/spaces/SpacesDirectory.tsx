@@ -171,7 +171,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
                 {filtered.map((entry) => (
                   <li
                     key={entry.id}
-                    className="flex items-start gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-(--row-hover) sm:items-center"
+                    className="flex items-center gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-(--row-hover)"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[0.95rem] font-medium text-ink">
@@ -195,7 +195,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5 pt-0.5 sm:pt-0">
+                    <div className="flex shrink-0 items-center gap-0.5">
                       <Link
                         href={spaceSectionPath(entry.id, "upcoming")}
                         className="font-mono text-[0.72rem] uppercase tracking-wider text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

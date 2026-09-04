@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ComposeBar } from "@/components/spaces/ComposeBar";
 import { CompletedTasksSection } from "@/components/spaces/CompletedTasksSection";
 import { NoteRow } from "@/components/spaces/NoteRow";
+import { SectionPanelHeader } from "@/components/spaces/SectionPanelHeader";
 import { TaskRow } from "@/components/spaces/TaskRow";
 import { getDb } from "@/lib/db/client";
 import { note, task } from "@/lib/db/schema";
@@ -124,9 +125,13 @@ async function SectionTasks({
   return (
     <>
       <div className="overflow-hidden rounded border border-line bg-panel">
-        <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-          {sectionName} · {openTasks.length} open
-        </div>
+        <SectionPanelHeader
+          spaceId={spaceId}
+          sectionId={sectionId}
+          sectionName={sectionName}
+          meta={`${sectionName} · ${openTasks.length} open`}
+          canMutate={canMutate}
+        />
         <div className="border-t border-line">
           {openTasks.length === 0 ? (
             <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
@@ -184,9 +189,13 @@ async function SectionNotes({
 
   return (
     <div className="overflow-hidden rounded border border-line bg-panel">
-      <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-        {sectionName} · {notes.length} {notes.length === 1 ? "note" : "notes"}
-      </div>
+      <SectionPanelHeader
+        spaceId={spaceId}
+        sectionId={sectionId}
+        sectionName={sectionName}
+        meta={`${sectionName} · ${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
+        canMutate={canMutate}
+      />
       <div className="border-t border-line">
         {notes.length === 0 ? (
           <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
@@ -253,10 +262,13 @@ async function SectionMixed({
   return (
     <>
       <div className="overflow-hidden rounded border border-line bg-panel">
-        <div className="px-4 pb-1.5 pt-3.5 font-mono text-[0.68rem] uppercase tracking-[0.06em] text-muted">
-          {sectionName} · {openTasks.length} open · {notes.length}{" "}
-          {notes.length === 1 ? "note" : "notes"}
-        </div>
+        <SectionPanelHeader
+          spaceId={spaceId}
+          sectionId={sectionId}
+          sectionName={sectionName}
+          meta={`${sectionName} · ${openTasks.length} open · ${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
+          canMutate={canMutate}
+        />
         <div className="border-t border-line">
           {items.length === 0 ? (
             <div className="px-4 py-10 text-center text-[0.9rem] text-muted">
