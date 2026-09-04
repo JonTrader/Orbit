@@ -82,6 +82,7 @@ export const auth = betterAuth({
           google: {
             clientId: googleClientId!,
             clientSecret: googleClientSecret!,
+            prompt: "select_account",
           },
         }
       : {}),
