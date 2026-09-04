@@ -1,7 +1,8 @@
 /**
- * Streaming shell for the all-Spaces directory. Mirrors the page anatomy -
- * title row and a panel of Space rows with meta + Open - so the route paints
- * instantly while directory entries resolve.
+ * Streaming shell for the all-Spaces directory only (`spaces/(directory)/`).
+ * Lives in a route group so it does not wrap Active Space navigations under
+ * `(active)/`. Mirrors the page anatomy - title row and a panel of Space rows
+ * with meta + Open - so `/spaces` paints instantly while entries resolve.
  *
  * Purely presentational: no data access. The pulse is disabled globally for
  * reduced-motion users.
