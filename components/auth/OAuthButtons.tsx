@@ -6,7 +6,6 @@ import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 import type { OAuthProviderId } from "@/lib/auth/oauth";
 
 import { useAuthTheme } from "@/components/auth/kit/useAuthTheme";
-import { AuthPendingMark } from "@/components/auth/kit/AuthPendingMark";
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { oauthButtonClass } from "@/components/auth/kit/OAuthButton";
 
@@ -91,24 +90,36 @@ export function OAuthButtons({
     <div className="flex flex-col gap-2">
       {visibleProviders.map((provider) => {
         const busy = pending === provider.id;
+        const idleDisabled = pending !== null && !busy;
 
         return (
           <button
             key={provider.id}
             type="button"
             disabled={pending !== null}
-            aria-busy={busy}
+            aria-busy={busy || undefined}
+            data-pending={busy ? "" : undefined}
             onClick={() => start(provider.id)}
-            className={oauthButtonClass(theme)}
+            className={[
+              oauthButtonClass(theme),
+              "pending-underline relative overflow-hidden",
+              busy ? "cursor-progress" : "",
+              idleDisabled ? "opacity-60" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
-            {busy ? (
-              <AuthPendingMark label="Redirecting" />
-            ) : provider.id === "google" ? (
-              <GoogleMark />
-            ) : (
-              <MicrosoftMark />
-            )}
-            <span className={busy ? "opacity-90" : undefined}>{provider.label}</span>
+            <span
+              className={[
+                "inline-flex items-center justify-center gap-2",
+                busy ? "opacity-[0.72]" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {provider.id === "google" ? <GoogleMark /> : <MicrosoftMark />}
+              {provider.label}
+            </span>
           </button>
         );
       })}

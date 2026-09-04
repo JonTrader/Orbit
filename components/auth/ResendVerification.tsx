@@ -53,7 +53,9 @@ export function ResendVerification({ email }: { email?: string }) {
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
       {sent ? <FormMessage tone="info">New link sent.</FormMessage> : null}
-      <SubmitButton pending={pending}>Send another link</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Sending…">
+        Send another link
+      </SubmitButton>
     </form>
   );
 }

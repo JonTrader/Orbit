@@ -32,7 +32,7 @@ export function customSectionPath(
   spaceId: string,
   sectionId: string,
 ): string {
-  return `/spaces/${spaceId}/sections/${sectionId}`;
+  return `/spaces/${spaceId}/${sectionId}`;
 }
 
 /**

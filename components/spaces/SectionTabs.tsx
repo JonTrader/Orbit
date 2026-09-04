@@ -15,10 +15,8 @@ export function SectionTabs({ items }: SectionTabsProps) {
   const pathname = usePathname();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
-  const dragRef = useRef({ active: false, startX: 0, startLeft: 0, moved: false });
   const [fadeLeft, setFadeLeft] = useState(false);
   const [fadeRight, setFadeRight] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
 
   const updateFades = useCallback(() => {
     const scroller = scrollerRef.current;
@@ -64,58 +62,6 @@ export function SectionTabs({ items }: SectionTabsProps) {
     return () => scroller.removeEventListener("wheel", onWheel);
   }, [items]);
 
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    const drag = dragRef.current;
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.button !== 0 || scroller.scrollWidth <= scroller.clientWidth) return;
-      drag.active = true;
-      drag.moved = false;
-      drag.startX = event.clientX;
-      drag.startLeft = scroller.scrollLeft;
-      setIsDragging(true);
-      scroller.setPointerCapture(event.pointerId);
-    };
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (!drag.active) return;
-      const delta = event.clientX - drag.startX;
-      if (Math.abs(delta) > 3) drag.moved = true;
-      scroller.scrollLeft = drag.startLeft - delta;
-    };
-
-    const endDrag = (event: PointerEvent) => {
-      if (!drag.active) return;
-      drag.active = false;
-      setIsDragging(false);
-      if (scroller.hasPointerCapture(event.pointerId)) {
-        scroller.releasePointerCapture(event.pointerId);
-      }
-    };
-
-    scroller.addEventListener("pointerdown", onPointerDown);
-    scroller.addEventListener("pointermove", onPointerMove);
-    scroller.addEventListener("pointerup", endDrag);
-    scroller.addEventListener("pointercancel", endDrag);
-
-    return () => {
-      scroller.removeEventListener("pointerdown", onPointerDown);
-      scroller.removeEventListener("pointermove", onPointerMove);
-      scroller.removeEventListener("pointerup", endDrag);
-      scroller.removeEventListener("pointercancel", endDrag);
-    };
-  }, [items]);
-
-  function handleTabClick(event: React.MouseEvent<HTMLAnchorElement>) {
-    if (dragRef.current.moved) {
-      event.preventDefault();
-      dragRef.current.moved = false;
-    }
-  }
-
   return (
     <div className="relative min-w-0 w-full max-w-full">
       {fadeLeft ? (
@@ -136,9 +82,8 @@ export function SectionTabs({ items }: SectionTabsProps) {
         role="tablist"
         aria-label="Sections"
         className={[
-          "flex w-full min-w-0 max-w-full snap-x snap-proximity gap-[0.3rem] overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-line touch-pan-x",
+          "flex w-full min-w-0 max-w-full snap-x snap-proximity gap-[0.3rem] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth border-b border-line touch-pan-x",
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-          isDragging ? "cursor-grabbing select-none" : "cursor-grab",
         ].join(" ")}
       >
         {items.map((item) => {
@@ -154,7 +99,6 @@ export function SectionTabs({ items }: SectionTabsProps) {
               role="tab"
               aria-selected={active}
               aria-current={active ? "page" : undefined}
-              onClick={handleTabClick}
               className={[
                 "mb-[-1px] shrink-0 snap-start whitespace-nowrap rounded-t-[7px] border border-b-0 px-[0.85rem] py-[0.4rem] text-[0.8rem] font-medium transition-colors",
                 active

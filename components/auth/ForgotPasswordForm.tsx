@@ -59,7 +59,9 @@ export function ForgotPasswordForm() {
         required
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
-      <SubmitButton pending={pending}>Send reset link</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Sending…">
+        Send reset link
+      </SubmitButton>
     </form>
   );
 }

@@ -126,7 +126,9 @@ export function ResetPasswordForm() {
         required
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
-      <SubmitButton pending={pending}>Set new password</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Saving…">
+        Set new password
+      </SubmitButton>
     </form>
   );
 }

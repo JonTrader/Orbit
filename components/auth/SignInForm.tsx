@@ -70,7 +70,9 @@ export function SignInForm() {
         required
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
-      <SubmitButton pending={pending}>Sign in</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Signing in…">
+        Sign in
+      </SubmitButton>
     </form>
   );
 }

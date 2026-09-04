@@ -67,7 +67,9 @@ export function SignUpForm() {
         hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
-      <SubmitButton pending={pending}>Create account</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Creating account…">
+        Create account
+      </SubmitButton>
     </form>
   );
 }

@@ -26,7 +26,7 @@ export function SpaceRailLinks({ title, items, onClick }: SpaceRailLinksProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-0.5">
-      <div className="px-2 pb-1.5 pt-2 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-muted">
+      <div className="px-2 pb-1.5 pt-5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-muted">
         {title}
       </div>
       <nav className="flex flex-col gap-0.5" aria-label="Space list">

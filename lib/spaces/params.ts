@@ -28,8 +28,8 @@ export const resolveSpaceContext = cache(
 );
 
 /**
- * Parses `[spaceId]/sections/[sectionId]` route params. Malformed ids are a
- * 404, matching the convention for every Space view.
+ * Parses `[spaceId]/[sectionId]` route params. Malformed ids are a 404,
+ * matching the convention for every Space view.
  */
 export const resolveCustomSectionContext = cache(
   async (
