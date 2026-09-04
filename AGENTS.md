@@ -3,7 +3,7 @@
 ## Read order
 
 1. [`CONTEXT.md`](./CONTEXT.md) - vocabulary + product overview
-2. [`docs/spec.md`](./docs/spec.md) - MVP requirements (stack, API shape, product rules)
+2. [`docs/spec.md`](./docs/spec.md) - MVP requirements
 3. [`docs/adr/`](./docs/adr/) - hard decisions
 4. [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md) - one phase per conversation (copy that phase's handoff prompt)
 5. [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md) - what to test for the phase you are implementing
@@ -12,83 +12,47 @@
 
 Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite). Do not invent synonyms.
 
-## Service layout
+## Auth and Space views
 
-- `lib/auth/session.ts` - web RSC session helpers. `getAppSession()` is React-cached per render pass. `requireVerifiedSession()` and `requireCredentialSession()` call `resolveAppAccess` from `lib/auth/access.ts` directly (no intermediate wrapper). `requireCredentialSession` is the single credential decision point for password management (redirects OAuth-only users); the `(active)` Space shell reads `canChangePassword` via `hasCredentialAccount` (user-level, not Space-scoped). `redirectIfVerified()` reads the session directly and redirects only when signed in and verified; used on sign-in, sign-up, and verify-email. API routes use `lib/rest-api/auth.ts` instead.
-- `lib/services/notifications.ts` - Reminder candidate scanning / sending only.
-- `lib/services/notification-preferences.ts` - per-user per-Space preference CRUD. Read-only Members may update their own preferences.
-- `lib/spaces/viewer.ts` - RSC-only Viewer / layout-data resolution (see CONTEXT.md "Viewer"). Tests: `tests/lib/spaces/viewer.test.ts`.
-  - `resolveSpaceContext(params)` is the single params schema for every `[spaceId]` route; malformed ids 404.
-  - `getSpaceLayoutData(spaceId)` is the one-query layout loader: space + membership role + credential `EXISTS` + Sections `json_agg` + ShareBar member preview `json_agg`. Returns `{ viewer, sections, members }`. Prefer `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` in layout and pages (facade over the layout load; also carries `members`).
-  - `getSpaceViewer` / `getSpaceSections` are thin wrappers over `getSpaceLayoutData` for callers that only need one slice; they share the same React cache / SQL round trip.
-  - Viewer shape: `{ userId, user: { name, email }, space, role, can }` with `can.mutateContent` (editor+), `can.manageMembers` (owner), and `can.changePassword` (credential account).
-  - Failure modes: unknown Space -> `notFound()`, non-member -> redirect to `/`, unverified -> session-guard redirect.
-  - `ShareBarSlot` reads layout `members` from the route layout; it must not call `listMembers` on render. `listMembers` remains for API / mutation paths.
-  - Pages and layouts must use this module (via `getActiveSpace`) instead of calling `requireVerifiedSession`, `requireMembership`, or re-declaring params schemas. It is the single session touchpoint for Space views; services keep their own membership checks for the API boundary.
-- `lib/spaces/queries/` - pure RSC content SELECTs (no auth). Prefer these after `getActiveSpace` on Space pages. `fetchUpcomingTimeline` is the Upcoming page's one content query (`UNION ALL` of Monthlies + dated open Tasks); Section names come from layout `sections` in memory, not a JOIN. `fetchMixedSectionContent` is the mixed custom Section's one content query (two `json_agg` subqueries for Tasks + Notes - not UNION, different row shapes). Keep `fetchTasks` / `fetchMonthlies` / `fetchNotes` for Daily, Monthlies, single-kind custom sections, and for services wrapping API routes.
-- Layouts and pages render **concurrently** in the App Router. Onboarding (Personal Space creation) is owned by the entry route via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards.
+- Web RSC session: `lib/auth/session.ts`. API routes: `lib/rest-api/auth.ts`. Do not mix them.
+- Space pages/layouts: use `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` (layout data + Viewer). Do not call `requireVerifiedSession` / `requireMembership` or re-declare `[spaceId]` params schemas in those views. Services still enforce membership at the API boundary.
+- Params: `resolveSpaceContext` in `lib/spaces/params.ts` is the single `[spaceId]` params schema.
+- Onboarding (Personal Space): entry route via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards. Layouts and pages render concurrently.
 
-## Action layout
+## Actions
 
 - `lib/actions/` - web-only Server Actions (ADR 0005). Thin wrappers over `lib/services`; no business logic.
-- Build every action with `defineAction(schema, handler)` from `lib/actions/framework.ts`. It owns the verified-session guard, schema validation, `{ userId, db }` injection, Space layout revalidation, and error mapping. Do not hand-roll that sequence.
-- Actions resolve to `ActionResult<T>` from `lib/actions/result.ts` (`{ ok: true, data } | { ok: false, error }`). Error codes match the `/api/v1` envelope because both boundaries map the same `DomainError`s.
-- Action tests (`tests/actions/`) import `tests/setup/api-mocks.ts` then `tests/setup/action-mocks.ts` first, use `authenticateAs(userId)` for signed-in callers and `guardRedirectsTo(url)` for unauthenticated/unverified ones, and assert `revalidatePath` calls. See `tests/actions/quick-add.test.ts` and `tests/actions/define-action.test.ts`.
-- Avoid naming an action the same as the service function it wraps. Alias imports when needed (`renameSection as renameSectionService`).
+- Build every action with `defineAction` from `lib/actions/framework.ts`. Do not hand-roll session / validation / revalidate / error mapping.
+- Avoid naming an action the same as the service it wraps; alias the service import.
 
 ## ID conventions
 
-App tables (`space`, `section`, `task`, `monthly`, `note`, `invite`, ...) use `uuid` columns with `defaultRandom()`. But Better Auth generates `user.id` as 32-char alphanumeric (`a-z`, `A-Z`, `0-9`), not a UUID (`lib/auth/config.ts` sets no custom `generateId`). Any API schema field that holds a user ID (`assigneeId`, `completedBy`, ...) must validate with `z.string().min(1)`, never `z.uuid()`.
+App entities use UUIDs. Better Auth `user.id` is a 32-char alphanumeric string, not a UUID. Schema fields that hold a user ID (`assigneeId`, `completedBy`, ...) must use `z.string().min(1)`, never `z.uuid()`.
 
-## Component layout
+## Active Space UI footguns
 
-- `components/spaces/` owns the Active Space chrome and rows:
-  - `ActiveSpaceProvider.tsx` - client context for the Active Space (`useActiveSpace()`). The `[spaceId]` layout wraps children after resolving layout data once (`viewer`, `sections`, `members`); client descendants read from context. RSC pages cannot use the hook and call `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` instead.
-  - Route groups under `app/(app)/spaces/`: `(directory)/` owns `/spaces` (`page.tsx` / `loading.tsx` - directory skeleton only; that loading must not sit at `spaces/loading.tsx` or it wraps Active Space navigations too). `(active)/` wraps Active Space routes so the sidebar persists across `spaceId` changes. `(active)/loading.tsx` is a main-panel spinner shown as `{children}` inside `SpaceSidebarShell` while `[spaceId]` chrome resolves; it must not include a sidebar, because the layout already rendered one. Section `loading.tsx` files only cover the content panel after `[spaceId]` chrome is mounted. There is no `[spaceId]/loading.tsx`: that parent fallback flashed a generic skeleton before the destination Section skeleton on tab switches.
-  - `SpaceSidebarShell.tsx` - client frame used by `spaces/(active)/layout.tsx`. Owns the grid, mobile drawer state, and `SpaceSidebar` (with streamed `spacesSlot`). On large screens the sidebar column is sticky to the viewport (`h-dvh`) so its height does not stretch with `SpaceLayout` content. `SidebarNavContext.tsx` holds the open-sidebar context so Fast Refresh of the shell does not invalidate `useOpenSidebar` in `SpaceLayout`.
-  - `SpaceLayout.tsx` - client main panel used by `spaces/(active)/[spaceId]/layout.tsx`. Renders the Active Space header, `SectionTabs`, `AddSectionButton`, `{children}`, and `shareBarSlot`. Uses `useOpenSidebar()` from `SidebarNavContext` for the mobile Spaces button.
-  - `SpaceSidebar.tsx` / `SidebarHeader.tsx` / `SpaceRailLinks.tsx` / `SpaceOrbit.tsx` / `SidebarFooter.tsx` - sidebar breakdown. The sidebar is Spaces-only (orbit rail rows with active dot); Sections live in `SectionTabs` only. `SpaceRailLinks` is the client Space list deriving active state from `usePathname()` and takes an optional `onClick` (used to close the mobile sidebar). `SidebarNavLinks.tsx` remains for plain link lists if needed elsewhere.
-  - `SectionTabs.tsx` - client tab strip; derives the active tab from `usePathname()` and takes only `items`. Do not render it inside section pages - it lives in `SpaceLayout`, and section pages render content only.
-- Section URLs: system views at `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections at `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment. Each section route has its own `loading.tsx` skeleton matching that page's anatomy; the layout renders the nav chrome during streaming, so skeletons cover the content panel only. Do not add a `[spaceId]/loading.tsx`; it wraps every child segment and flashes a generic skeleton before the destination Section one on tab switches. The bare `/spaces/[spaceId]` page only redirects to Upcoming and does not need a content skeleton.
+- `components/spaces/` owns Active Space chrome. RSC pages use `getActiveSpace`; client descendants use `useActiveSpace()` from `ActiveSpaceProvider`.
+- Route groups under `app/(app)/spaces/`:
+  - `(directory)/` owns `/spaces` (including its `loading.tsx`). Do not put directory loading at `spaces/loading.tsx` - it would wrap Active Space navigations.
+  - `(active)/` keeps the sidebar across `spaceId` changes. `(active)/loading.tsx` is a main-panel spinner inside the already-rendered sidebar shell - do not include a second sidebar there.
+  - Section routes own their own `loading.tsx` (content panel only). Do not add `[spaceId]/loading.tsx` - it flashes a generic skeleton before the destination Section skeleton on tab switches.
+- Sidebar is Spaces-only; Sections live in `SectionTabs` inside `SpaceLayout`. Section pages render content only - do not re-render `SectionTabs` there.
+- URLs: system views at `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections at `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment.
 
 ## Testing
 
 Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
-Prefer domain/service tests for business rules; keep Route Handlers and Server Actions thin. User-visible bugs get a Playwright repro when practical.
+- Vitest + real Neon via `DATABASE_URL_TEST` (dedicated branch, never production). No SQLite. The suite drops/recreates `public` before migrating.
+- No parallel full suites against the same branch (`maxWorkers: 1`; advisory lock in global setup). Prefer domain/service tests; keep Route Handlers and Actions thin.
+- API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers. See `tests/setup/api.ts` and existing action tests for patterns.
+- E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`); cookie-bearing auth calls without Origin fail with `MISSING_OR_NULL_ORIGIN`.
+- Schema changes: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`.
 
-Stack: Vitest + real Neon Postgres via `DATABASE_URL_TEST`. No SQLite stand-in.
+## CI / status
 
-### Running the suite
-
-```
-npm test          # everything
-npm run test:db   # db suite only
-npm run test:auth # auth suite only
-npm run test:watch
-```
-
-`DATABASE_URL_TEST` must point at a **dedicated Neon branch**, never production: the run drops and recreates the `public` schema before migrating. Test files share that one branch, so `vitest.config.mts` disables file parallelism, sets `maxWorkers: 1`, and each file seeds its own fixtures after `truncateAll()`. Never run full suites concurrently against the same branch. `tests/setup/global-setup.ts` holds a Postgres advisory lock (`TEST_DB_LOCK_KEY`) for the entire `npm test` run so CI jobs and local runs cannot interleave schema resets. Service tests that spy on shared modules (e.g. `requireMembership`) must use `vi.spyOn` + `vi.restoreAllMocks()` in `afterEach`, not `vi.mock` on `@/lib/spaces/membership`.
-
-Migrations live in `drizzle/`; regenerate with `npm run db:generate` after editing `lib/db/schema.ts` and apply with `npm run db:migrate`.
-
-### API test helpers
-
-- `tests/setup/api-mocks.ts` - `vi.mock` for `@/lib/auth` and `@/lib/db/client`. Import this **first** in any API test file so the mocks are registered before Route Handler imports.
-- `tests/setup/api.ts` - shared helpers: `authenticateAs`, `unauthenticate`, `jsonRequest`, `responseJson`, route context builders, `ErrorBody`, and `apiTestLifecycle`.
-- Each API test file still owns its `beforeAll`/`beforeEach` wiring via `apiTestLifecycle()`.
-
-### E2E helpers
-
-- `e2e/helpers.ts` creates users via Better Auth HTTP endpoints. Auth POSTs must send a trusted `Origin` (see `BETTER_AUTH_URL` / `http://localhost:3000`): once the Playwright `request` fixture holds cookies from a prior sign-in, Better Auth rejects cookie-bearing auth calls with `MISSING_OR_NULL_ORIGIN`.
-
-## CI
-
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) defines the CI pipeline. When adding tests, enable the matching job in that file rather than creating a second workflow. The `test` job needs the GitHub secret `DATABASE_URL_TEST` (dedicated Neon branch, not production).
-
-## Project status
-
-Completed phases and the current handoff prompt are tracked in [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md).
+- CI: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Add jobs there; do not create a second workflow. `test` needs secret `DATABASE_URL_TEST`.
+- Phase status and handoff prompts: [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md).
 
 
 <!-- BEGIN:nextjs-agent-rules -->
