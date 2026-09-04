@@ -21,7 +21,7 @@ export function SpaceSidebar({
 }: SpaceSidebarProps) {
   return (
     <aside
-      className="flex h-full flex-col gap-1 overflow-auto border-r border-line bg-[color-mix(in_srgb,var(--sidebar)_88%,white)] px-3.5 py-5"
+      className="flex h-full min-h-0 w-full flex-col gap-1 overflow-y-auto border-r border-line bg-[color-mix(in_srgb,var(--sidebar)_88%,white)] px-3.5 py-5"
       aria-label="Spaces"
     >
       <SidebarHeader />

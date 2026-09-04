@@ -42,7 +42,7 @@ export function SidebarFooter({
         Browse all Spaces
       </Link>
       <button type="button" onClick={openCreate} className={footerLinkClass}>
-        New Space…
+        New Space
       </button>
       {user ? (
         <div className="mt-2 flex flex-col gap-1 border-t border-line pt-2">

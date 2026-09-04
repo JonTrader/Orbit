@@ -1,33 +1,15 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import {
+  SidebarNavProvider,
+  useOpenSidebar,
+} from "./SidebarNavContext";
 import { SpaceSidebar } from "./SpaceSidebar";
 import type { SidebarFooterUser } from "./SidebarFooter";
 
-interface SidebarNavContextValue {
-  openSidebar: () => void;
-  closeSidebar: () => void;
-}
-
-const SidebarNavContext = createContext<SidebarNavContextValue | null>(null);
-
-/** Opens the mobile Spaces drawer; must be used under SpaceSidebarShell. */
-export function useOpenSidebar(): () => void {
-  const value = useContext(SidebarNavContext);
-  if (!value) {
-    throw new Error("useOpenSidebar must be used within SpaceSidebarShell");
-  }
-  return value.openSidebar;
-}
+export { useOpenSidebar };
 
 export interface SpaceSidebarShellProps {
   user?: SidebarFooterUser;
@@ -40,7 +22,9 @@ export interface SpaceSidebarShellProps {
 
 /**
  * Persistent sidebar frame: grid, mobile drawer, and Space list. Lives in
- * the `(active)` layout so it does not remount when spaceId changes.
+ * the `(active)` layout so it does not remount when spaceId changes. On large
+ * screens the sidebar is sticky to the viewport so its height does not follow
+ * SpaceLayout content.
  */
 export function SpaceSidebarShell({
   user,
@@ -67,7 +51,7 @@ export function SpaceSidebarShell({
   }, [sidebarOpen]);
 
   return (
-    <SidebarNavContext.Provider value={nav}>
+    <SidebarNavProvider value={nav}>
       <div className="grid min-h-screen w-full max-w-[100vw] overflow-x-hidden lg:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]">
         {sidebarOpen ? (
           <button
@@ -80,10 +64,11 @@ export function SpaceSidebarShell({
 
         <div
           className={[
-            "fixed inset-y-0 left-0 z-40 w-[min(18rem,88vw)] transition-transform duration-200 lg:static lg:w-auto lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] transition-transform duration-200",
+            "lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-full lg:translate-x-0 lg:self-start",
             sidebarOpen
               ? "translate-x-0 shadow-[8px_0_32px_rgba(28,25,23,0.08)]"
-              : "translate-x-[-105%]",
+              : "translate-x-[-105%] lg:translate-x-0",
           ].join(" ")}
         >
           <SpaceSidebar
@@ -96,6 +81,6 @@ export function SpaceSidebarShell({
 
         {children}
       </div>
-    </SidebarNavContext.Provider>
+    </SidebarNavProvider>
   );
 }

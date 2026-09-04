@@ -7,7 +7,7 @@ import type { SpaceNavItem } from "@/lib/spaces/nav";
 
 import { AddSectionButton } from "./AddSectionButton";
 import { SectionTabs } from "./SectionTabs";
-import { useOpenSidebar } from "./SpaceSidebarShell";
+import { useOpenSidebar } from "./SidebarNavContext";
 
 export interface SpaceLayoutActiveSpace {
   id: string;
