@@ -84,58 +84,6 @@ body {
   animation: auth-burner-idle 8s ease-in-out infinite;
 }
 
-/* Auth pending · orbital tick (product-literal wait mark) */
-@keyframes auth-orbit-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.auth-orbit {
-  position: relative;
-  display: inline-block;
-  width: 1.05em;
-  height: 1.05em;
-  flex-shrink: 0;
-  vertical-align: -0.12em;
-}
-
-.auth-orbit__path {
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.28;
-  transform: scaleY(0.55);
-}
-
-.auth-orbit__track {
-  position: absolute;
-  inset: 0;
-  transform: scaleY(0.55);
-}
-
-.auth-orbit__arm {
-  position: absolute;
-  inset: 0;
-  animation: auth-orbit-spin 0.85s linear infinite;
-}
-
-.auth-orbit__bit {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 0.3em;
-  height: 0.3em;
-  margin-left: -0.15em;
-  margin-top: -0.05em;
-  border-radius: 50%;
-  background: currentColor;
-  /* Undo track squash so the traveling bit stays round on the ellipse. */
-  transform: scaleY(calc(1 / 0.55));
-  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
-}
-
 .auth-pad :focus-visible,
 .auth-burner :focus-visible {
   outline: 2px solid var(--auth-clay);

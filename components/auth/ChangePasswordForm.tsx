@@ -92,7 +92,9 @@ export function ChangePasswordForm() {
         required
       />
       {error ? <FormMessage>{error}</FormMessage> : null}
-      <SubmitButton pending={pending}>Change password</SubmitButton>
+      <SubmitButton pending={pending} pendingLabel="Saving…">
+        Change password
+      </SubmitButton>
     </form>
   );
 }
