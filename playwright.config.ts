@@ -6,9 +6,8 @@ const e2eEnv = bootstrapE2eDatabaseUrl();
 
 /**
  * Phase G E2E: drives the real app against a real server and database.
- * When DATABASE_URL_TEST is set, bootstrap redirects DATABASE_URL to that
- * branch (same guards as the Vitest suite) and starts a fresh dev server so
- * an existing npm run dev on the dev branch is not reused by mistake.
+ * E2E now requires the same DATABASE_URL_TEST guardrails as Vitest and holds
+ * the shared advisory lock for the full run before the app boots.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -16,6 +15,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  globalSetup: "./e2e/db-lock.ts",
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
@@ -23,7 +23,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
-    reuseExistingServer: !e2eEnv.usesTestBranch,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...process.env,

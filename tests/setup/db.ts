@@ -3,12 +3,10 @@ import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
 import { createDbClient, type DbClient } from "@/lib/db/client";
 
+import { TEST_DB_LOCK_KEY } from "./db-lock-key";
 import { resolveTestDatabaseUrl } from "./env";
 
 export const MIGRATIONS_FOLDER = "drizzle";
-
-/** Serializes destructive schema work across CI jobs and local runs. */
-export const TEST_DB_LOCK_KEY = 0x4f524249;
 
 const client = createDbClient(resolveTestDatabaseUrl());
 
