@@ -88,6 +88,7 @@ export function SectionTabs({ items }: SectionTabsProps) {
       >
         {items.map((item) => {
           const active = item.href === pathname;
+
           return (
             <Link
               key={item.key}

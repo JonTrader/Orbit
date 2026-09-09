@@ -52,7 +52,7 @@ flowchart TB
 - Roles (Space-level only): **owner** | **editor** | **read-only**. Single Owner per Space.
 - **Read-only**: view only (no complete/reopen/create/edit/delete, and no membership changes).
 - **Editor**: content + custom Sections; not membership.
-- **Owner**: invites, roles, remove, ownership transfer, Space delete/settings.
+- **Owner**: invites, roles, remove, ownership transfer, Space rename/delete/settings. Exception: the **Personal Space** cannot be renamed or deleted.
 - Exception: every Member may update their own per-Space notification preferences, because those settings are personal and do not mutate shared content.
 - **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can list pending Invites and resend. Pending Invite is not a Member until accept. Invite cancellation is out of MVP.
 - Ownership transfer required before Owner leaves a Space that still has Members. If the Owner is the only Member, the empty Space must be deleted instead of left ownerless. Cannot delete/leave last remaining Space.
@@ -64,8 +64,8 @@ flowchart TB
 
 | Concept | Rules |
 | ------- | ----- |
-| **Daily** | System Section; Tasks only; cannot delete/retype |
-| **Monthlies** | System Section; Monthlies only; cannot delete/retype |
+| **Daily** | System Section; Tasks only; cannot rename/delete/retype |
+| **Monthlies** | System Section; Monthlies only; cannot rename/delete/retype |
 | **Task** | Daily or custom `tasks`/`mixed`; optional due date; no monthly recurrence. May move among Daily and custom task/mixed Sections only. Complete stays complete (no midnight reset). Completed Daily Tasks **hidden by default** (show-completed toggle). |
 | **Monthly** | Lives only in Monthlies. Due day-of-month; complete → advance to next month; missing days **clamp to last day of month**. |
 | **Note** | `notes` or `mixed`; title + **plain text** body; many Notes per Section; no assignee/reminders/complete |

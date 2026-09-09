@@ -14,6 +14,8 @@ export interface SpaceNavItem {
   label: string;
   /** Header description shown under the view title. */
   sub: string;
+  /** Set only for custom Sections; system views omit this. */
+  sectionId?: string;
 }
 
 const SYSTEM_NAV_ORDER: SystemSectionSlug[] = [
@@ -72,6 +74,7 @@ export function buildSpaceNav(
         href: customSectionPath(spaceId, row.id),
         label: row.name,
         sub: CUSTOM_SECTION_SUB[kind],
+        sectionId: row.id,
       },
     ];
   });

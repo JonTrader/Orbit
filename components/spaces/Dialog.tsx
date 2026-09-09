@@ -15,6 +15,8 @@ interface DialogProps {
   /** Submit label while pending. */
   pendingLabel: string;
   submitDisabled?: boolean;
+  /** Destructive submits use the accent fill instead of ink. */
+  tone?: "default" | "danger";
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   children: ReactNode;
 }
@@ -44,6 +46,7 @@ export function Dialog({
   submitLabel,
   pendingLabel,
   submitDisabled = false,
+  tone = "default",
   onSubmit,
   children,
 }: DialogProps) {
@@ -124,7 +127,10 @@ export function Dialog({
               pending={pending}
               pendingLabel={pendingLabel}
               disabled={submitDisabled}
-              className="rounded bg-ink px-3 py-1.5 text-[0.85rem] font-semibold text-white disabled:opacity-50"
+              className={[
+                "rounded px-3 py-1.5 text-[0.85rem] font-semibold text-white disabled:opacity-50",
+                tone === "danger" ? "bg-accent" : "bg-ink",
+              ].join(" ")}
             >
               {submitLabel}
             </Button>

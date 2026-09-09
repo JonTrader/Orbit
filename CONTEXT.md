@@ -11,11 +11,11 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 ### Containers and access
 
 **Space**:
-The container that owns members, sections, and permissions. The only share and permission boundary in MVP. Has a single timezone that defines due calendar days and Reminder timing for everyone in that Space. New Spaces default to the creator's timezone at creation; Owner can change it later. An owner may delete a Space; a user may not delete or leave their last remaining Space without another Space to keep.
+The container that owns members, sections, and permissions. The only share and permission boundary in MVP. Has a single timezone that defines due calendar days and Reminder timing for everyone in that Space. New Spaces default to the creator's timezone at creation; Owner can change it later. Owner may rename or delete a non-Personal Space (subject to the last-Space guard: a user may not delete or leave their last remaining Space without another Space to keep).
 _Avoid_: Household (as the container name), Workspace, Project, Account
 
 **Personal Space**:
-The default Space created for a user on first login, with system sections Daily and Monthlies already present. Private until others are invited. Users may also create additional Spaces (for example Home); the creator becomes Owner.
+The default Space created for a user on first login, with system sections Daily and Monthlies already present. Private until others are invited. Cannot be renamed or deleted. Users may also create additional Spaces (for example Home); the creator becomes Owner.
 _Avoid_: Default workspace, home account
 
 **Active Space**:
@@ -52,11 +52,11 @@ _Avoid_: List, board, folder, tab (tab is a navigation chrome, not the domain ob
 
 
 **Daily**:
-The system section for day-to-day to-dos only. Always present in a Space; cannot be deleted or retyped. A different kind of commitment from Monthlies - not a filter on the same list.
+The system section for day-to-day to-dos only. Always present in a Space; cannot be renamed, deleted, or retyped. A different kind of commitment from Monthlies - not a filter on the same list.
 _Avoid_: Today, Inbox
 
 **Monthlies**:
-The system section for recurring monthly obligations only. Always present in a Space; cannot be deleted or retyped. A different kind of commitment from Daily - not a filter on the same list.
+The system section for recurring monthly obligations only. Always present in a Space; cannot be renamed, deleted, or retyped. A different kind of commitment from Daily - not a filter on the same list.
 _Avoid_: Recurring, Bills (unless a future bills feature is named)
 
 **Task**:
