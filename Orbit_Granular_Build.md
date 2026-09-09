@@ -378,7 +378,7 @@ context on why the pages look the way they do.
 - [x] Add Section flow creates usable Sections (G8)
 - [x] Read-only member cannot mutate from UI (G9)
 - [x] Share bar shows members; invite entry visible to Owner (G10)
-- [x] Tests: Phase G items 1-8 green via Playwright - `e2e/phase-g.spec.ts`, run with `npm run test:e2e` and wired into CI as the `e2e` job (dedicated Neon branch via `DATABASE_URL_TEST`).
+- [x] Tests: Phase G items 1-8 green via Playwright - `e2e/active-space.spec.ts`, run with `npm run test:e2e` and wired into CI as the `e2e` job (dedicated Neon branch via `DATABASE_URL_TEST`).
 
 **Out of scope:** Inngest, email template polish (I/H)
 

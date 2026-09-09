@@ -130,7 +130,7 @@ export interface MemberView {
   role: "owner" | "editor" | "read-only";
 }
 
-/** Invite + accept over the v1 API; the Phase H UI does not exist yet. */
+/** Invite + accept over the v1 API; accept-invite UI is not built yet. */
 export async function addMemberReadOnly(
   request: APIRequestContext,
   ownerSession: string,

@@ -15,6 +15,12 @@ Set the application variables in `.env`. The required variables are documented i
 
 The test suite uses a dedicated Neon branch and is destructive: each run drops and recreates the `public` schema, then applies all migrations. Never point it at production or at the database used by the running app.
 
+### Create a Neon test branch
+
+1. In the [Neon console](https://console.neon.tech), open the Orbit project.
+2. Create a child branch from your primary/dev branch (name it something like `orbit-test`). Throwaway branches can use a short TTL.
+3. Copy that branch's connection string into `DATABASE_URL_TEST`. Do not reuse the primary connection string or the same host as `DATABASE_URL`.
+
 Configure these variables in `.env.test` or `.env`:
 
 ```dotenv

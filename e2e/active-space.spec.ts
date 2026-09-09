@@ -17,10 +17,11 @@ import {
 } from "./helpers";
 
 /**
- * Phase G acceptance (Orbit_Test_Plan.md, Phase G items 1-8), against the
- * real app + dev database. Tests share one owner fixture and build state in
- * order; workers:1 keeps them sequential. Membership-count assertions seed
- * their own Members so G7/G8 do not couple on order.
+ * Active Space E2E: Section nav, Daily / Monthlies / Upcoming, custom
+ * Sections, read-only Viewer chrome, and the share bar. Tests share one
+ * owner fixture and build state in order; workers:1 keeps them sequential.
+ * Membership-count assertions seed their own Members so they do not couple
+ * on order.
  */
 
 let ownerApi: APIRequestContext;
@@ -109,15 +110,15 @@ async function sectionIdByKind(
   return section.id;
 }
 
-test.describe("Phase G", () => {
-  test("1. nav order is Upcoming, Daily, Monthlies, customs; no Shared", async ({
+test.describe("Active Space", () => {
+  test("nav order is Upcoming, Daily, Monthlies, customs; no Shared", async ({
     page,
   }) => {
     await authenticate(page);
 
     const customNames = [
-      `G1 tasks ${runSuffix()}`,
-      `G1 notes ${runSuffix()}`,
+      `Nav tasks ${runSuffix()}`,
+      `Nav notes ${runSuffix()}`,
     ] as const;
     for (const [index, name] of customNames.entries()) {
       const created = await ownerApi.post(
@@ -177,7 +178,7 @@ test.describe("Phase G", () => {
     expect(entries.map((entry) => entry.label)).not.toContain("Shared");
   });
 
-  test("2. switching Active Space switches the listed content", async ({
+  test("switching Active Space switches the listed content", async ({
     page,
   }) => {
     await authenticate(page);
@@ -219,7 +220,7 @@ test.describe("Phase G", () => {
     await expect(page.getByText(`Second-only ${runSuffix()}`)).toHaveCount(0);
   });
 
-  test("3. Daily: compose adds, completing hides, show-completed reveals", async ({
+  test("Daily: compose adds, completing hides, show-completed reveals", async ({
     page,
   }) => {
     await authenticate(page);
@@ -238,7 +239,7 @@ test.describe("Phase G", () => {
     await page.getByRole("checkbox", { name: `Reopen ${title}` }).click();
   });
 
-  test("4. Monthlies: completing rolls the next due date forward", async ({
+  test("Monthlies: completing rolls the next due date forward", async ({
     page,
   }) => {
     await authenticate(page);
@@ -278,7 +279,7 @@ test.describe("Phase G", () => {
     await expect(dueLabel).toHaveText(expectedAfter);
   });
 
-  test("5. Upcoming shows dated items and has no compose", async ({
+  test("Upcoming shows dated items and has no compose", async ({
     page,
   }) => {
     await authenticate(page);
@@ -313,7 +314,7 @@ test.describe("Phase G", () => {
     await expect(page.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
   });
 
-  test("6. Add Section dialog creates working tasks/notes/mixed Sections", async ({
+  test("Add Section dialog creates working tasks/notes/mixed Sections", async ({
     page,
   }) => {
     await authenticate(page);
@@ -379,7 +380,7 @@ test.describe("Phase G", () => {
     ).toContainText("Mixed body");
   });
 
-  test("7. read-only member sees the badge and no mutation controls", async ({
+  test("read-only member sees the badge and no mutation controls", async ({
     page,
     request,
   }) => {
@@ -405,7 +406,7 @@ test.describe("Phase G", () => {
     await expect(page.getByText("2 people")).toBeVisible();
   });
 
-  test("8. share bar shows members; Owner sees the invite entry point", async ({
+  test("share bar shows members; Owner sees the invite entry point", async ({
     page,
     request,
   }) => {

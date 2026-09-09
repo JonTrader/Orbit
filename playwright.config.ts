@@ -5,9 +5,9 @@ import { bootstrapE2eDatabaseUrl } from "./e2e/env";
 const e2eEnv = bootstrapE2eDatabaseUrl();
 
 /**
- * Phase G E2E: drives the real app against a real server and database.
- * E2E now requires the same DATABASE_URL_TEST guardrails as Vitest and holds
- * the shared advisory lock for the full run before the app boots.
+ * Playwright E2E: drives the real app against a real server and database.
+ * Requires the same DATABASE_URL_TEST guardrails as Vitest and holds the
+ * shared advisory lock for the full run before the app boots.
  */
 export default defineConfig({
   testDir: "./e2e",

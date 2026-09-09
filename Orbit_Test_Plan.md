@@ -7,19 +7,19 @@ todos:
     status: completed
   - id: c-auth-tests
     content: "Phase C: Personal Space onboard, verify gate, no duplicate Space, mocked email"
-    status: pending
+    status: completed
   - id: d-services-tests
     content: "Phase D: Full authz + Task/Monthly/Notes/Invite/Reminder service matrix"
-    status: pending
+    status: completed
   - id: e-api-tests
     content: "Phase E: Thin /api/v1 Zod + authz + happy-path CRUD"
-    status: pending
+    status: completed
   - id: f-actions-tests
     content: "Phase F: quickAdd/Upcoming, complete, sections, invite + revalidate"
-    status: pending
+    status: completed
   - id: g-e2e
     content: "Phase G: Playwright Active Space, Daily/Monthlies/Upcoming, read-only UI"
-    status: pending
+    status: completed
   - id: h-sharing-tests
     content: "Phase H: Invite accept/expiry/transfer E2E + requireMembership audit"
     status: pending
@@ -37,6 +37,16 @@ isProject: false
 Cross-cutting strategy for the MVP. Implement tests **in the same phase** as the feature they guard. Do not backfill an entire suite in Phase J.
 
 **Agent rule:** `[AGENTS.md](AGENTS.md)` requires reading this file's matching Phase section before implementing any build phase. Phase exit = feature Acceptance **and** that phase's **What to test** items green. Handoff prompts live in `[Orbit_Granular_Build.md](Orbit_Granular_Build.md)`.
+
+## Status (hardening pass)
+
+| Phases | Status |
+| ------ | ------ |
+| **B–G** | Done. Gaps closed in the hardening pass (authz/IDOR, invite collisions, calendar/Reminder pinning, Phase G E2E, harness safety). |
+| **H / I** | Still pending (invite/prefs E2E, Inngest handler tests). Out of scope for the hardening pass. |
+| **J** | Partially landed (CI `test`/`e2e`/`typecheck`, README Neon branch note); required-check promotion and prod smoke remain. |
+
+**Authz footguns (do not regress):** Owner-only tests need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
 
 ## Stack (locked)
 
@@ -224,7 +234,7 @@ flowchart TB
 
 ## Phase G — Wire UI (Playwright starts)
 
-**Add:** Playwright, `e2e/`, seed helpers for a verified user + Space fixtures.
+**Add:** Playwright, `e2e/`, seed helpers for a verified user + Space fixtures. Suite files are named by domain (`e2e/active-space.spec.ts`, `e2e/spaces.spec.ts`), not by build phase.
 
 **What to test (E2E):**
 

@@ -32,6 +32,17 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -85,11 +96,20 @@ jobs:
       - run: npx drizzle-kit migrate
         env:
           DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+      # Do not set DATABASE_URL here: bootstrapE2eDatabaseUrl resolves
+      # DATABASE_URL_TEST (same guardrails as Vitest) and wires DATABASE_URL.
       - run: npm run test:e2e
         env:
-          # The dev server (Playwright webServer) and the e2e helpers both
-          # target the dedicated testing branch.
-          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
           DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_TEST_CONFIRMATION: dedicated-neon-branch
           BETTER_AUTH_URL: http://localhost:3000
           BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
