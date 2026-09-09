@@ -249,6 +249,50 @@ describe("Monthly services", () => {
     }
   });
 
+  it("rejects non-member reads and cross-Space Monthly lookups", async () => {
+    const { space, editor, outsider } = await seedSpace();
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherMonthly = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      title: "Other Space Monthly",
+      dueDayOfMonth: 10,
+    });
+    const homeMonthly = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "Home Monthly",
+      dueDayOfMonth: 5,
+    });
+
+    await expect(
+      listMonthlies(testDb, { userId: outsider.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+    await expect(
+      getMonthly(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        monthlyId: otherMonthly.id,
+      }),
+    ).rejects.toMatchObject({ code: "MONTHLY_NOT_FOUND" });
+    await expect(
+      getMonthly(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        monthlyId: homeMonthly.id,
+      }),
+    ).resolves.toMatchObject({ id: homeMonthly.id });
+  });
+
   it("keeps Monthly rows tied to the Monthlies Section", async () => {
     const { space, sections, editor } = await seedSpace();
     const [created] = await testDb

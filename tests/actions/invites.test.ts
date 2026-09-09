@@ -138,6 +138,24 @@ describe("sendInvite action", () => {
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
+  it("rejects inviting with role owner as a validation error", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.ownerId);
+
+    const result = await sendInvite({
+      spaceId: s.spaceId,
+      email: "owner-role@orbit.test",
+      role: "owner" as "editor",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("VALIDATION_ERROR");
+    }
+    expect(await testDb.select().from(invite)).toHaveLength(0);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
   it("blocks Editors and read-only Members; only the Owner invites", async () => {
     const s = await seedSpace();
     authenticateAs(s.editorId);

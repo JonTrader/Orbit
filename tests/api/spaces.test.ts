@@ -23,6 +23,7 @@ import {
   routeContext,
   unauthenticate,
 } from "../setup/api";
+import { getSessionMock } from "../setup/api-mocks";
 import { testDb } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
@@ -157,19 +158,23 @@ describe("Spaces API", () => {
     );
   });
 
-  it("maps non-member and read-only mutations through the API boundary", async () => {
+  it("maps non-member and non-Owner mutations through the API boundary", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
     const readOnly = await createUser({ email: "read-only@orbit.test" });
     const outsider = await createUser({ email: "outsider@orbit.test" });
     const { space } = await createSpaceWithSystemSections(testDb, {
       name: "Home",
       ownerUserId: owner.id,
     });
-    await testDb.insert(spaceMember).values({
-      spaceId: space.id,
-      userId: readOnly.id,
-      role: "read-only",
+    await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: owner.id,
     });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: editor.id, role: "editor" },
+      { spaceId: space.id, userId: readOnly.id, role: "read-only" },
+    ]);
 
     authenticateAs(outsider.id);
     const nonMemberResponse = await getSpaceRoute(
@@ -188,17 +193,52 @@ describe("Spaces API", () => {
     );
     expect(readResponse.status).toBe(200);
 
-    const mutationResponse = await patchSpaceRoute(
-      jsonRequest(
-        `/api/v1/spaces/${space.id}`,
-        { timezone: "America/Chicago" },
-        "PATCH",
-      ),
-      routeContext(space.id),
-    );
-    expect(mutationResponse.status).toBe(403);
-    await expect(responseJson<ErrorBody>(mutationResponse)).resolves.toMatchObject({
-      error: { code: "INSUFFICIENT_ROLE" },
+    for (const userId of [editor.id, readOnly.id]) {
+      authenticateAs(userId);
+      const mutationResponse = await patchSpaceRoute(
+        jsonRequest(
+          `/api/v1/spaces/${space.id}`,
+          { timezone: "America/Chicago" },
+          "PATCH",
+        ),
+        routeContext(space.id),
+      );
+      expect(mutationResponse.status).toBe(403);
+      await expect(responseJson<ErrorBody>(mutationResponse)).resolves.toMatchObject({
+        error: { code: "INSUFFICIENT_ROLE" },
+      });
+
+      const deleteResponse = await deleteSpaceRoute(
+        new Request(`http://localhost/api/v1/spaces/${space.id}`, {
+          method: "DELETE",
+        }),
+        routeContext(space.id),
+      );
+      expect(deleteResponse.status).toBe(403);
+      await expect(responseJson<ErrorBody>(deleteResponse)).resolves.toMatchObject({
+        error: { code: "INSUFFICIENT_ROLE" },
+      });
+    }
+  });
+
+  it("rejects an unverified session on Space collection reads", async () => {
+    const owner = await createUser({ email: "unverified@orbit.test" });
+    authenticateAs(owner.id, false);
+    const request = new Request("http://localhost/api/v1/spaces", {
+      headers: { cookie: "orbit-session=test" },
+    });
+
+    const response = await listSpacesRoute(request);
+
+    expect(response.status).toBe(401);
+    await expect(responseJson<ErrorBody>(response)).resolves.toMatchObject({
+      error: {
+        code: "UNAUTHENTICATED",
+        message: "Email verification is required",
+      },
+    });
+    expect(getSessionMock()).toHaveBeenCalledWith({
+      headers: request.headers,
     });
   });
 

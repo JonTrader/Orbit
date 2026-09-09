@@ -410,22 +410,24 @@ describe("Space services", () => {
   it("requires the Owner role to delete a Space", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
     const editor = await createUser({ email: "editor@orbit.test" });
+    const readOnly = await createUser({ email: "read-only@orbit.test" });
     const created = await createSpace(testDb, {
       userId: owner.id,
       name: "Home",
     });
-    await testDb.insert(spaceMember).values({
-      spaceId: created.id,
-      userId: editor.id,
-      role: "editor",
-    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: created.id, userId: editor.id, role: "editor" },
+      { spaceId: created.id, userId: readOnly.id, role: "read-only" },
+    ]);
 
-    await expect(
-      deleteSpace(testDb, { userId: editor.id, spaceId: created.id }),
-    ).rejects.toMatchObject({
-      code: "INSUFFICIENT_ROLE",
-      status: 403,
-    });
+    for (const userId of [editor.id, readOnly.id]) {
+      await expect(
+        deleteSpace(testDb, { userId, spaceId: created.id }),
+      ).rejects.toMatchObject({
+        code: "INSUFFICIENT_ROLE",
+        status: 403,
+      });
+    }
   });
 
   it("rejects a missing timezone when creating a Space", async () => {

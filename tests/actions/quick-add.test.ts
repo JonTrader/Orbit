@@ -374,6 +374,28 @@ describe("quickAdd action", () => {
     expect(await testDb.select().from(task)).toHaveLength(0);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
+
+  it("rejects a Section that does not belong to the given Space", async () => {
+    const s = await seedSpace();
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: s.ownerId,
+    });
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: other.sections.daily.id,
+      title: "Cross-space Section",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("SECTION_NOT_FOUND");
+    }
+    expect(await testDb.select().from(task)).toHaveLength(0);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
 });
 
 function assertCreatedTask(

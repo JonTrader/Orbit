@@ -150,6 +150,14 @@ describe("Task services", () => {
       createTask(testDb, {
         userId: editor.id,
         spaceId: space.id,
+        sectionId: sections.monthlies.id,
+        title: "Task in Monthlies",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_SECTION" });
+    await expect(
+      createTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
         sectionId: "00000000-0000-0000-0000-000000000000",
         title: "Unknown Section",
       }),
@@ -301,12 +309,18 @@ describe("Task services", () => {
   });
 
   it("denies Task mutations to read-only Members and cross-Space assignees", async () => {
-    const { space, sections, editor, readOnly, outsider } = await seedSpace();
+    const { space, sections, editor, readOnly, outsider, customTasks } =
+      await seedSpace();
     const created = await createTask(testDb, {
       userId: editor.id,
       spaceId: space.id,
       sectionId: sections.daily.id,
       title: "Protected",
+    });
+    await completeTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
     });
 
     for (const action of [
@@ -329,6 +343,19 @@ describe("Task services", () => {
           userId: readOnly.id,
           spaceId: space.id,
           taskId: created.id,
+        }),
+      () =>
+        reopenTask(testDb, {
+          userId: readOnly.id,
+          spaceId: space.id,
+          taskId: created.id,
+        }),
+      () =>
+        moveTask(testDb, {
+          userId: readOnly.id,
+          spaceId: space.id,
+          taskId: created.id,
+          targetSectionId: customTasks.id,
         }),
       () =>
         toggleTask(testDb, {
@@ -357,6 +384,50 @@ describe("Task services", () => {
         assigneeId: outsider.id,
       }),
     ).rejects.toMatchObject({ code: "INVALID_ASSIGNEE" });
+  });
+
+  it("rejects non-member reads and cross-Space Task lookups", async () => {
+    const { space, sections, editor, outsider } = await seedSpace();
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherTask = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      sectionId: other.sections.daily.id,
+      title: "Other Space Task",
+    });
+    const homeTask = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Home Task",
+    });
+
+    await expect(
+      listTasks(testDb, { userId: outsider.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+    await expect(
+      getTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        taskId: otherTask.id,
+      }),
+    ).rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
+    await expect(
+      getTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        taskId: homeTask.id,
+      }),
+    ).resolves.toMatchObject({ id: homeTask.id });
   });
 
   it("rejects empty titles and empty updates", async () => {

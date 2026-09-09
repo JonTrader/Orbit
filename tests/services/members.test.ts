@@ -485,6 +485,58 @@ describe("Member and Invite services", () => {
     ).rejects.toMatchObject({ code: "INVALID_EMAIL" });
   });
 
+  it("denies Owner-only membership ops to Editors", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const target = await createUser({ email: "target@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: editor.id, role: "editor" },
+      { spaceId: space.id, userId: target.id, role: "read-only" },
+    ]);
+    const pending = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+    });
+
+    const denied = [
+      () =>
+        inviteMember(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          email: "via-editor@orbit.test",
+        }),
+      () =>
+        resendInvite(testDb, {
+          userId: editor.id,
+          inviteId: pending.id,
+        }),
+      () =>
+        removeMember(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          targetUserId: target.id,
+        }),
+      () =>
+        transferOwnership(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          targetUserId: target.id,
+        }),
+    ] as const;
+
+    for (const action of denied) {
+      await expect(action()).rejects.toMatchObject({
+        code: "INSUFFICIENT_ROLE",
+        status: 403,
+      });
+    }
+  });
+
   it("exposes structured Member errors", () => {
     const error = new MemberError("LAST_SPACE", "Cannot leave");
     expect(error).toBeInstanceOf(Error);

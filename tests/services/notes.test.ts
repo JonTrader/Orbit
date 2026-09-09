@@ -208,6 +208,57 @@ describe("Note services", () => {
     }
   });
 
+  it("rejects non-member reads and cross-Space Note lookups", async () => {
+    const { space, editor, notesSection } = await seedSpace();
+    const outsider = await createUser({ email: "outsider@orbit.test" });
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherNotes = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      name: "Other Ideas",
+      kind: "notes",
+    });
+    const otherNote = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      sectionId: otherNotes.id,
+      title: "Other Space Note",
+    });
+    const homeNote = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: notesSection.id,
+      title: "Home Note",
+    });
+
+    await expect(
+      listNotes(testDb, { userId: outsider.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+    await expect(
+      getNote(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        noteId: otherNote.id,
+      }),
+    ).rejects.toMatchObject({ code: "NOTE_NOT_FOUND" });
+    await expect(
+      getNote(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        noteId: homeNote.id,
+      }),
+    ).resolves.toMatchObject({ id: homeNote.id });
+  });
+
   it("rejects empty titles and empty updates", async () => {
     const { space, editor, notesSection } = await seedSpace();
 

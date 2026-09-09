@@ -324,35 +324,62 @@ describe("Members and Invites API", () => {
     );
     expect(readResponse.status).toBe(200);
 
-    const inviteResponse = await createInviteRoute(
+    authenticateAs(owner.id);
+    const pendingInviteResponse = await createInviteRoute(
       jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
-        email: "new@orbit.test",
+        email: "pending-for-resend@orbit.test",
       }),
       spaceContext(space.id),
     );
-    expect(inviteResponse.status).toBe(403);
-    await expect(responseJson<ErrorBody>(inviteResponse)).resolves.toMatchObject({
-      error: { code: "INSUFFICIENT_ROLE" },
-    });
+    expect(pendingInviteResponse.status).toBe(201);
+    const pendingInvite = await responseJson<InviteBody>(pendingInviteResponse);
 
-    const roleResponse = await updateMemberRoleRoute(
-      jsonRequest(
-        `/api/v1/spaces/${space.id}/members/${editor.id}`,
-        { role: "read-only" },
-        "PATCH",
+    authenticateAs(editor.id);
+    const editorDenied = [
+      createInviteRoute(
+        jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+          email: "new@orbit.test",
+        }),
+        spaceContext(space.id),
       ),
-      memberContext(space.id, editor.id),
-    );
-    expect(roleResponse.status).toBe(403);
+      resendInviteRoute(
+        new Request(
+          `http://localhost/api/v1/invites/${pendingInvite.id}/resend`,
+          { method: "POST" },
+        ),
+        inviteContext(pendingInvite.id),
+      ),
+      updateMemberRoleRoute(
+        jsonRequest(
+          `/api/v1/spaces/${space.id}/members/${readOnly.id}`,
+          { role: "editor" },
+          "PATCH",
+        ),
+        memberContext(space.id, readOnly.id),
+      ),
+      removeMemberRoute(
+        new Request(
+          `http://localhost/api/v1/spaces/${space.id}/members/${readOnly.id}`,
+          { method: "DELETE" },
+        ),
+        memberContext(space.id, readOnly.id),
+      ),
+      transferOwnershipRoute(
+        new Request(
+          `http://localhost/api/v1/spaces/${space.id}/members/${readOnly.id}/transfer`,
+          { method: "POST" },
+        ),
+        memberContext(space.id, readOnly.id),
+      ),
+    ];
 
-    const transferResponse = await transferOwnershipRoute(
-      new Request(
-        `http://localhost/api/v1/spaces/${space.id}/members/${editor.id}/transfer`,
-        { method: "POST" },
-      ),
-      memberContext(space.id, editor.id),
-    );
-    expect(transferResponse.status).toBe(403);
+    for (const responsePromise of editorDenied) {
+      const response = await responsePromise;
+      expect(response.status).toBe(403);
+      await expect(responseJson<ErrorBody>(response)).resolves.toMatchObject({
+        error: { code: "INSUFFICIENT_ROLE" },
+      });
+    }
 
     authenticateAs(outsider.id);
     const nonMemberResponse = await listMembersRoute(
@@ -363,8 +390,6 @@ describe("Members and Invites API", () => {
     await expect(responseJson<ErrorBody>(nonMemberResponse)).resolves.toMatchObject({
       error: { code: "NOT_MEMBER" },
     });
-
-    authenticateAs(owner.id);
   });
 
   it("returns boundary validation and Invite errors through the API envelope", async () => {
