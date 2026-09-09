@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
@@ -12,11 +12,10 @@ import {
   reorderCustomSections,
 } from "@/lib/services/sections";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Section services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   async function seedSpace() {
@@ -317,27 +316,5 @@ describe("Section services", () => {
         }),
       ).rejects.toMatchObject({ code: "SYSTEM_SECTION" });
     }
-  });
-
-  it("refreshes updated_at through the database trigger", async () => {
-    const { space, editor } = await seedSpace();
-    const custom = await createCustomSection(testDb, {
-      userId: editor.id,
-      spaceId: space.id,
-      name: "Ideas",
-      kind: "notes",
-    });
-
-    const [updated] = await testDb
-      .update(section)
-      .set({ name: "Updated directly", updatedAt: new Date("2000-01-01T00:00:00Z") })
-      .where(eq(section.id, custom.id))
-      .returning();
-
-    expect(updated.updatedAt.getTime()).toBeGreaterThan(
-      new Date("2000-01-01T00:00:00Z").getTime(),
-    );
-    expect(updated.name).toBe("Updated directly");
-    expect(updated.spaceId).toBe(space.id);
   });
 });

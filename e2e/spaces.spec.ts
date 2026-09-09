@@ -312,8 +312,8 @@ test.describe("Space and Section rename/delete", () => {
     page,
   }) => {
     const spaceName = `Section Host ${runSuffix()}`;
-    const original = `Inbox ${runSuffix()}`;
-    const renamed = `Renamed Inbox ${runSuffix()}`;
+    const original = `Errands ${runSuffix()}`;
+    const renamed = `Renamed Errands ${runSuffix()}`;
     const spaceId = await createOwnedSpace(spaceName);
     const sectionId = await createCustomSection(spaceId, original);
 

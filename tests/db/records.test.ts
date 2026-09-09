@@ -9,6 +9,7 @@ import {
   monthly,
   notificationLog,
   notificationPreference,
+  section,
 } from "@/lib/db/schema";
 
 import { expectPostgresConstraint } from "../setup/assertions";
@@ -252,5 +253,37 @@ describe("notification_log", () => {
         idempotencyKey: `monthly_due:${entityId}:2026-10`,
       }),
     ).resolves.toBeDefined();
+  });
+});
+
+describe("section updated_at trigger", () => {
+  beforeEach(truncateAll);
+
+  it("refreshes updated_at on row update even when a stale value is written", async () => {
+    const owner = await createUser();
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const [custom] = await testDb
+      .insert(section)
+      .values({
+        spaceId: space.id,
+        name: "Ideas",
+        kind: "notes",
+        sortOrder: 2,
+      })
+      .returning();
+
+    const stale = new Date("2000-01-01T00:00:00Z");
+    const [updated] = await testDb
+      .update(section)
+      .set({ name: "Updated directly", updatedAt: stale })
+      .where(eq(section.id, custom.id))
+      .returning();
+
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(stale.getTime());
+    expect(updated.name).toBe("Updated directly");
+    expect(updated.spaceId).toBe(space.id);
   });
 });

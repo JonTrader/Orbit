@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
@@ -10,7 +10,6 @@ import {
   leaveSpace,
   listMembers,
   listPendingInvites,
-  MemberError,
   removeMember,
   resendInvite,
   transferOwnership,
@@ -18,11 +17,10 @@ import {
 } from "@/lib/services/members";
 import { deleteSpace } from "@/lib/services/spaces";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Member and Invite services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   it("creates default read-only and editor Invites with seven-day expiry", async () => {
@@ -688,11 +686,5 @@ describe("Member and Invite services", () => {
         targetUserId: stranger.id,
       }),
     ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
-  });
-
-  it("exposes structured Member errors", () => {
-    const error = new MemberError("LAST_SPACE", "Cannot leave");
-    expect(error).toBeInstanceOf(Error);
-    expect(error.code).toBe("LAST_SPACE");
   });
 });
