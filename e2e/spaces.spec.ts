@@ -12,6 +12,7 @@ import {
   closeDb,
   cookieHeader,
   createVerifiedUser,
+  directoryRow,
   runSuffix,
   signIn,
 } from "./helpers";
@@ -48,12 +49,6 @@ test.afterAll(async () => {
 
 function spacesSidebar(page: Page) {
   return page.getByRole("complementary", { name: "Spaces" });
-}
-
-function directoryRow(page: Page, spaceName: string) {
-  return page.getByRole("listitem").filter({
-    has: page.getByText(spaceName, { exact: true }),
-  });
 }
 
 async function authenticate(page: Page): Promise<void> {
@@ -105,10 +100,14 @@ test.describe("Spaces directory and creation", () => {
 
     const personalRow = directoryRow(page, "Personal");
     await expect(personalRow).toHaveCount(1);
-    await expect(personalRow).toContainText("Personal");
+    await expect(
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
+    ).toBeVisible();
     await expect(personalRow.getByText(/Read-only/)).toBeVisible();
     await expect(personalRow.getByText(/2 Members/)).toBeVisible();
-    await expect(page.getByText(`Private ${runSuffix()}`)).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: `Private ${runSuffix()}`, exact: true }),
+    ).toHaveCount(0);
   });
 
   test("filter updates the visible count and shows a no-match state", async ({
@@ -125,7 +124,9 @@ test.describe("Spaces directory and creation", () => {
     await filter.fill("Personal");
     const personalRow = directoryRow(page, "Personal");
     await expect(personalRow).toHaveCount(1);
-    await expect(personalRow).toContainText("Personal");
+    await expect(
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("No matching Spaces")).toHaveCount(0);
   });
 
@@ -194,7 +195,9 @@ test.describe("Spaces directory and creation", () => {
     expect(created?.timezone).toBe(zone);
 
     await page.goto("/spaces");
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(
+      directoryRow(page, name).getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
   });
 
   test("unauthenticated /spaces redirects to sign-in", async ({ page }) => {
@@ -253,8 +256,15 @@ test.describe("Space and Section rename/delete", () => {
     await dialog.getByRole("button", { name: "Rename" }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(page.getByText(renamed, { exact: true })).toBeVisible();
-    await expect(page.getByText(original, { exact: true })).toHaveCount(0);
+    await expect(
+      directoryRow(page, renamed).getByRole("heading", {
+        name: renamed,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: original, exact: true }),
+    ).toHaveCount(0);
 
     await page.goto(`/spaces/${spaceId}/upcoming`);
     await expect(page.getByText(`Active Space · ${renamed}`)).toBeVisible();
@@ -279,7 +289,9 @@ test.describe("Space and Section rename/delete", () => {
     await dialog.getByRole("button", { name: "Delete" }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toHaveCount(0);
   });
 
   test("Personal Space row has no overflow menu", async ({ page }) => {
@@ -288,7 +300,9 @@ test.describe("Space and Section rename/delete", () => {
 
     const personalRow = directoryRow(page, "Personal");
     await expect(personalRow).toHaveCount(1);
-    await expect(personalRow).toContainText("Personal");
+    await expect(
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
+    ).toBeVisible();
     await expect(
       personalRow.getByRole("button", { name: "Actions for Personal" }),
     ).toHaveCount(0);

@@ -1,5 +1,5 @@
 import { Pool } from "@neondatabase/serverless";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 import { bootstrapE2eDatabaseUrl } from "./env";
 
@@ -168,4 +168,14 @@ export async function spaceMembers(
     throw new Error(`Members fetch failed: ${response.status()}`);
   }
   return response.json();
+}
+
+/**
+ * Directory row for a Space by its accessible name (heading), not page-wide
+ * text. Avoids colliding with the Personal badge inside the same listitem.
+ */
+export function directoryRow(page: Page, spaceName: string): Locator {
+  return page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: spaceName, exact: true }),
+  });
 }

@@ -174,9 +174,9 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
                     className="flex items-center gap-3 border-t border-line px-4 py-3 transition-colors first:border-t-0 hover:bg-(--row-hover)"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[0.95rem] font-medium text-ink">
+                      <h2 className="truncate text-[0.95rem] font-medium text-ink">
                         {entry.name}
-                      </div>
+                      </h2>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[0.68rem] uppercase tracking-wider text-muted">
                         <span>{roleLabel(entry.role)}</span>
                         <span aria-hidden="true">·</span>
