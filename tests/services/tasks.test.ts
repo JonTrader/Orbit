@@ -164,7 +164,7 @@ describe("Task services", () => {
     ).rejects.toMatchObject({ code: "INVALID_SECTION" });
   });
 
-  it("completes and reopens Tasks without an automatic reset", async () => {
+  it("completes and reopens Tasks", async () => {
     const { space, sections, editor } = await seedSpace();
     const created = await createTask(testDb, {
       userId: editor.id,
