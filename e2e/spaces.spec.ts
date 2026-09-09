@@ -97,9 +97,15 @@ test.describe("Spaces directory and creation", () => {
     await authenticatePage(page, memberSession);
     await page.goto("/spaces");
 
-    await expect(page.getByText("Personal")).toBeVisible();
-    await expect(page.getByText(/Read-only/)).toBeVisible();
-    await expect(page.getByText(/2 Members/)).toBeVisible();
+    const personalRow = page.getByRole("listitem").filter({
+      has: page.getByText("Personal", { exact: true }),
+    });
+    await expect(personalRow).toHaveCount(1);
+    await expect(
+      personalRow.locator("div.truncate").filter({ hasText: /^Personal$/ }),
+    ).toBeVisible();
+    await expect(personalRow.getByText(/Read-only/)).toBeVisible();
+    await expect(personalRow.getByText(/2 Members/)).toBeVisible();
     await expect(page.getByText(`Private ${runSuffix()}`)).toHaveCount(0);
   });
 
@@ -115,7 +121,13 @@ test.describe("Spaces directory and creation", () => {
     await expect(page.getByText("No matching Spaces")).toBeVisible();
 
     await filter.fill("Personal");
-    await expect(page.getByText("Personal")).toBeVisible();
+    const personalRow = page.getByRole("listitem").filter({
+      has: page.getByText("Personal", { exact: true }),
+    });
+    await expect(personalRow).toHaveCount(1);
+    await expect(
+      personalRow.locator("div.truncate").filter({ hasText: /^Personal$/ }),
+    ).toBeVisible();
     await expect(page.getByText("No matching Spaces")).toHaveCount(0);
   });
 
