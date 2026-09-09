@@ -48,29 +48,25 @@ test.afterAll(async () => {
   await closeDb();
 });
 
-const MONTH_ABBREV = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
+/** Same en-US / UTC short-month formatting as MonthlyRow.formatDueDate. */
+function formatDueLabel(nextDueOn: string): string {
+  const [year, month, day] = nextDueOn.split("-").map(Number);
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year!, month! - 1, day!)));
+  return `due ${formatted}`;
+}
 
-function nextMonthAbbrev(current: string): string {
-  const index = MONTH_ABBREV.indexOf(
-    current as (typeof MONTH_ABBREV)[number],
-  );
-  if (index < 0) {
-    throw new Error(`Unexpected month label: ${current}`);
-  }
-  return MONTH_ABBREV[(index + 1) % 12]!;
+/** Advance YYYY-MM-DD by one calendar month, clamping to dueDayOfMonth. */
+function advanceNextDueOn(nextDueOn: string, dueDayOfMonth: number): string {
+  const [year, month] = nextDueOn.split("-").map(Number);
+  const nextYear = month === 12 ? year! + 1 : year!;
+  const nextMonth = month === 12 ? 1 : month! + 1;
+  const daysInMonth = new Date(Date.UTC(nextYear, nextMonth, 0)).getUTCDate();
+  const day = Math.min(dueDayOfMonth, daysInMonth);
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function spacesSidebar(page: Page) {
@@ -246,12 +242,23 @@ test.describe("Phase G", () => {
     page,
   }) => {
     await authenticate(page);
-    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
 
     const title = `E2E monthly ${runSuffix()}`;
-    await page.getByLabel("Add to Monthlies").fill(title);
-    await page.getByLabel("Due day of month").fill("15");
-    await page.getByLabel("Add to Monthlies").press("Enter");
+    const dueDayOfMonth = 15;
+    const created = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/monthlies`,
+      { data: { title, dueDayOfMonth } },
+    );
+    expect(created.status()).toBe(201);
+    const { nextDueOn } = (await created.json()) as { nextDueOn: string };
+    expect(nextDueOn.endsWith("-15")).toBe(true);
+
+    const expectedBefore = formatDueLabel(nextDueOn);
+    const expectedAfter = formatDueLabel(
+      advanceNextDueOn(nextDueOn, dueDayOfMonth),
+    );
+
+    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
 
     const row = page
@@ -263,11 +270,7 @@ test.describe("Phase G", () => {
         }),
       });
     const dueLabel = row.getByText(/^due /);
-    await expect(dueLabel).toHaveText(/^due \w+ 15$/);
-
-    const before = (await dueLabel.textContent())?.trim() ?? "";
-    const beforeMonth = before.replace(/^due /, "").split(" ")[0] ?? "";
-    const expectedAfter = `due ${nextMonthAbbrev(beforeMonth)} 15`;
+    await expect(dueLabel).toHaveText(expectedBefore);
 
     await row
       .getByRole("button", { name: `Mark ${title} done for this period` })

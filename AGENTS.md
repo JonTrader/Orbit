@@ -45,6 +45,7 @@ Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
 - Vitest + real Neon via `DATABASE_URL_TEST` (dedicated branch, never production). No SQLite. The suite drops/recreates `public` before migrating.
 - No parallel full suites against the same branch (`maxWorkers: 1`; advisory lock in global setup). Prefer domain/service tests; keep Route Handlers and Actions thin.
+- Orphaned advisory locks: if `npm test` / `npm run test:e2e` hangs before printing files, a killed Vitest/Playwright run may still hold key `0x4f524249` on `DATABASE_URL_TEST` (Neon pooler sessions can outlive the local process). Kill leftover local Vitest/Playwright `node` processes, then terminate only backends holding that lock (`pg_locks` where `locktype = 'advisory'` and `objid = 1330790985`) that are idle or stuck on `Neon/RelExists`. Do not terminate unrelated active backends.
 - API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers. See `tests/setup/api.ts` and existing action tests for patterns.
 - E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`); cookie-bearing auth calls without Origin fail with `MISSING_OR_NULL_ORIGIN`.
 - Schema changes: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`.
