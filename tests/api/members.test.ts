@@ -48,7 +48,7 @@ interface InviteBody {
   spaceId: string;
   email: string;
   role: string;
-  token: string;
+  token?: string;
   expiresAt: string;
   acceptedAt: string | null;
 }
@@ -147,6 +147,7 @@ describe("Members and Invites API", () => {
     expect(new Date(resentInvite.expiresAt).getTime()).toBeGreaterThanOrEqual(
       new Date(beforeResend).getTime(),
     );
+    expect(resentInvite).not.toHaveProperty("token");
 
     authenticateAs(recipient.id);
     const acceptResponse = await acceptInviteRoute(
@@ -248,6 +249,8 @@ describe("Members and Invites API", () => {
       email: "pending@orbit.test",
       acceptedAt: null,
     });
+    expect(pending[0]).not.toHaveProperty("token");
+    expect(homePending.token).toEqual(expect.any(String));
 
     authenticateAs(editor.id);
     const editorListResponse = await listPendingInvitesRoute(
@@ -469,6 +472,123 @@ describe("Members and Invites API", () => {
         code: "INVITE_ALREADY_PENDING",
         message: "An Invite is already pending for that email in this Space",
       },
+    });
+  });
+
+  it("maps Invite and leave domain errors through the API envelope", async () => {
+    const { editor, owner, outsider, recipient, space } = await seedSpace();
+    await createSpaceWithSystemSections(testDb, {
+      name: "Other Space",
+      ownerUserId: owner.id,
+    });
+    authenticateAs(owner.id);
+
+    const alreadyMemberResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: editor.email,
+      }),
+      spaceContext(space.id),
+    );
+    expect(alreadyMemberResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(alreadyMemberResponse)).resolves.toMatchObject({
+      error: { code: "ALREADY_MEMBER" },
+    });
+
+    const inviteResponse = await createInviteRoute(
+      jsonRequest(`/api/v1/spaces/${space.id}/invites`, {
+        email: recipient.email,
+      }),
+      spaceContext(space.id),
+    );
+    expect(inviteResponse.status).toBe(201);
+    const pendingInvite = await responseJson<InviteBody>(inviteResponse);
+    expect(pendingInvite.token).toEqual(expect.any(String));
+
+    await testDb
+      .update(invite)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(invite.id, pendingInvite.id));
+
+    authenticateAs(recipient.id);
+    const expiredResponse = await acceptInviteRoute(
+      jsonRequest("/api/v1/invites/accept", { token: pendingInvite.token }),
+    );
+    expect(expiredResponse.status).toBe(410);
+    await expect(responseJson<ErrorBody>(expiredResponse)).resolves.toMatchObject({
+      error: { code: "EXPIRED_INVITE" },
+    });
+
+    authenticateAs(owner.id);
+    const resentResponse = await resendInviteRoute(
+      new Request(
+        `http://localhost/api/v1/invites/${pendingInvite.id}/resend`,
+        { method: "POST" },
+      ),
+      inviteContext(pendingInvite.id),
+    );
+    expect(resentResponse.status).toBe(200);
+    const resentInvite = await responseJson<InviteBody>(resentResponse);
+    expect(resentInvite).not.toHaveProperty("token");
+
+    authenticateAs(outsider.id);
+    const mismatchResponse = await acceptInviteRoute(
+      jsonRequest("/api/v1/invites/accept", { token: pendingInvite.token }),
+    );
+    expect(mismatchResponse.status).toBe(400);
+    await expect(responseJson<ErrorBody>(mismatchResponse)).resolves.toMatchObject({
+      error: { code: "EMAIL_MISMATCH" },
+    });
+
+    authenticateAs(owner.id);
+    const ownerLeaveResponse = await leaveSpaceRoute(
+      new Request(`http://localhost/api/v1/spaces/${space.id}/members/leave`, {
+        method: "POST",
+      }),
+      spaceContext(space.id),
+    );
+    expect(ownerLeaveResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(ownerLeaveResponse)).resolves.toMatchObject({
+      error: { code: "OWNERSHIP_TRANSFER_REQUIRED" },
+    });
+
+    const soloOwner = await createUser({ email: "solo-owner@orbit.test" });
+    const soloSpace = await createSpaceWithSystemSections(testDb, {
+      name: "Solo",
+      ownerUserId: soloOwner.id,
+    });
+    authenticateAs(soloOwner.id);
+    const lastSpaceResponse = await leaveSpaceRoute(
+      new Request(
+        `http://localhost/api/v1/spaces/${soloSpace.space.id}/members/leave`,
+        { method: "POST" },
+      ),
+      spaceContext(soloSpace.space.id),
+    );
+    expect(lastSpaceResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(lastSpaceResponse)).resolves.toMatchObject({
+      error: { code: "LAST_SPACE" },
+    });
+
+    const emptyOwner = await createUser({ email: "empty-owner@orbit.test" });
+    const emptyHome = await createSpaceWithSystemSections(testDb, {
+      name: "Empty Home",
+      ownerUserId: emptyOwner.id,
+    });
+    await createSpaceWithSystemSections(testDb, {
+      name: "Empty Other",
+      ownerUserId: emptyOwner.id,
+    });
+    authenticateAs(emptyOwner.id);
+    const cannotLeaveResponse = await leaveSpaceRoute(
+      new Request(
+        `http://localhost/api/v1/spaces/${emptyHome.space.id}/members/leave`,
+        { method: "POST" },
+      ),
+      spaceContext(emptyHome.space.id),
+    );
+    expect(cannotLeaveResponse.status).toBe(409);
+    await expect(responseJson<ErrorBody>(cannotLeaveResponse)).resolves.toMatchObject({
+      error: { code: "OWNER_CANNOT_LEAVE" },
     });
   });
 });

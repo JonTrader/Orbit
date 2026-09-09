@@ -74,6 +74,9 @@ export interface SpaceMemberView {
   updatedAt: Date;
 }
 
+/** Invite fields safe to return from list/resend (token omitted). */
+export type InvitePublicView = Omit<typeof invite.$inferSelect, "token">;
+
 /** Creates an Owner-authorized Invite without sending email yet. */
 export async function inviteMember(
   db: OrbitDb,
@@ -144,7 +147,7 @@ export async function inviteMember(
 export async function resendInvite(
   db: OrbitDb,
   input: InviteAccessInput,
-): Promise<typeof invite.$inferSelect> {
+): Promise<InvitePublicView> {
   await requireMembership(db, {
     userId: input.userId,
     spaceId: await findInviteSpaceId(db, input.inviteId),
@@ -170,7 +173,7 @@ export async function resendInvite(
     throw new MemberError("INVITE_NOT_FOUND", "Pending Invite was not found");
   }
 
-  return updated;
+  return withoutInviteToken(updated);
 }
 
 /** Accepts a pending Invite for a signed-in user whose email matches it. */
@@ -244,14 +247,16 @@ export async function acceptInvite(
 export async function listPendingInvites(
   db: OrbitDb,
   input: MemberAccessInput,
-): Promise<(typeof invite.$inferSelect)[]> {
+): Promise<InvitePublicView[]> {
   await requireMembership(db, { ...input, minimumRole: "owner" });
 
-  return db
+  const rows = await db
     .select()
     .from(invite)
     .where(and(eq(invite.spaceId, input.spaceId), isNull(invite.acceptedAt)))
     .orderBy(asc(invite.createdAt), asc(invite.id));
+
+  return rows.map(withoutInviteToken);
 }
 
 /** Lists Members with the user fields needed by the share surface. */
@@ -488,6 +493,13 @@ async function findInviteSpaceId(db: OrbitDb, inviteId: string): Promise<string>
   }
 
   return result.spaceId;
+}
+
+function withoutInviteToken(
+  row: typeof invite.$inferSelect,
+): InvitePublicView {
+  const { token: _token, ...view } = row;
+  return view;
 }
 
 function inviteExpiry(): Date {
