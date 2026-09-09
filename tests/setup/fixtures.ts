@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { generateId } from "@better-auth/core/utils/id";
 
 import { user } from "@/lib/db/schema";
 
@@ -7,7 +7,8 @@ import { testDb } from "./db";
 export async function createUser(
   overrides: Partial<typeof user.$inferInsert> = {},
 ): Promise<typeof user.$inferSelect> {
-  const id = overrides.id ?? randomUUID();
+  // Better Auth user ids are 32-char alphanumeric, not UUIDs (see AGENTS.md).
+  const id = overrides.id ?? generateId();
   const [row] = await testDb
     .insert(user)
     .values({
