@@ -73,6 +73,44 @@ describe("Notification preference services", () => {
     });
   });
 
+  it("keeps preferences isolated per Space for the same user", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const home = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const work = await createSpaceWithSystemSections(testDb, {
+      name: "Work",
+      ownerUserId: owner.id,
+    });
+
+    await updateNotificationPreference(testDb, {
+      userId: owner.id,
+      spaceId: home.space.id,
+      daysBefore: 5,
+      emailEnabled: false,
+    });
+
+    await expect(
+      getNotificationPreference(testDb, {
+        userId: owner.id,
+        spaceId: home.space.id,
+      }),
+    ).resolves.toMatchObject({
+      daysBefore: 5,
+      emailEnabled: false,
+    });
+    await expect(
+      getNotificationPreference(testDb, {
+        userId: owner.id,
+        spaceId: work.space.id,
+      }),
+    ).resolves.toMatchObject({
+      daysBefore: 3,
+      emailEnabled: true,
+    });
+  });
+
   it("rejects non-member reads and updates", async () => {
     const { outsider, space } = await seedSpace();
 
