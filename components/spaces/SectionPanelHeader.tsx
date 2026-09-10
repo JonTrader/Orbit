@@ -14,7 +14,7 @@ interface SectionPanelHeaderProps {
   spaceId: string;
   sectionId: string;
   sectionName: string;
-  /** Left-side meta line, e.g. "Inbox · 2 open · 1 note". */
+  /** Left-side meta line, e.g. "Errands · 2 open · 1 note". */
   meta: string;
   /** Whether the Viewer may rename or delete this Section. */
   canMutate: boolean;

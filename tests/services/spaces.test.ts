@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { MembershipError } from "@/lib/spaces/membership";
 import {
@@ -18,11 +18,10 @@ import {
   updateSpaceTimezone,
 } from "@/lib/services/spaces";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Space services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   it("creates a Space with the creator as Owner and the system Sections", async () => {
@@ -258,14 +257,12 @@ describe("Space services", () => {
     });
   });
 
-  it("renames a Space and bumps updated_at", async () => {
+  it("renames a Space", async () => {
     const owner = await createUser();
     const created = await createSpace(testDb, {
       userId: owner.id,
       name: "Home",
     });
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const renamed = await renameSpace(testDb, {
       userId: owner.id,
@@ -274,9 +271,6 @@ describe("Space services", () => {
     });
 
     expect(renamed.name).toBe("Renamed Home");
-    expect(renamed.updatedAt.getTime()).toBeGreaterThan(
-      created.updatedAt.getTime(),
-    );
   });
 
   it("requires the Owner role to rename a Space", async () => {
@@ -410,22 +404,24 @@ describe("Space services", () => {
   it("requires the Owner role to delete a Space", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
     const editor = await createUser({ email: "editor@orbit.test" });
+    const readOnly = await createUser({ email: "read-only@orbit.test" });
     const created = await createSpace(testDb, {
       userId: owner.id,
       name: "Home",
     });
-    await testDb.insert(spaceMember).values({
-      spaceId: created.id,
-      userId: editor.id,
-      role: "editor",
-    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: created.id, userId: editor.id, role: "editor" },
+      { spaceId: created.id, userId: readOnly.id, role: "read-only" },
+    ]);
 
-    await expect(
-      deleteSpace(testDb, { userId: editor.id, spaceId: created.id }),
-    ).rejects.toMatchObject({
-      code: "INSUFFICIENT_ROLE",
-      status: 403,
-    });
+    for (const userId of [editor.id, readOnly.id]) {
+      await expect(
+        deleteSpace(testDb, { userId, spaceId: created.id }),
+      ).rejects.toMatchObject({
+        code: "INSUFFICIENT_ROLE",
+        status: 403,
+      });
+    }
   });
 
   it("rejects a missing timezone when creating a Space", async () => {

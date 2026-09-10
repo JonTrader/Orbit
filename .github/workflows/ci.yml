@@ -2,9 +2,9 @@
 #   Node 24 (npm 11) is required: npm 10 `npm ci` rejects npm-11 lockfiles
 #   (see AGENTS.md CI section). Keep this in sync with local dev.
 #   Phase B: done - `test` runs against repo secret DATABASE_URL_TEST (Neon ci branch)
-#   Phase G: done - `e2e` runs Playwright against the same branch; the vitest
-#     suite resets it and e2e seeds its own users, and the shared concurrency
-#     group keeps the two from interleaving.
+#   Phase G: done - `e2e` runs Playwright against a separate Neon branch
+#     (DATABASE_URL_E2E). test and e2e use different concurrency groups so they
+#     can run in parallel.
 #   Phase J: make these required checks; document secrets in README
 name: CI
 
@@ -32,6 +32,17 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -45,8 +56,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    # All test jobs use the same destructive Neon branch. Serialize them
-    # across refs so push and pull_request workflows cannot reset it together.
+    # Destructive Vitest suite against DATABASE_URL_TEST. Serialize across
+    # refs so two vitest jobs cannot reset the same branch together.
     concurrency:
       group: orbit-database-tests
       cancel-in-progress: false
@@ -68,8 +79,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # Playwright against DATABASE_URL_E2E. Separate from vitest so the two
+    # jobs can run in parallel on different Neon branches.
     concurrency:
-      group: orbit-database-tests
+      group: orbit-e2e-database-tests
       cancel-in-progress: false
       queue: max
     steps:
@@ -80,16 +93,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # The vitest run may have reset this branch's schema; re-apply
-      # migrations so the app the tests drive has its tables.
+      # Apply migrations to the E2E Neon branch before Playwright boots.
       - run: npx drizzle-kit migrate
         env:
-          DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+          DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL_E2E }}
+      # Do not set DATABASE_URL here: bootstrapE2eDatabaseUrl resolves
+      # DATABASE_URL_E2E and wires DATABASE_URL for the app server.
       - run: npm run test:e2e
         env:
-          # The dev server (Playwright webServer) and the e2e helpers both
-          # target the dedicated testing branch.
-          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
-          DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL_E2E: ${{ secrets.DATABASE_URL_E2E }}
+          DATABASE_URL_E2E_CONFIRMATION: dedicated-neon-branch
           BETTER_AUTH_URL: http://localhost:3000
           BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

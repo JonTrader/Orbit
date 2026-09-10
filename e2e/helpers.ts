@@ -1,5 +1,5 @@
 import { Pool } from "@neondatabase/serverless";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 import { bootstrapE2eDatabaseUrl } from "./env";
 
@@ -22,8 +22,8 @@ const authHeaders = { origin: AUTH_ORIGIN };
 let pool: Pool | undefined;
 
 function db(): Pool {
-  // DATABASE_URL only — bootstrapE2eDatabaseUrl() already redirected it to
-  // DATABASE_URL_TEST when configured, matching the app server under test.
+  // DATABASE_URL only - bootstrapE2eDatabaseUrl() already redirected it to
+  // DATABASE_URL_E2E, matching the app server under test.
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL must be set for e2e user setup");
@@ -130,7 +130,7 @@ export interface MemberView {
   role: "owner" | "editor" | "read-only";
 }
 
-/** Invite + accept over the v1 API; the Phase H UI does not exist yet. */
+/** Invite + accept over the v1 API; accept-invite UI is not built yet. */
 export async function addMemberReadOnly(
   request: APIRequestContext,
   ownerSession: string,
@@ -168,4 +168,14 @@ export async function spaceMembers(
     throw new Error(`Members fetch failed: ${response.status()}`);
   }
   return response.json();
+}
+
+/**
+ * Directory row for a Space by its accessible name (heading), not page-wide
+ * text. Avoids colliding with the Personal badge inside the same listitem.
+ */
+export function directoryRow(page: Page, spaceName: string): Locator {
+  return page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: spaceName, exact: true }),
+  });
 }

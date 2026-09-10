@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { monthly, section, task } from "@/lib/db/schema";
@@ -7,11 +7,10 @@ import { createMonthly } from "@/lib/services/monthlies";
 import { createTask } from "@/lib/services/tasks";
 import { fetchUpcomingTimeline } from "@/lib/spaces/queries/fetch-upcoming-timeline";
 
-import { migrateTestDb, testDb, truncateAll } from "../../setup/db";
+import { testDb, truncateAll } from "../../setup/db";
 import { createUser } from "../../setup/fixtures";
 
 describe("fetchUpcomingTimeline", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   async function seedSpace() {
@@ -66,7 +65,7 @@ describe("fetchUpcomingTimeline", () => {
       userId: owner.id,
       spaceId: space.id,
       sectionId: sections.daily.id,
-      title: "Undated chore",
+      title: "Undated Task",
       dueOn: null,
     });
     const done = await createTask(testDb, {

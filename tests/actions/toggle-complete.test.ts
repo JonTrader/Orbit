@@ -217,6 +217,37 @@ describe("toggleComplete action", () => {
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
+  it("rejects a Task that does not belong to the given Space", async () => {
+    const s = await seedSpace();
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: s.ownerId,
+    });
+    const [otherTask] = await testDb
+      .insert(task)
+      .values({
+        spaceId: other.space.id,
+        sectionId: other.sections.daily.id,
+        sectionKind: "daily",
+        title: "Other Space Task",
+        createdBy: s.ownerId,
+      })
+      .returning();
+    authenticateAs(s.ownerId);
+
+    const result = await toggleComplete({
+      spaceId: s.spaceId,
+      entity: "task",
+      entityId: otherTask.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("TASK_NOT_FOUND");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
   it("reports a missing Task or Monthly without revalidating", async () => {
     const s = await seedSpace();
     authenticateAs(s.ownerId);

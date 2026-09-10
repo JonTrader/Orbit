@@ -166,6 +166,62 @@ describe("Monthly services", () => {
     expect(updated.nextDueOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("schedules a past due-day this month onto the next month", async () => {
+    const { space, editor } = await seedSpace();
+    // America/Chicago is behind UTC in March; pin wall time after the 15th locally.
+    const now = new Date("2026-03-20T18:00:00.000Z");
+
+    const created = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "Past due day",
+      dueDayOfMonth: 15,
+      now,
+    });
+
+    expect(created.nextDueOn).toBe("2026-04-15");
+  });
+
+  it("clamps day 31 to the last day of the current short month on create", async () => {
+    const { space, editor } = await seedSpace();
+    const now = new Date("2026-02-10T18:00:00.000Z");
+
+    const created = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "End of February",
+      dueDayOfMonth: 31,
+      now,
+    });
+
+    expect(created.dueDayOfMonth).toBe(31);
+    expect(created.nextDueOn).toBe("2026-02-28");
+  });
+
+  it("advances day 31 into leap-year February as the 29th", async () => {
+    const { space, editor, sections } = await seedSpace();
+    const [created] = await testDb
+      .insert(monthly)
+      .values({
+        spaceId: space.id,
+        sectionId: sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Leap rent",
+        dueDayOfMonth: 31,
+        nextDueOn: "2028-01-31",
+        createdBy: editor.id,
+      })
+      .returning();
+
+    const completed = await completeMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      monthlyId: created.id,
+    });
+
+    expect(completed.nextDueOn).toBe("2028-02-29");
+  });
+
   it("rejects invalid due days, invalid assignees, and empty updates", async () => {
     const { space, editor, outsider } = await seedSpace();
 
@@ -247,6 +303,50 @@ describe("Monthly services", () => {
         status: 403,
       });
     }
+  });
+
+  it("rejects non-member reads and cross-Space Monthly lookups", async () => {
+    const { space, editor, outsider } = await seedSpace();
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherMonthly = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      title: "Other Space Monthly",
+      dueDayOfMonth: 10,
+    });
+    const homeMonthly = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "Home Monthly",
+      dueDayOfMonth: 5,
+    });
+
+    await expect(
+      listMonthlies(testDb, { userId: outsider.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+    await expect(
+      getMonthly(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        monthlyId: otherMonthly.id,
+      }),
+    ).rejects.toMatchObject({ code: "MONTHLY_NOT_FOUND" });
+    await expect(
+      getMonthly(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        monthlyId: homeMonthly.id,
+      }),
+    ).resolves.toMatchObject({ id: homeMonthly.id });
   });
 
   it("keeps Monthly rows tied to the Monthlies Section", async () => {

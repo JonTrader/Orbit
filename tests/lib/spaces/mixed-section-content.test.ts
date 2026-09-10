@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { section, task } from "@/lib/db/schema";
@@ -7,11 +7,10 @@ import { createNote } from "@/lib/services/notes";
 import { createTask } from "@/lib/services/tasks";
 import { fetchMixedSectionContent } from "@/lib/spaces/queries/fetch-mixed-section-content";
 
-import { migrateTestDb, testDb, truncateAll } from "../../setup/db";
+import { testDb, truncateAll } from "../../setup/db";
 import { createUser } from "../../setup/fixtures";
 
 describe("fetchMixedSectionContent", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   async function seedSpace() {
@@ -57,7 +56,7 @@ describe("fetchMixedSectionContent", () => {
       userId: owner.id,
       spaceId: space.id,
       sectionId: mixed.id,
-      title: "Done chore",
+      title: "Done Task",
     });
     await testDb
       .update(task)
@@ -96,7 +95,7 @@ describe("fetchMixedSectionContent", () => {
 
     expect(content.tasks.map((row) => row.title)).toEqual([
       "Wipe counters",
-      "Done chore",
+      "Done Task",
     ]);
     expect(content.tasks.map((row) => row.id)).toEqual([
       openTask.id,

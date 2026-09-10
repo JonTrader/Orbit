@@ -3,12 +3,10 @@ import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
 import { createDbClient, type DbClient } from "@/lib/db/client";
 
+import { TEST_DB_LOCK_KEY } from "./db-lock-key";
 import { resolveTestDatabaseUrl } from "./env";
 
 export const MIGRATIONS_FOLDER = "drizzle";
-
-/** Serializes destructive schema work across CI jobs and local runs. */
-export const TEST_DB_LOCK_KEY = 0x4f524249;
 
 const client = createDbClient(resolveTestDatabaseUrl());
 
@@ -18,7 +16,7 @@ let closed = false;
 
 let lockClient: DbClient | undefined;
 
-/** Blocks until this runner owns the shared Neon test branch. */
+/** Blocks until this runner owns the Vitest Neon branch. */
 export async function acquireTestDbLock(): Promise<void> {
   if (!lockClient) {
     lockClient = createDbClient(resolveTestDatabaseUrl());

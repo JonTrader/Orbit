@@ -37,6 +37,8 @@ export interface CreateMonthlyInput extends MonthlyAccessInput {
   title: string;
   dueDayOfMonth: number;
   assigneeId?: string | null;
+  /** Optional clock for next-due math; defaults to wall clock. */
+  now?: Date;
 }
 
 export interface GetMonthlyInput extends MonthlyAccessInput {
@@ -47,6 +49,8 @@ export interface UpdateMonthlyInput extends GetMonthlyInput {
   title?: string;
   dueDayOfMonth?: number;
   assigneeId?: string | null;
+  /** Optional clock for next-due math; defaults to wall clock. */
+  now?: Date;
 }
 
 type MonthlyRow = typeof monthly.$inferSelect;
@@ -94,7 +98,11 @@ export async function createMonthly(
       sectionKind: "monthlies",
       title,
       dueDayOfMonth,
-      nextDueOn: nextDueOnForDueDay(dueDayOfMonth, timezone, new Date()),
+      nextDueOn: nextDueOnForDueDay(
+        dueDayOfMonth,
+        timezone,
+        input.now ?? new Date(),
+      ),
       assigneeId: input.assigneeId ?? null,
       createdBy: input.userId,
     })
@@ -122,7 +130,7 @@ export async function updateMonthly(
     updates.nextDueOn = nextDueOnForDueDay(
       dueDayOfMonth,
       timezone,
-      new Date(),
+      input.now ?? new Date(),
     );
   }
   if (input.assigneeId !== undefined) {

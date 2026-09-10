@@ -234,6 +234,33 @@ describe("space actions", () => {
       }
       expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
+
+    it("blocks Editors and read-only Members from renaming", async () => {
+      const owner = await createUser({ email: "owner@orbit.test" });
+      const editor = await createUser({ email: "editor@orbit.test" });
+      const readOnly = await createUser({ email: "read-only@orbit.test" });
+      const seeded = await createSpaceWithSystemSections(testDb, {
+        name: "Home",
+        ownerUserId: owner.id,
+      });
+      await testDb.insert(spaceMember).values([
+        { spaceId: seeded.space.id, userId: editor.id, role: "editor" },
+        { spaceId: seeded.space.id, userId: readOnly.id, role: "read-only" },
+      ]);
+
+      for (const userId of [editor.id, readOnly.id]) {
+        authenticateAs(userId);
+        const result = await renameSpace({
+          spaceId: seeded.space.id,
+          name: "Nope",
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+        }
+      }
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+    });
   });
 
   describe("deleteSpace", () => {
@@ -311,6 +338,37 @@ describe("space actions", () => {
       expect(
         (await testDb.select().from(space)).map((row) => row.id),
       ).toContain(personal.id);
+      expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+    });
+
+    it("blocks Editors and read-only Members from deleting", async () => {
+      const owner = await createUser({ email: "owner@orbit.test" });
+      const editor = await createUser({ email: "editor@orbit.test" });
+      const readOnly = await createUser({ email: "read-only@orbit.test" });
+      const seeded = await createSpaceWithSystemSections(testDb, {
+        name: "Home",
+        ownerUserId: owner.id,
+      });
+      await createSpaceWithSystemSections(testDb, {
+        name: "Other",
+        ownerUserId: owner.id,
+      });
+      await testDb.insert(spaceMember).values([
+        { spaceId: seeded.space.id, userId: editor.id, role: "editor" },
+        { spaceId: seeded.space.id, userId: readOnly.id, role: "read-only" },
+      ]);
+
+      for (const userId of [editor.id, readOnly.id]) {
+        authenticateAs(userId);
+        const result = await deleteSpace({ spaceId: seeded.space.id });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+        }
+      }
+      expect(
+        (await testDb.select().from(space)).map((row) => row.id),
+      ).toContain(seeded.space.id);
       expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     });
   });

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
@@ -9,7 +10,6 @@ import {
   leaveSpace,
   listMembers,
   listPendingInvites,
-  MemberError,
   removeMember,
   resendInvite,
   transferOwnership,
@@ -17,11 +17,10 @@ import {
 } from "@/lib/services/members";
 import { deleteSpace } from "@/lib/services/spaces";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Member and Invite services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   it("creates default read-only and editor Invites with seven-day expiry", async () => {
@@ -107,6 +106,7 @@ describe("Member and Invite services", () => {
       email: "pending@orbit.test",
       acceptedAt: null,
     });
+    expect(pending[0]).not.toHaveProperty("token");
 
     await expect(
       listPendingInvites(testDb, { userId: editor.id, spaceId: space.id }),
@@ -189,6 +189,7 @@ describe("Member and Invite services", () => {
       inviteId: pending.id,
     });
     expect(resent.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    expect(resent).not.toHaveProperty("token");
     await expect(
       acceptInvite(testDb, { userId: recipient.id, token: pending.token }),
     ).resolves.toMatchObject({ userId: recipient.id, role: "read-only" });
@@ -485,9 +486,205 @@ describe("Member and Invite services", () => {
     ).rejects.toMatchObject({ code: "INVALID_EMAIL" });
   });
 
-  it("exposes structured Member errors", () => {
-    const error = new MemberError("LAST_SPACE", "Cannot leave");
-    expect(error).toBeInstanceOf(Error);
-    expect(error.code).toBe("LAST_SPACE");
+  it("denies Owner-only membership ops to Editors", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const target = await createUser({ email: "target@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(spaceMember).values([
+      { spaceId: space.id, userId: editor.id, role: "editor" },
+      { spaceId: space.id, userId: target.id, role: "read-only" },
+    ]);
+    const pending = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: "pending@orbit.test",
+    });
+
+    const denied = [
+      () =>
+        inviteMember(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          email: "via-editor@orbit.test",
+        }),
+      () =>
+        resendInvite(testDb, {
+          userId: editor.id,
+          inviteId: pending.id,
+        }),
+      () =>
+        removeMember(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          targetUserId: target.id,
+        }),
+      () =>
+        transferOwnership(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          targetUserId: target.id,
+        }),
+    ] as const;
+
+    for (const action of denied) {
+      await expect(action()).rejects.toMatchObject({
+        code: "INSUFFICIENT_ROLE",
+        status: 403,
+      });
+    }
+  });
+
+  it("rejects inviting or accepting when the user is already a Member", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const member = await createUser({ email: "member@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: space.id,
+      userId: member.id,
+      role: "read-only",
+    });
+
+    await expect(
+      inviteMember(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        email: member.email,
+      }),
+    ).rejects.toMatchObject({ code: "ALREADY_MEMBER" });
+
+    const [orphanedInvite] = await testDb
+      .insert(invite)
+      .values({
+        spaceId: space.id,
+        email: member.email,
+        role: "editor",
+        token: randomUUID(),
+        invitedBy: owner.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
+      })
+      .returning();
+
+    await expect(
+      acceptInvite(testDb, {
+        userId: member.id,
+        token: orphanedInvite.token,
+      }),
+    ).rejects.toMatchObject({ code: "ALREADY_MEMBER" });
+  });
+
+  it("rejects unknown, tampered, and already-accepted Invite tokens", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const recipient = await createUser({ email: "partner@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const pending = await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: recipient.email,
+    });
+
+    await expect(
+      acceptInvite(testDb, {
+        userId: recipient.id,
+        token: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    await expect(
+      acceptInvite(testDb, {
+        userId: recipient.id,
+        token: `${pending.token.slice(0, -1)}x`,
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+
+    await acceptInvite(testDb, {
+      userId: recipient.id,
+      token: pending.token,
+    });
+    await expect(
+      acceptInvite(testDb, {
+        userId: recipient.id,
+        token: pending.token,
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+  });
+
+  it("rejects resend for accepted or missing Invites and cross-Space Owners", async () => {
+    const ownerA = await createUser({ email: "owner-a@orbit.test" });
+    const ownerB = await createUser({ email: "owner-b@orbit.test" });
+    const recipient = await createUser({ email: "partner@orbit.test" });
+    const spaceA = await createSpaceWithSystemSections(testDb, {
+      name: "Space A",
+      ownerUserId: ownerA.id,
+    });
+    const spaceB = await createSpaceWithSystemSections(testDb, {
+      name: "Space B",
+      ownerUserId: ownerB.id,
+    });
+    const pendingB = await inviteMember(testDb, {
+      userId: ownerB.id,
+      spaceId: spaceB.space.id,
+      email: recipient.email,
+    });
+    const accepted = await inviteMember(testDb, {
+      userId: ownerA.id,
+      spaceId: spaceA.space.id,
+      email: "accepted@orbit.test",
+    });
+    await testDb
+      .update(invite)
+      .set({ acceptedAt: new Date() })
+      .where(eq(invite.id, accepted.id));
+
+    await expect(
+      resendInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: accepted.id,
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    await expect(
+      resendInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    await expect(
+      resendInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: pendingB.id,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+  });
+
+  it("rejects transferring ownership to self or a non-Member", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const stranger = await createUser({ email: "stranger@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+
+    await expect(
+      transferOwnership(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        targetUserId: owner.id,
+      }),
+    ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
+    await expect(
+      transferOwnership(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        targetUserId: stranger.id,
+      }),
+    ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
   });
 });

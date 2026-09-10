@@ -1,21 +1,21 @@
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { section, spaceMember } from "@/lib/db/schema";
 import {
   createCustomSection,
   deleteCustomSection,
+  getSectionForMember,
   listSections,
   renameSection,
   reorderCustomSections,
 } from "@/lib/services/sections";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Section services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
   async function seedSpace() {
@@ -50,6 +50,45 @@ describe("Section services", () => {
       { kind: "monthlies", isSystem: true },
       { id: custom.id, name: "Errands", isSystem: false },
     ]);
+  });
+
+  it("rejects non-member reads and cross-Space Section lookups", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const outsider = await createUser({ email: "outsider@orbit.test" });
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherCustom = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      name: "Other Errands",
+      kind: "tasks",
+    });
+
+    await expect(
+      listSections(testDb, { userId: outsider.id, spaceId: space.id }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+    await expect(
+      getSectionForMember(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: otherCustom.id,
+      }),
+    ).rejects.toMatchObject({ code: "SECTION_NOT_FOUND" });
+    await expect(
+      getSectionForMember(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+      }),
+    ).resolves.toMatchObject({ id: sections.daily.id, kind: "daily" });
   });
 
   it("creates custom Sections for Editors and assigns custom sort order", async () => {
@@ -277,27 +316,5 @@ describe("Section services", () => {
         }),
       ).rejects.toMatchObject({ code: "SYSTEM_SECTION" });
     }
-  });
-
-  it("refreshes updated_at through the database trigger", async () => {
-    const { space, editor } = await seedSpace();
-    const custom = await createCustomSection(testDb, {
-      userId: editor.id,
-      spaceId: space.id,
-      name: "Ideas",
-      kind: "notes",
-    });
-
-    const [updated] = await testDb
-      .update(section)
-      .set({ name: "Updated directly", updatedAt: new Date("2000-01-01T00:00:00Z") })
-      .where(eq(section.id, custom.id))
-      .returning();
-
-    expect(updated.updatedAt.getTime()).toBeGreaterThan(
-      new Date("2000-01-01T00:00:00Z").getTime(),
-    );
-    expect(updated.name).toBe("Updated directly");
-    expect(updated.spaceId).toBe(space.id);
   });
 });

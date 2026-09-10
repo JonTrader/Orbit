@@ -5,10 +5,8 @@ import { bootstrapE2eDatabaseUrl } from "./e2e/env";
 const e2eEnv = bootstrapE2eDatabaseUrl();
 
 /**
- * Phase G E2E: drives the real app against a real server and database.
- * When DATABASE_URL_TEST is set, bootstrap redirects DATABASE_URL to that
- * branch (same guards as the Vitest suite) and starts a fresh dev server so
- * an existing npm run dev on the dev branch is not reused by mistake.
+ * Playwright E2E: drives the real app against a real server and a dedicated
+ * Neon e2e branch (DATABASE_URL_E2E). Never DATABASE_URL / production.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -23,7 +21,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
-    reuseExistingServer: !e2eEnv.usesTestBranch,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...process.env,

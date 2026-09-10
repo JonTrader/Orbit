@@ -12,6 +12,7 @@ import {
   monthly,
   notificationLog,
   notificationPreference,
+  section,
   spaceMember,
   task,
 } from "@/lib/db/schema";
@@ -40,14 +41,42 @@ describe("Reminder notification service", () => {
       timezone: "UTC",
       ownerUserId: owner.id,
     });
-    await testDb.insert(monthly).values({
-      spaceId: seeded.space.id,
-      sectionId: seeded.sections.monthlies.id,
-      sectionKind: "monthlies",
-      title: "Rent",
-      dueDayOfMonth: 13,
-      nextDueOn: "2026-08-13",
-    });
+    const [customTasks] = await testDb
+      .insert(section)
+      .values({
+        spaceId: seeded.space.id,
+        name: "Errands",
+        kind: "tasks",
+        sortOrder: 2,
+      })
+      .returning();
+    // Default N=3: only nextDueOn === today+3 is included; N-1 / N+1 are not.
+    await testDb.insert(monthly).values([
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Rent",
+        dueDayOfMonth: 13,
+        nextDueOn: "2026-08-13",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Too soon (N-1)",
+        dueDayOfMonth: 12,
+        nextDueOn: "2026-08-12",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Too late (N+1)",
+        dueDayOfMonth: 14,
+        nextDueOn: "2026-08-14",
+      },
+    ]);
     await testDb.insert(task).values([
       {
         spaceId: seeded.space.id,
@@ -60,10 +89,24 @@ describe("Reminder notification service", () => {
         spaceId: seeded.space.id,
         sectionId: seeded.sections.daily.id,
         sectionKind: "daily",
+        title: "Due today",
+        dueOn: "2026-08-10",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.daily.id,
+        sectionKind: "daily",
         title: "Completed task",
         dueOn: "2026-08-09",
         completedAt: new Date("2026-08-09T12:00:00Z"),
         completedBy: owner.id,
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: customTasks.id,
+        sectionKind: "tasks",
+        title: "Custom dated Task",
+        dueOn: "2026-08-10",
       },
     ]);
 
@@ -88,14 +131,29 @@ describe("Reminder notification service", () => {
           recipientEmail: owner.email,
           period: "2026-08-10",
         }),
+        expect.objectContaining({
+          kind: "daily_nudge",
+          title: "Due today",
+          recipientUserId: owner.id,
+          recipientEmail: owner.email,
+          period: "2026-08-10",
+          dueOn: "2026-08-10",
+        }),
       ]),
     );
-    expect(candidates).toHaveLength(2);
+    expect(candidates).toHaveLength(3);
+    expect(candidates.map((c) => c.title)).not.toContain("Too soon (N-1)");
+    expect(candidates.map((c) => c.title)).not.toContain("Too late (N+1)");
+    expect(candidates.map((c) => c.title)).not.toContain("Custom dated Task");
+    expect(
+      candidates.filter((c) => c.kind === "daily_nudge").map((c) => c.title),
+    ).toEqual(expect.arrayContaining(["Overdue task", "Due today"]));
   });
 
   it("sends to the Assignee and uses that user's monthly preference", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
     const assignee = await createUser({ email: "assignee@orbit.test" });
+    const formerAssignee = await createUser({ email: "former@orbit.test" });
     const seeded = await createSpaceWithSystemSections(testDb, {
       name: "Home",
       timezone: "UTC",
@@ -106,12 +164,20 @@ describe("Reminder notification service", () => {
       userId: assignee.id,
       role: "read-only",
     });
-    await testDb.insert(notificationPreference).values({
-      spaceId: seeded.space.id,
-      userId: assignee.id,
-      daysBefore: 5,
-    });
-    const [row] = await testDb
+    await testDb.insert(notificationPreference).values([
+      {
+        spaceId: seeded.space.id,
+        userId: owner.id,
+        emailEnabled: false,
+      },
+      {
+        spaceId: seeded.space.id,
+        userId: assignee.id,
+        daysBefore: 5,
+        emailEnabled: true,
+      },
+    ]);
+    const [assigned] = await testDb
       .insert(monthly)
       .values({
         spaceId: seeded.space.id,
@@ -123,20 +189,139 @@ describe("Reminder notification service", () => {
         assigneeId: assignee.id,
       })
       .returning();
+    const [orphaned] = await testDb
+      .insert(monthly)
+      .values({
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Former Assignee Monthly",
+        dueDayOfMonth: 13,
+        nextDueOn: "2026-08-13",
+        assigneeId: formerAssignee.id,
+      })
+      .returning();
 
     const candidates = await scanReminderCandidates(testDb, {
       now: new Date("2026-08-10T12:00:00Z"),
     });
 
-    expect(candidates).toEqual([
-      expect.objectContaining({
-        entityId: row.id,
-        kind: "monthly_due",
-        recipientUserId: assignee.id,
-        recipientEmail: assignee.email,
+    // Owner opted out; Assignee still receives their own Monthly Reminder.
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityId: assigned.id,
+          kind: "monthly_due",
+          recipientUserId: assignee.id,
+          recipientEmail: assignee.email,
+          daysBefore: 5,
+        }),
+      ]),
+    );
+    // Former Assignee is not a Member, so recipient falls back to Owner -
+    // but Owner opted out, so that candidate is suppressed.
+    expect(candidates.map((c) => c.entityId)).not.toContain(orphaned.id);
+    expect(candidates).toHaveLength(1);
+
+    await testDb
+      .update(notificationPreference)
+      .set({ emailEnabled: true })
+      .where(eq(notificationPreference.userId, owner.id));
+
+    const afterOwnerOptIn = await scanReminderCandidates(testDb, {
+      now: new Date("2026-08-10T12:00:00Z"),
+    });
+
+    expect(afterOwnerOptIn).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityId: assigned.id,
+          recipientUserId: assignee.id,
+        }),
+        expect.objectContaining({
+          entityId: orphaned.id,
+          kind: "monthly_due",
+          title: "Former Assignee Monthly",
+          recipientUserId: owner.id,
+          recipientEmail: owner.email,
+          daysBefore: 3,
+        }),
+      ]),
+    );
+    expect(afterOwnerOptIn).toHaveLength(2);
+  });
+
+  it("isolates monthly Reminder prefs across Spaces for the same user", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const home = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      timezone: "UTC",
+      ownerUserId: owner.id,
+    });
+    const work = await createSpaceWithSystemSections(testDb, {
+      name: "Work",
+      timezone: "UTC",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(notificationPreference).values([
+      {
+        spaceId: home.space.id,
+        userId: owner.id,
         daysBefore: 5,
-      }),
+      },
+      {
+        spaceId: work.space.id,
+        userId: owner.id,
+        daysBefore: 3,
+      },
     ]);
+    await testDb.insert(monthly).values([
+      {
+        spaceId: home.space.id,
+        sectionId: home.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Home rent",
+        dueDayOfMonth: 15,
+        nextDueOn: "2026-08-15",
+      },
+      {
+        spaceId: work.space.id,
+        sectionId: work.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Work dues",
+        dueDayOfMonth: 13,
+        nextDueOn: "2026-08-13",
+      },
+      {
+        spaceId: work.space.id,
+        sectionId: work.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Work ignored at N=5",
+        dueDayOfMonth: 15,
+        nextDueOn: "2026-08-15",
+      },
+    ]);
+
+    const candidates = await scanReminderCandidates(testDb, {
+      now: new Date("2026-08-10T12:00:00Z"),
+    });
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          spaceId: home.space.id,
+          title: "Home rent",
+          daysBefore: 5,
+        }),
+        expect.objectContaining({
+          spaceId: work.space.id,
+          title: "Work dues",
+          daysBefore: 3,
+        }),
+      ]),
+    );
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((c) => c.title)).not.toContain("Work ignored at N=5");
   });
 
   it("uses the Space timezone when finding monthly and daily candidates", async () => {

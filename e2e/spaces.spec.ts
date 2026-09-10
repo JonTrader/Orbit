@@ -12,6 +12,7 @@ import {
   closeDb,
   cookieHeader,
   createVerifiedUser,
+  directoryRow,
   runSuffix,
   signIn,
 } from "./helpers";
@@ -97,16 +98,16 @@ test.describe("Spaces directory and creation", () => {
     await authenticatePage(page, memberSession);
     await page.goto("/spaces");
 
-    const personalRow = page.getByRole("listitem").filter({
-      has: page.getByText("Personal", { exact: true }),
-    });
+    const personalRow = directoryRow(page, "Personal");
     await expect(personalRow).toHaveCount(1);
     await expect(
-      personalRow.locator("div.truncate").filter({ hasText: /^Personal$/ }),
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
     ).toBeVisible();
     await expect(personalRow.getByText(/Read-only/)).toBeVisible();
     await expect(personalRow.getByText(/2 Members/)).toBeVisible();
-    await expect(page.getByText(`Private ${runSuffix()}`)).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: `Private ${runSuffix()}`, exact: true }),
+    ).toHaveCount(0);
   });
 
   test("filter updates the visible count and shows a no-match state", async ({
@@ -121,12 +122,10 @@ test.describe("Spaces directory and creation", () => {
     await expect(page.getByText("No matching Spaces")).toBeVisible();
 
     await filter.fill("Personal");
-    const personalRow = page.getByRole("listitem").filter({
-      has: page.getByText("Personal", { exact: true }),
-    });
+    const personalRow = directoryRow(page, "Personal");
     await expect(personalRow).toHaveCount(1);
     await expect(
-      personalRow.locator("div.truncate").filter({ hasText: /^Personal$/ }),
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("No matching Spaces")).toHaveCount(0);
   });
@@ -135,7 +134,9 @@ test.describe("Spaces directory and creation", () => {
     await authenticate(page);
     await page.goto("/spaces");
 
-    await page.getByRole("link", { name: "Open", exact: true }).first().click();
+    await directoryRow(page, "Personal")
+      .getByRole("link", { name: "Open", exact: true })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/spaces/${personalSpaceId}/upcoming`));
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
@@ -194,7 +195,9 @@ test.describe("Spaces directory and creation", () => {
     expect(created?.timezone).toBe(zone);
 
     await page.goto("/spaces");
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(
+      directoryRow(page, name).getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
   });
 
   test("unauthenticated /spaces redirects to sign-in", async ({ page }) => {
@@ -233,10 +236,6 @@ test.describe("Space and Section rename/delete", () => {
     return ((await created.json()) as { id: string }).id;
   }
 
-  function directoryRow(page: Page, spaceName: string) {
-    return page.locator("li").filter({ hasText: spaceName }).first();
-  }
-
   test("renames a Space from the directory and shows the name in the Active Space header", async ({
     page,
   }) => {
@@ -257,8 +256,15 @@ test.describe("Space and Section rename/delete", () => {
     await dialog.getByRole("button", { name: "Rename" }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(page.getByText(renamed, { exact: true })).toBeVisible();
-    await expect(page.getByText(original, { exact: true })).toHaveCount(0);
+    await expect(
+      directoryRow(page, renamed).getByRole("heading", {
+        name: renamed,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: original, exact: true }),
+    ).toHaveCount(0);
 
     await page.goto(`/spaces/${spaceId}/upcoming`);
     await expect(page.getByText(`Active Space · ${renamed}`)).toBeVisible();
@@ -283,16 +289,22 @@ test.describe("Space and Section rename/delete", () => {
     await dialog.getByRole("button", { name: "Delete" }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toHaveCount(0);
   });
 
   test("Personal Space row has no overflow menu", async ({ page }) => {
     await authenticate(page);
     await page.goto("/spaces");
 
-    await expect(page.getByText("Personal", { exact: true }).first()).toBeVisible();
+    const personalRow = directoryRow(page, "Personal");
+    await expect(personalRow).toHaveCount(1);
     await expect(
-      page.getByRole("button", { name: "Actions for Personal" }),
+      personalRow.getByRole("heading", { name: "Personal", exact: true }),
+    ).toBeVisible();
+    await expect(
+      personalRow.getByRole("button", { name: "Actions for Personal" }),
     ).toHaveCount(0);
   });
 
@@ -300,8 +312,8 @@ test.describe("Space and Section rename/delete", () => {
     page,
   }) => {
     const spaceName = `Section Host ${runSuffix()}`;
-    const original = `Inbox ${runSuffix()}`;
-    const renamed = `Renamed Inbox ${runSuffix()}`;
+    const original = `Errands ${runSuffix()}`;
+    const renamed = `Renamed Errands ${runSuffix()}`;
     const spaceId = await createOwnedSpace(spaceName);
     const sectionId = await createCustomSection(spaceId, original);
 

@@ -17,9 +17,11 @@ import {
 } from "./helpers";
 
 /**
- * Phase G acceptance (Orbit_Test_Plan.md, Phase G items 1-8), against the
- * real app + dev database. Tests share one owner fixture and build state in
- * order; workers:1 keeps them sequential.
+ * Active Space E2E: Section nav, Daily / Monthlies / Upcoming, custom
+ * Sections, read-only Viewer chrome, and the share bar. Tests share one
+ * owner fixture and build state in order; workers:1 keeps them sequential.
+ * Membership-count assertions seed their own Members so they do not couple
+ * on order.
  */
 
 let ownerApi: APIRequestContext;
@@ -46,6 +48,27 @@ test.beforeAll(async ({ request }) => {
 test.afterAll(async () => {
   await closeDb();
 });
+
+/** Same en-US / UTC short-month formatting as MonthlyRow.formatDueDate. */
+function formatDueLabel(nextDueOn: string): string {
+  const [year, month, day] = nextDueOn.split("-").map(Number);
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year!, month! - 1, day!)));
+  return `due ${formatted}`;
+}
+
+/** Advance YYYY-MM-DD by one calendar month, clamping to dueDayOfMonth. */
+function advanceNextDueOn(nextDueOn: string, dueDayOfMonth: number): string {
+  const [year, month] = nextDueOn.split("-").map(Number);
+  const nextYear = month === 12 ? year! + 1 : year!;
+  const nextMonth = month === 12 ? 1 : month! + 1;
+  const daysInMonth = new Date(Date.UTC(nextYear, nextMonth, 0)).getUTCDate();
+  const day = Math.min(dueDayOfMonth, daysInMonth);
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 function spacesSidebar(page: Page) {
   // Sidebar is the spaces-only aside; avoid getByLabel("Spaces"), which also
@@ -87,11 +110,30 @@ async function sectionIdByKind(
   return section.id;
 }
 
-test.describe("Phase G", () => {
-  test("1. nav order is Upcoming, Daily, Monthlies, customs; no Shared", async ({
+test.describe("Active Space", () => {
+  test("nav order is Upcoming, Daily, Monthlies, customs; no Shared", async ({
     page,
   }) => {
     await authenticate(page);
+
+    const customNames = [
+      `Nav tasks ${runSuffix()}`,
+      `Nav notes ${runSuffix()}`,
+    ] as const;
+    for (const [index, name] of customNames.entries()) {
+      const created = await ownerApi.post(
+        `/api/v1/spaces/${personalSpaceId}/sections`,
+        {
+          data: {
+            name,
+            kind: index === 0 ? "tasks" : "notes",
+          },
+        },
+      );
+      expect(created.status()).toBe(201);
+    }
+
+    await page.goto(`/spaces/${personalSpaceId}/upcoming`);
 
     const tablist = page.getByRole("tablist", { name: "Sections" });
     await expect(tablist.getByRole("tab").first()).toBeVisible();
@@ -103,9 +145,27 @@ test.describe("Phase G", () => {
       })),
     );
 
+    expect(entries.map((entry) => entry.label).slice(0, 3)).toEqual([
+      "Upcoming",
+      "Daily",
+      "Monthlies",
+    ]);
     expect(entries[0]?.href).toMatch(/\/upcoming$/);
     expect(entries[1]?.href).toMatch(/\/daily$/);
     expect(entries[2]?.href).toMatch(/\/monthlies$/);
+
+    const customLabels = entries.slice(3).map((entry) => entry.label);
+    for (const name of customNames) {
+      expect(customLabels).toContain(name);
+    }
+    const firstCustomIndex = Math.min(
+      ...customNames.map((name) => customLabels.indexOf(name)),
+    );
+    expect(firstCustomIndex).toBeGreaterThanOrEqual(0);
+    expect(customLabels.slice(firstCustomIndex, firstCustomIndex + 2)).toEqual([
+      ...customNames,
+    ]);
+
     const systemSlugs = new Set(["upcoming", "daily", "monthlies"]);
     expect(
       entries.slice(3).every((entry) => {
@@ -118,7 +178,7 @@ test.describe("Phase G", () => {
     expect(entries.map((entry) => entry.label)).not.toContain("Shared");
   });
 
-  test("2. switching Active Space switches the listed content", async ({
+  test("switching Active Space switches the listed content", async ({
     page,
   }) => {
     await authenticate(page);
@@ -160,7 +220,7 @@ test.describe("Phase G", () => {
     await expect(page.getByText(`Second-only ${runSuffix()}`)).toHaveCount(0);
   });
 
-  test("3. Daily: compose adds, completing hides, show-completed reveals", async ({
+  test("Daily: compose adds, completing hides, show-completed reveals", async ({
     page,
   }) => {
     await authenticate(page);
@@ -179,51 +239,82 @@ test.describe("Phase G", () => {
     await page.getByRole("checkbox", { name: `Reopen ${title}` }).click();
   });
 
-  test("4. Monthlies: completing rolls the next due date forward", async ({
+  test("Monthlies: completing rolls the next due date forward", async ({
     page,
   }) => {
     await authenticate(page);
-    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
 
     const title = `E2E monthly ${runSuffix()}`;
-    await page.getByLabel("Add to Monthlies").fill(title);
-    await page.getByLabel("Due day of month").fill("15");
-    await page.getByLabel("Add to Monthlies").press("Enter");
-    await expect(page.getByText(title)).toBeVisible();
-
-    const row = page.locator("div", { hasText: title }).getByRole("button", {
-      name: "Done",
-    });
-    const before = await page
-      .locator(`text=${title}`)
-      .locator("xpath=..")
-      .innerText();
-    await row.click();
-    await expect(page.locator(`text=${title}`).locator("xpath=..")).not.toHaveText(
-      before,
+    const dueDayOfMonth = 15;
+    const created = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/monthlies`,
+      { data: { title, dueDayOfMonth } },
     );
+    expect(created.status()).toBe(201);
+    const { nextDueOn } = (await created.json()) as { nextDueOn: string };
+    expect(nextDueOn.endsWith("-15")).toBe(true);
+
+    const expectedBefore = formatDueLabel(nextDueOn);
+    const expectedAfter = formatDueLabel(
+      advanceNextDueOn(nextDueOn, dueDayOfMonth),
+    );
+
+    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+
+    const row = page
+      .locator("div")
+      .filter({ has: page.getByText(title, { exact: true }) })
+      .filter({
+        has: page.getByRole("button", {
+          name: `Mark ${title} done for this period`,
+        }),
+      });
+    const dueLabel = row.getByText(/^due /);
+    await expect(dueLabel).toHaveText(expectedBefore);
+
+    await row
+      .getByRole("button", { name: `Mark ${title} done for this period` })
+      .click();
+    await expect(dueLabel).toHaveText(expectedAfter);
   });
 
-  test("5. Upcoming shows dated items and has no compose", async ({
+  test("Upcoming shows dated items and has no compose", async ({
     page,
   }) => {
     await authenticate(page);
 
     const daily = await sectionIdByKind(personalSpaceId, "daily");
+    const datedTitle = `E2E dated ${runSuffix()}`;
+    const undatedTitle = `E2E undated ${runSuffix()}`;
+    const monthlyTitle = `E2E upcoming monthly ${runSuffix()}`;
     const future = new Date(Date.now() + 14 * 86_400_000)
       .toISOString()
       .slice(0, 10);
+
     await ownerApi.post(`/api/v1/spaces/${personalSpaceId}/tasks`, {
-      data: { sectionId: daily, title: `E2E dated ${runSuffix()}`, dueOn: future },
+      data: { sectionId: daily, title: datedTitle, dueOn: future },
     });
+    await ownerApi.post(`/api/v1/spaces/${personalSpaceId}/tasks`, {
+      data: { sectionId: daily, title: undatedTitle },
+    });
+    const monthly = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/monthlies`,
+      {
+        data: { title: monthlyTitle, dueDayOfMonth: 20 },
+      },
+    );
+    expect(monthly.status()).toBe(201);
 
     await page.goto(`/spaces/${personalSpaceId}/upcoming`);
-    await expect(page.getByText(`E2E dated ${runSuffix()}`)).toBeVisible();
+    await expect(page.getByText(datedTitle)).toBeVisible();
+    await expect(page.getByText(monthlyTitle)).toBeVisible();
+    await expect(page.getByText(undatedTitle)).toHaveCount(0);
     await expect(page.getByLabel("Add to Daily")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
   });
 
-  test("6. Add Section dialog creates working tasks/notes/mixed Sections", async ({
+  test("Add Section dialog creates working tasks/notes/mixed Sections", async ({
     page,
   }) => {
     await authenticate(page);
@@ -252,9 +343,10 @@ test.describe("Phase G", () => {
       ).toBeVisible();
     }
 
-    // Content: a Task in the tasks Section and a Note with body in notes.
+    // Content: Task in tasks, Note in notes, and both in the mixed Section.
     const tasksSection = `E2E tasks ${runSuffix()}`;
     const notesSection = `E2E notes ${runSuffix()}`;
+    const mixedSection = `E2E mixed ${runSuffix()}`;
     await goToSectionTab(page, tasksSection);
     await page.getByLabel(`Add to ${tasksSection}`).fill(`E2E task ${runSuffix()}`);
     await page.getByLabel(`Add to ${tasksSection}`).press("Enter");
@@ -271,18 +363,40 @@ test.describe("Phase G", () => {
     await expect(
       page.getByText(`E2E note ${runSuffix()}`).locator("xpath=.."),
     ).toContainText("E2E body");
+
+    const mixedTask = `E2E mixed task ${runSuffix()}`;
+    const mixedNote = `E2E mixed note ${runSuffix()}`;
+    await goToSectionTab(page, mixedSection);
+    await page.getByLabel(`Add task to ${mixedSection}`).fill(mixedTask);
+    await page.getByLabel(`Add task to ${mixedSection}`).press("Enter");
+    await expect(page.getByText(mixedTask)).toBeVisible();
+
+    await page.getByLabel(`Add note to ${mixedSection}`).fill(mixedNote);
+    await page.getByLabel("Note body").fill("Mixed body");
+    await page.getByLabel(`Add note to ${mixedSection}`).press("Enter");
+    await expect(page.getByText(mixedNote)).toBeVisible();
+    await expect(
+      page.getByText(mixedNote).locator("xpath=.."),
+    ).toContainText("Mixed body");
   });
 
-  test("7. read-only member sees the badge and no mutation controls", async ({
+  test("read-only member sees the badge and no mutation controls", async ({
     page,
     request,
   }) => {
+    const spaceName = `Read-only Host ${runSuffix()}`;
+    const created = await ownerApi.post("/api/v1/spaces", {
+      data: { name: spaceName },
+    });
+    expect(created.status()).toBe(201);
+    const spaceId = (await created.json()).id as string;
+
     const member = await createVerifiedUser(request, "E2E Member");
     const memberSession = await signIn(request, member);
-    await addMemberReadOnly(request, ownerSession, personalSpaceId, member, memberSession);
+    await addMemberReadOnly(request, ownerSession, spaceId, member, memberSession);
 
     await authenticatePage(page, memberSession);
-    await page.goto(`/spaces/${personalSpaceId}/daily`);
+    await page.goto(`/spaces/${spaceId}/daily`);
 
     await expect(page.getByText("Read-only", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Add to Daily")).toHaveCount(0);
@@ -292,11 +406,29 @@ test.describe("Phase G", () => {
     await expect(page.getByText("2 people")).toBeVisible();
   });
 
-  test("8. share bar shows members; Owner sees the invite entry point", async ({
+  test("share bar shows members; Owner sees the invite entry point", async ({
     page,
+    request,
   }) => {
+    const spaceName = `Share Bar Host ${runSuffix()}`;
+    const created = await ownerApi.post("/api/v1/spaces", {
+      data: { name: spaceName },
+    });
+    expect(created.status()).toBe(201);
+    const spaceId = (await created.json()).id as string;
+
+    const member = await createVerifiedUser(request, "E2E Share Member");
+    const memberSession = await signIn(request, member);
+    await addMemberReadOnly(
+      request,
+      ownerSession,
+      spaceId,
+      member,
+      memberSession,
+    );
+
     await authenticate(page);
-    await page.goto(`/spaces/${personalSpaceId}/daily`);
+    await page.goto(`/spaces/${spaceId}/daily`);
 
     await expect(page.getByText("2 people")).toBeVisible();
     await expect(page.getByTitle(/Owner/)).toBeVisible();

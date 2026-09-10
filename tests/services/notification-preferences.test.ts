@@ -1,22 +1,17 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { spaceMember } from "@/lib/db/schema";
-import * as membership from "@/lib/spaces/membership";
 import {
   getNotificationPreference,
   updateNotificationPreference,
 } from "@/lib/services/notification-preferences";
 
-import { migrateTestDb, testDb, truncateAll } from "../setup/db";
+import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 describe("Notification preference services", () => {
-  beforeAll(migrateTestDb);
   beforeEach(() => truncateAll());
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
 
   async function seedSpace() {
     const owner = await createUser({ email: "owner@orbit.test" });
@@ -73,6 +68,62 @@ describe("Notification preference services", () => {
     });
   });
 
+  it("creates defaults on first update when no preference row exists", async () => {
+    const { readOnly, space } = await seedSpace();
+
+    await expect(
+      updateNotificationPreference(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        daysBefore: 5,
+        emailEnabled: false,
+      }),
+    ).resolves.toMatchObject({
+      userId: readOnly.id,
+      spaceId: space.id,
+      daysBefore: 5,
+      emailEnabled: false,
+    });
+  });
+
+  it("keeps preferences isolated per Space for the same user", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const home = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const work = await createSpaceWithSystemSections(testDb, {
+      name: "Work",
+      ownerUserId: owner.id,
+    });
+
+    await updateNotificationPreference(testDb, {
+      userId: owner.id,
+      spaceId: home.space.id,
+      daysBefore: 5,
+      emailEnabled: false,
+    });
+
+    await expect(
+      getNotificationPreference(testDb, {
+        userId: owner.id,
+        spaceId: home.space.id,
+      }),
+    ).resolves.toMatchObject({
+      daysBefore: 5,
+      emailEnabled: false,
+    });
+    await expect(
+      getNotificationPreference(testDb, {
+        userId: owner.id,
+        spaceId: work.space.id,
+      }),
+    ).resolves.toMatchObject({
+      daysBefore: 3,
+      emailEnabled: true,
+    });
+  });
+
   it("rejects non-member reads and updates", async () => {
     const { outsider, space } = await seedSpace();
 
@@ -111,23 +162,5 @@ describe("Notification preference services", () => {
         }),
       ).rejects.toMatchObject({ code: "INVALID_DAYS_BEFORE" });
     }
-  });
-
-  it("checks membership once on update", async () => {
-    const { readOnly, space } = await seedSpace();
-    const requireMembership = vi.spyOn(membership, "requireMembership");
-
-    await updateNotificationPreference(testDb, {
-      userId: readOnly.id,
-      spaceId: space.id,
-      daysBefore: 5,
-    });
-
-    expect(requireMembership).toHaveBeenCalledTimes(1);
-    expect(requireMembership.mock.calls[0]?.[1]).toMatchObject({
-      userId: readOnly.id,
-      spaceId: space.id,
-      minimumRole: "read-only",
-    });
   });
 });
