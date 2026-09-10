@@ -51,7 +51,9 @@ Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 - Authz contract (`tests/services/authorization-contract.test.ts`) is a completeness net: mutating and gated-read services call `requireMembership` with the right min role. It does not replace editor-actor 403s in domain tests.
 - API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers. See `tests/setup/api.ts` and existing action tests for patterns.
 - E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`); cookie-bearing auth calls without Origin fail with `MISSING_OR_NULL_ORIGIN`.
-- Schema changes: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`.
+- Invite tokens: only SHA-256 digests are stored (`invite.token_digest`). Raw bearers live in email links / accept URLs. E2E pins a known raw token onto the pending row via `e2e/helpers` (`pinInviteBearerToken`) when mail is mocked. Do not persistently cache bearer-token previews or recipient-specific Invite data.
+- Invite continuation: validated local `/accept-invite?token=...` only (`parseLocalContinuation`). Post-auth callbacks go through `/` so Personal Space onboarding runs, then return to the Invite. After `acceptInvite`, redirect with the write result's `spaceId` - do not re-read memoized membership in the same request.
+- Schema changes: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`. After schema changes, also migrate `DATABASE_URL_E2E` (`DRIZZLE_DATABASE_URL` = e2e URL) before Playwright.
 
 ## CI / status
 

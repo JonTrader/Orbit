@@ -20,7 +20,7 @@ flowchart TB
     direction TB
     SP["space<br/><i>name · timezone</i>"]
     SM["space_member<br/><i>owner | editor | read-only</i>"]
-    IN["invite<br/><i>email · role · token · expiresAt</i>"]
+    IN["invite<br/><i>email · role · token_digest · expiresAt</i>"]
   end
 
   subgraph CONTENT["Content"]
@@ -145,7 +145,7 @@ erDiagram
     uuid space_id FK
     text email
     space_role role "default read-only; owner forbidden"
-    text token UK
+    text token_digest UK "SHA-256 of bearer; raw never stored"
     text invited_by FK
     timestamptz expires_at "now + 7 days"
     timestamptz accepted_at "null while pending"
