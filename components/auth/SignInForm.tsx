@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
-import { APP_PATH, verifyEmailPath } from "@/lib/auth/paths";
+import { authCallbackUrl, verifyEmailPath } from "@/lib/auth/paths";
 
 import { Field } from "@/components/auth/kit/AuthField";
 import { FormMessage } from "@/components/auth/kit/FormMessage";
@@ -12,10 +12,15 @@ import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
 const EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
 
-export function SignInForm() {
+export function SignInForm({
+  continuation = null,
+}: {
+  continuation?: string | null;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const callbackURL = authCallbackUrl(continuation);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,12 +34,12 @@ export function SignInForm() {
       const { error: failure } = await authClient.signIn.email({
         email,
         password: String(form.get("password") ?? ""),
-        callbackURL: APP_PATH,
+        callbackURL,
       });
 
       if (!failure) {
-        // Better Auth set the session cookie; let the server re-render the shell.
-        router.replace(APP_PATH);
+        // Better Auth set the session cookie; enter via `/` for Personal Space.
+        router.replace(callbackURL);
         return;
       }
 
@@ -42,7 +47,7 @@ export function SignInForm() {
 
       // Better Auth just sent a fresh link, so send them to the waiting room.
       if (failure.code === EMAIL_NOT_VERIFIED) {
-        router.push(verifyEmailPath(email));
+        router.push(verifyEmailPath(email, continuation));
         return;
       }
 

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -11,12 +11,17 @@ import {
   notificationPreference,
   section,
 } from "@/lib/db/schema";
+import { hashInviteToken } from "@/lib/invites/token";
 
 import { expectPostgresConstraint } from "../setup/assertions";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function digest(): string {
+  return hashInviteToken(randomBytes(32).toString("base64url"));
+}
 
 describe("invite", () => {
   beforeAll(migrateTestDb);
@@ -35,7 +40,7 @@ describe("invite", () => {
       .values({
         spaceId: space.id,
         email: "partner@orbit.test",
-        token: randomUUID(),
+        tokenDigest: digest(),
         invitedBy: owner.id,
         expiresAt,
       })
@@ -44,6 +49,7 @@ describe("invite", () => {
     expect(row.role).toBe("read-only");
     expect(row.expiresAt.getTime()).toBe(expiresAt.getTime());
     expect(row.acceptedAt).toBeNull();
+    expect(row.tokenDigest).toHaveLength(64);
   });
 
   it("accepts an editor invite but never an owner invite", async () => {
@@ -58,7 +64,7 @@ describe("invite", () => {
         spaceId: space.id,
         email: "editor@orbit.test",
         role: "editor",
-        token: randomUUID(),
+        tokenDigest: digest(),
         expiresAt,
       })
       .returning();
@@ -69,7 +75,7 @@ describe("invite", () => {
         spaceId: space.id,
         email: "usurper@orbit.test",
         role: "owner",
-        token: randomUUID(),
+        tokenDigest: digest(),
         expiresAt,
       }),
       "23514",
@@ -90,11 +96,11 @@ describe("invite", () => {
 
     const [first] = await testDb
       .insert(invite)
-      .values({ ...values, token: randomUUID() })
+      .values({ ...values, tokenDigest: digest() })
       .returning();
 
     await expectPostgresConstraint(
-      testDb.insert(invite).values({ ...values, token: randomUUID() }),
+      testDb.insert(invite).values({ ...values, tokenDigest: digest() }),
       "23505",
       "invite_space_email_pending_unique",
     );
@@ -106,7 +112,7 @@ describe("invite", () => {
       .where(eq(invite.id, first.id));
 
     await expect(
-      testDb.insert(invite).values({ ...values, token: randomUUID() }),
+      testDb.insert(invite).values({ ...values, tokenDigest: digest() }),
     ).resolves.toBeDefined();
   });
 });

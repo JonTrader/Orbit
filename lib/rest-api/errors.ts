@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MembershipError } from "@/lib/spaces/membership";
 import { DomainError } from "@/lib/domain-error";
 
-export type ApiErrorStatus = 400 | 401 | 403 | 404 | 409 | 410 | 500;
+export type ApiErrorStatus = 400 | 401 | 403 | 404 | 409 | 410 | 500 | 502;
 export type ApiErrorPathSegment = string | number;
 
 export interface ApiValidationIssue {
@@ -132,6 +132,7 @@ const CONFLICT_CODES = new Set([
 
 function statusForDomainError(code: string): ApiErrorStatus {
   if (code === "EXPIRED_INVITE") return 410;
+  if (code === "INVITE_EMAIL_FAILED") return 502;
   if (NOT_FOUND_CODES.has(code)) return 404;
   if (CONFLICT_CODES.has(code)) return 409;
   return 400;

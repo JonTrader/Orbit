@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: h-sharing-tests
     content: "Phase H: Invite accept/expiry/transfer E2E + requireMembership audit"
-    status: pending
+    status: completed
   - id: i-reminder-tests
     content: "Phase I: Idempotent jobs, tz, prefs default N=3, prefs UI smoke"
     status: pending
@@ -43,7 +43,8 @@ Cross-cutting strategy for the MVP. Implement tests **in the same phase** as the
 | Phases | Status |
 | ------ | ------ |
 | **B–G** | Done. Gaps closed in the hardening pass (authz/IDOR, invite collisions, calendar/Reminder pinning, Phase G E2E, harness safety). |
-| **H / I** | Still pending (invite/prefs E2E, Inngest handler tests). Out of scope for the hardening pass. |
+| **H** | Done. Invite accept/expiry/transfer E2E (`e2e/invite.spec.ts`), requireMembership contract audit, ShareBar management. |
+| **I** | Still pending (prefs E2E, Inngest handler tests). |
 | **J** | Partially landed (CI `test`/`e2e`/`typecheck`, README Neon branch note); required-check promotion and prod smoke remain. |
 
 **Authz footguns (do not regress):** Owner-only tests need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
@@ -251,9 +252,11 @@ flowchart TB
 
 ---
 
-## Phase H — Sharing
+## Phase H - Sharing
 
 **Extend:** `tests/services` audit gaps + `e2e/invite.spec.ts`.
+
+**Status:** Done. Coverage lives in `e2e/invite.spec.ts`, `tests/services/authorization-contract.test.ts`, and existing members/invite action suites.
 
 **What to test:**
 

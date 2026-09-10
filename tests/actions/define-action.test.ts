@@ -116,6 +116,20 @@ describe("defineAction", () => {
     );
   });
 
+  it("skips revalidation when options.revalidate is false", async () => {
+    authenticateAs("user-1");
+
+    const readAction = defineAction(
+      z.object({ spaceId: z.uuid() }).strict(),
+      async () => ({ ok: true as const }),
+      { revalidate: false },
+    );
+
+    const result = await readAction({ spaceId: SPACE_ID });
+    expect(result.ok).toBe(true);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
   it("preserves derived revalidation when options.revalidate is omitted", async () => {
     authenticateAs("user-1");
 

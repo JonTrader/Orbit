@@ -5,12 +5,20 @@ import {
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "@/lib/email/templates/auth-emails";
+import {
+  buildInviteAcceptUrl,
+  inviteEmail,
+} from "@/lib/email/templates/invite";
+import { sendInviteEmail } from "@/lib/email/templates/invite-emails";
 import { sendEmail } from "@/lib/email/mailer";
 
 vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+
 const VERIFY_URL = "https://orbit.test/api/auth/verify-email?token=abc123";
 const RESET_URL = "https://orbit.test/reset-password?token=def456";
+const ACCEPT_URL = "http://localhost:3000/accept-invite?token=secret-token";
 
 const recipient = { email: "member@orbit.test", name: "Jonathan Montoya" };
 
@@ -81,5 +89,73 @@ describe("auth email senders", () => {
       html: expect.stringContaining(RESET_URL),
       text: expect.stringContaining(RESET_URL),
     });
+  });
+});
+
+describe("invite email templates", () => {
+  it("builds the accept URL from BETTER_AUTH_URL only", () => {
+    expect(buildInviteAcceptUrl("raw-secret")).toBe(
+      "http://localhost:3000/accept-invite?token=raw-secret",
+    );
+  });
+
+  it("includes Space name, role, expiry, and accept URL", () => {
+    const expiresAt = new Date("2026-09-17T12:00:00.000Z");
+    const email = inviteEmail({
+      spaceName: "Home",
+      role: "editor",
+      acceptUrl: ACCEPT_URL,
+      expiresAt,
+    });
+
+    expect(email.subject).toBe("Join Home on Orbit");
+    expect(email.html).toContain(ACCEPT_URL);
+    expect(email.text).toContain(ACCEPT_URL);
+    expect(email.text).toContain("Home");
+    expect(email.text).toContain("Editor");
+    expect(email.text).toContain(expiresAt.toUTCString());
+    expect(email.text).toContain("sign in or create an Orbit account");
+  });
+
+  it("escapes a Space name that looks like markup", () => {
+    const email = inviteEmail({
+      spaceName: '<img src=x onerror="alert(1)">',
+      role: "read-only",
+      acceptUrl: ACCEPT_URL,
+      expiresAt: new Date("2026-09-17T12:00:00.000Z"),
+    });
+
+    expect(email.html).not.toContain("<img");
+    expect(email.html).toContain("&lt;img");
+    expect(email.html).toContain("Read-only");
+  });
+});
+
+describe("invite email sender", () => {
+  beforeEach(() => {
+    vi.mocked(sendEmail).mockClear();
+  });
+
+  it("sends Invite mail with a stable idempotency key", async () => {
+    await sendInviteEmail(
+      "guest@orbit.test",
+      {
+        spaceName: "Home",
+        role: "read-only",
+        acceptUrl: ACCEPT_URL,
+        expiresAt: new Date("2026-09-17T12:00:00.000Z"),
+      },
+      { idempotencyKey: "invite:test:digest" },
+    );
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      {
+        to: "guest@orbit.test",
+        subject: "Join Home on Orbit",
+        html: expect.stringContaining(ACCEPT_URL),
+        text: expect.stringContaining(ACCEPT_URL),
+      },
+      { idempotencyKey: "invite:test:digest" },
+    );
   });
 });

@@ -366,7 +366,8 @@ export const invite = pgTable(
       .references(() => space.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     role: spaceRole("role").notNull().default("read-only"),
-    token: text("token").notNull().unique(),
+    /** SHA-256 hex digest of the bearer secret; raw token is never stored. */
+    tokenDigest: text("token_digest").notNull().unique(),
     invitedBy: text("invited_by").references(() => user.id, {
       onDelete: "set null",
     }),

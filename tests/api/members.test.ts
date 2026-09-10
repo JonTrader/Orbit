@@ -40,8 +40,12 @@ import {
   spaceContext,
   unauthenticate,
 } from "../setup/api";
+import { getSendEmailMock } from "../setup/api-mocks";
+import { lastEmailedInviteToken } from "../setup/invite-email";
 import { testDb } from "../setup/db";
 import { createUser } from "../setup/fixtures";
+
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
 interface InviteBody {
   id: string;
@@ -49,6 +53,7 @@ interface InviteBody {
   email: string;
   role: string;
   token?: string;
+  tokenDigest?: string;
   expiresAt: string;
   acceptedAt: string | null;
 }
@@ -132,7 +137,9 @@ describe("Members and Invites API", () => {
       acceptedAt: null,
     });
     expect(createdInvite.expiresAt).toEqual(expect.any(String));
-    expect(createdInvite.token).toEqual(expect.any(String));
+    expect(createdInvite).not.toHaveProperty("token");
+    expect(createdInvite).not.toHaveProperty("tokenDigest");
+    const inviteToken = lastEmailedInviteToken(getSendEmailMock());
 
     const beforeResend = createdInvite.expiresAt;
     const resendResponse = await resendInviteRoute(
@@ -148,10 +155,13 @@ describe("Members and Invites API", () => {
       new Date(beforeResend).getTime(),
     );
     expect(resentInvite).not.toHaveProperty("token");
+    expect(resentInvite).not.toHaveProperty("tokenDigest");
+    const rotatedToken = lastEmailedInviteToken(getSendEmailMock());
+    expect(rotatedToken).not.toBe(inviteToken);
 
     authenticateAs(recipient.id);
     const acceptResponse = await acceptInviteRoute(
-      jsonRequest("/api/v1/invites/accept", { token: createdInvite.token }),
+      jsonRequest("/api/v1/invites/accept", { token: rotatedToken }),
     );
     expect(acceptResponse.status).toBe(201);
     await expect(responseJson<MemberBody>(acceptResponse)).resolves.toMatchObject({
@@ -250,7 +260,9 @@ describe("Members and Invites API", () => {
       acceptedAt: null,
     });
     expect(pending[0]).not.toHaveProperty("token");
-    expect(homePending.token).toEqual(expect.any(String));
+    expect(pending[0]).not.toHaveProperty("tokenDigest");
+    expect(homePending).not.toHaveProperty("token");
+    expect(homePending).not.toHaveProperty("tokenDigest");
 
     authenticateAs(editor.id);
     const editorListResponse = await listPendingInvitesRoute(
@@ -502,7 +514,9 @@ describe("Members and Invites API", () => {
     );
     expect(inviteResponse.status).toBe(201);
     const pendingInvite = await responseJson<InviteBody>(inviteResponse);
-    expect(pendingInvite.token).toEqual(expect.any(String));
+    expect(pendingInvite).not.toHaveProperty("token");
+    expect(pendingInvite).not.toHaveProperty("tokenDigest");
+    const pendingToken = lastEmailedInviteToken(getSendEmailMock());
 
     await testDb
       .update(invite)
@@ -511,7 +525,7 @@ describe("Members and Invites API", () => {
 
     authenticateAs(recipient.id);
     const expiredResponse = await acceptInviteRoute(
-      jsonRequest("/api/v1/invites/accept", { token: pendingInvite.token }),
+      jsonRequest("/api/v1/invites/accept", { token: pendingToken }),
     );
     expect(expiredResponse.status).toBe(410);
     await expect(responseJson<ErrorBody>(expiredResponse)).resolves.toMatchObject({
@@ -529,10 +543,12 @@ describe("Members and Invites API", () => {
     expect(resentResponse.status).toBe(200);
     const resentInvite = await responseJson<InviteBody>(resentResponse);
     expect(resentInvite).not.toHaveProperty("token");
+    expect(resentInvite).not.toHaveProperty("tokenDigest");
+    const rotatedToken = lastEmailedInviteToken(getSendEmailMock());
 
     authenticateAs(outsider.id);
     const mismatchResponse = await acceptInviteRoute(
-      jsonRequest("/api/v1/invites/accept", { token: pendingInvite.token }),
+      jsonRequest("/api/v1/invites/accept", { token: rotatedToken }),
     );
     expect(mismatchResponse.status).toBe(400);
     await expect(responseJson<ErrorBody>(mismatchResponse)).resolves.toMatchObject({

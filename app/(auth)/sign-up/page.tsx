@@ -6,14 +6,25 @@ import { SignUpForm } from "@/components/auth/SignUpForm";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
 import { Divider } from "@/components/auth/kit/Divider";
-import { SIGN_IN_PATH } from "@/lib/auth/paths";
+import {
+  authCallbackUrl,
+  continuationFromSearchParams,
+  SIGN_IN_PATH,
+  withContinuation,
+} from "@/lib/auth/paths";
 import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
 import { redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Create an account · Orbit" };
 
-export default async function SignUpPage() {
-  await redirectIfVerified();
+export default async function SignUpPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const continuation = continuationFromSearchParams(params);
+  await redirectIfVerified(authCallbackUrl(continuation));
   const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
@@ -24,16 +35,21 @@ export default async function SignUpPage() {
         footer={
           <span>
             Already have an account?{" "}
-            <AuthLink href={SIGN_IN_PATH}>Sign in</AuthLink>
+            <AuthLink href={withContinuation(SIGN_IN_PATH, continuation)}>
+              Sign in
+            </AuthLink>
           </span>
         }
       >
         <div className="flex flex-col gap-4">
-          <SignUpForm />
+          <SignUpForm continuation={continuation} />
           {oauthProviders.length > 0 ? (
             <>
               <Divider label="or" />
-              <OAuthButtons providers={oauthProviders} />
+              <OAuthButtons
+                providers={oauthProviders}
+                callbackURL={authCallbackUrl(continuation)}
+              />
             </>
           ) : null}
         </div>

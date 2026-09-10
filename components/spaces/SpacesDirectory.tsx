@@ -8,8 +8,9 @@ import { deleteSpace, renameSpace } from "@/lib/actions/spaces";
 import { APP_PATH } from "@/lib/auth/paths";
 import type { SpaceDirectoryEntry } from "@/lib/services/spaces";
 import { SPACES_PATH, spaceSectionPath } from "@/lib/spaces/paths";
+import { roleLabel } from "@/lib/spaces/role-label";
 
-import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CreateSpaceDialog } from "./CreateSpaceDialog";
 import { RenameDialog } from "./RenameDialog";
 import { RowMenu } from "./RowMenu";
@@ -23,12 +24,6 @@ export interface SpacesDirectoryProps {
 type RowDialog =
   | { type: "rename"; entry: SpaceDirectoryEntry }
   | { type: "delete"; entry: SpaceDirectoryEntry };
-
-function roleLabel(role: SpaceDirectoryEntry["role"]): string {
-  if (role === "owner") return "Owner";
-  if (role === "editor") return "Editor";
-  return "Read-only";
-}
 
 function memberLabel(count: number): string {
   return count === 1 ? "1 Member" : `${count} Members`;
@@ -244,7 +239,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
       ) : null}
 
       {rowDialog?.type === "delete" ? (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
           title="Delete Space"
           description={
             <>
@@ -255,7 +250,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
           }
           confirmPhrase={rowDialog.entry.name}
           onConfirm={() => deleteSpace({ spaceId: rowDialog.entry.id })}
-          onDeleted={() => {}}
+          onConfirmed={() => {}}
           onClose={() => setRowDialog(null)}
         />
       ) : null}

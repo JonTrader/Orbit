@@ -1,13 +1,24 @@
 import { Pool } from "@neondatabase/serverless";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
+import {
+  hashInviteToken,
+  newInviteBearerToken,
+} from "../lib/invites/token";
+
 import { bootstrapE2eDatabaseUrl } from "./env";
+
+export { newInviteBearerToken };
 
 /**
  * E2E helpers: real verified users, real Spaces, real cookies. Users are
  * created through Better Auth's own HTTP endpoints and then verified by a
  * direct database update, because the verification email cannot be received
  * by a test address.
+ *
+ * Invite accept links use bearer tokens that are never stored - only SHA-256
+ * digests. When email delivery is mocked/unavailable, pin a known raw token
+ * onto the pending Invite row so Playwright can open `/accept-invite`.
  */
 
 bootstrapE2eDatabaseUrl();
@@ -130,29 +141,131 @@ export interface MemberView {
   role: "owner" | "editor" | "read-only";
 }
 
-/** Invite + accept over the v1 API; accept-invite UI is not built yet. */
+/**
+ * Direct read-only membership insert for suites that only need a Viewer.
+ * Keeps older E2E specs independent of Invite email delivery.
+ */
 export async function addMemberReadOnly(
-  request: APIRequestContext,
-  ownerSession: string,
+  _request: APIRequestContext,
+  _ownerSession: string,
   spaceId: string,
   member: TestUser,
-  memberSession: string,
+  _memberSession: string,
 ): Promise<void> {
-  const invite = await request.post(`/api/v1/spaces/${spaceId}/invites`, {
-    headers: { cookie: cookieHeader(ownerSession) },
-    data: { email: member.email, role: "read-only" },
-  });
-  if (invite.status() !== 201) {
-    throw new Error(`Invite failed: ${invite.status()} ${await invite.text()}`);
+  const userResult = await db().query(
+    'select id from "user" where email = $1',
+    [member.email],
+  );
+  const userId = userResult.rows[0]?.id as string | undefined;
+  if (!userId) {
+    throw new Error(`No user found for ${member.email}`);
   }
 
-  const accept = await request.post("/api/v1/invites/accept", {
-    headers: { cookie: cookieHeader(memberSession) },
-    data: { token: (await invite.json()).token },
-  });
-  if (accept.status() !== 201) {
-    throw new Error(`Accept failed: ${accept.status()} ${await accept.text()}`);
+  await db().query(
+    `insert into space_member (space_id, user_id, role)
+     values ($1, $2, 'read-only')
+     on conflict on constraint space_member_space_user_unique do nothing`,
+    [spaceId, userId],
+  );
+}
+
+export interface PendingInviteRow {
+  id: string;
+  email: string;
+  role: "editor" | "read-only";
+  expiresAt: Date;
+}
+
+/** Looks up the pending Invite for a Space + email (case-insensitive). */
+export async function findPendingInvite(
+  spaceId: string,
+  email: string,
+): Promise<PendingInviteRow | null> {
+  const result = await db().query(
+    `select id, email, role, expires_at as "expiresAt"
+     from invite
+     where space_id = $1
+       and lower(email) = lower($2)
+       and accepted_at is null
+     limit 1`,
+    [spaceId, email],
+  );
+  const row = result.rows[0] as
+    | { id: string; email: string; role: string; expiresAt: Date }
+    | undefined;
+  if (!row) return null;
+  if (row.role !== "editor" && row.role !== "read-only") {
+    throw new Error(`Unexpected Invite role ${row.role}`);
   }
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    expiresAt: new Date(row.expiresAt),
+  };
+}
+
+/** Overwrites token_digest so tests can open a known accept URL. */
+export async function setInviteBearerToken(
+  inviteId: string,
+  rawToken: string,
+): Promise<void> {
+  const result = await db().query(
+    `update invite
+     set token_digest = $1, updated_at = now()
+     where id = $2`,
+    [hashInviteToken(rawToken), inviteId],
+  );
+  if (result.rowCount !== 1) {
+    throw new Error(`setInviteBearerToken matched no Invite ${inviteId}`);
+  }
+}
+
+/**
+ * After ShareBar/API invite (email mocked), pin a known bearer onto the
+ * pending row and return its id.
+ */
+export async function pinInviteBearerToken(
+  spaceId: string,
+  email: string,
+  rawToken: string,
+): Promise<string> {
+  const pending = await findPendingInvite(spaceId, email);
+  if (!pending) {
+    throw new Error(`No pending Invite for ${email} in Space ${spaceId}`);
+  }
+  await setInviteBearerToken(pending.id, rawToken);
+  return pending.id;
+}
+
+/** Forces a pending Invite into the expired preview state. */
+export async function expirePendingInvite(inviteId: string): Promise<void> {
+  const result = await db().query(
+    `update invite
+     set expires_at = now() - interval '1 hour', updated_at = now()
+     where id = $1 and accepted_at is null`,
+    [inviteId],
+  );
+  if (result.rowCount !== 1) {
+    throw new Error(`expirePendingInvite matched no Invite ${inviteId}`);
+  }
+}
+
+/** Marks an address verified the same way createVerifiedUser does. */
+export async function markEmailVerified(email: string): Promise<void> {
+  const result = await db().query(
+    'update "user" set email_verified = true where email = $1',
+    [email],
+  );
+  if (result.rowCount !== 1) {
+    throw new Error(`markEmailVerified matched no user for ${email}`);
+  }
+}
+
+/** Accept-invite path for a known bearer (query-encoded). */
+export function acceptInviteUrl(rawToken: string): string {
+  const params = new URLSearchParams({ token: rawToken });
+  return `/accept-invite?${params.toString()}`;
 }
 
 /** Owner session cookie of the space's Personal Space owner, for brevity. */

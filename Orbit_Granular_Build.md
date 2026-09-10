@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: H-sharing
     content: "Phase H: Invites + ownership transfer + RBAC audit"
-    status: pending
+    status: completed
   - id: I-reminders
     content: "Phase I: Resend + Inngest Reminders + prefs UI"
     status: pending
@@ -386,7 +386,7 @@ context on why the pages look the way they do.
 
 ---
 
-## Phase H — Sharing
+## Phase H - Sharing
 
 | | |
 | --- | --- |
@@ -394,36 +394,29 @@ context on why the pages look the way they do.
 | **Read** | Spec §4 |
 | **ADRs** | none new (roles in CONTEXT) |
 | **Prereq** | D, G recommended |
+| **Status** | Complete |
 
-| Step | Deliverable |
-| ---- | ----------- |
-| **H1** | Invite email template + send on invite |
-| **H2** | Accept-invite page (token; create/join Member); expired invite UX |
-| **H3** | Ownership transfer UI/API path |
-| **H4** | Audit: every mutation uses `requireMembership` with correct min role |
+| Step | Deliverable | Status |
+| ---- | ----------- | ------ |
+| **H1** | Invite email template + send on invite | done |
+| **H2** | Accept-invite page (token digest; create/join Member); expired Invite UX | done |
+| **H3** | Ownership transfer UI/API path | done |
+| **H4** | Audit: every mutation uses `requireMembership` with correct min role | done |
 
 **Acceptance**
 
-- [ ] Invite → email → accept → Member at chosen role (default read-only)
-- [ ] Expired invite rejected; resend works
-- [ ] Owner can transfer; leave/delete guards hold
-- [ ] Tests: Phase H section of `Orbit_Test_Plan.md` green
+- [x] Invite → email → accept → Member at chosen role (default read-only)
+- [x] Expired Invite rejected; resend works
+- [x] Owner can transfer; leave/delete guards hold
+- [x] Tests: Phase H section of `Orbit_Test_Plan.md` green (`e2e/invite.spec.ts` + authz contract)
 
 **Out of scope:** Reminder cron
 
-**Handoff prompt**
-
-```
-Implement Orbit Phase H only per Orbit_Granular_Build.md (invite email, accept flow, ownership transfer, RBAC audit).
-Read AGENTS.md, CONTEXT.md, docs/spec.md §4, and Phase H in Orbit_Test_Plan.md.
-Default invite role read-only; 7-day expiry; single owner with transfer.
-Implement Phase H tests (invite E2E + requireMembership audit) from the test plan; keep prior-phase suites passing.
-Stop at Phase H acceptance. Do not start Phase I.
-```
+*Phase H is complete - there is no H handoff prompt. Continue with Phase I.*
 
 ---
 
-## Phase I — Reminders
+## Phase I - Reminders
 
 | | |
 | --- | --- |

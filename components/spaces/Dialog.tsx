@@ -30,26 +30,32 @@ function useIsClient(): boolean {
   );
 }
 
+interface DialogOverlayProps {
+  title: string;
+  onClose: () => void;
+  pending: boolean;
+  /** Full overlay class string so callers keep their existing offset. */
+  overlayClassName: string;
+  /** Full panel class string so callers keep their existing width. */
+  panelClassName: string;
+  children: ReactNode;
+}
+
 /**
- * Shared modal scaffold for Space dialogs: backdrop with click-outside
- * close, Escape-to-close, a focus trap, the error line, and the Cancel /
- * submit footer. Form fields arrive as children inside the form.
+ * Shared portal overlay: backdrop click-outside, Escape-to-close, and a
+ * Tab focus trap. Dialog and PanelDialog supply their own inner chrome.
  *
  * Portaled to document.body so fixed positioning is not trapped by
  * transformed ancestors (mobile sidebar translate, overflow clipping).
  */
-export function Dialog({
+function DialogOverlay({
   title,
   onClose,
   pending,
-  error,
-  submitLabel,
-  pendingLabel,
-  submitDisabled = false,
-  tone = "default",
-  onSubmit,
+  overlayClassName,
+  panelClassName,
   children,
-}: DialogProps) {
+}: DialogOverlayProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isClient = useIsClient();
 
@@ -93,52 +99,136 @@ export function Dialog({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 p-4 pt-24 sm:pt-32"
+      className={overlayClassName}
       onClick={(event) => {
         if (event.target === event.currentTarget && !pending) onClose();
       }}
     >
-      <div
-        ref={panelRef}
-        className="w-full max-w-sm overflow-hidden rounded border border-line bg-panel shadow-[0_16px_48px_rgba(28,25,23,0.12)]"
-      >
-        <form onSubmit={onSubmit} className="p-4">
-          <h2 className="mb-3 text-[1rem] font-semibold text-ink">{title}</h2>
-
-          <div className="flex flex-col gap-3">{children}</div>
-
-          {error ? (
-            <p role="alert" className="mt-3 text-[0.8rem] font-medium text-accent">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="rounded px-3 py-1.5 text-[0.85rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <Button
-              type="submit"
-              pending={pending}
-              pendingLabel={pendingLabel}
-              disabled={submitDisabled}
-              className={[
-                "rounded px-3 py-1.5 text-[0.85rem] font-semibold text-white disabled:opacity-50",
-                tone === "danger" ? "bg-accent" : "bg-ink",
-              ].join(" ")}
-            >
-              {submitLabel}
-            </Button>
-          </div>
-        </form>
+      <div ref={panelRef} className={panelClassName}>
+        {children}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Form modal for Space dialogs: overlay plus error line and Cancel /
+ * submit footer. Form fields arrive as children inside the form.
+ */
+export function Dialog({
+  title,
+  onClose,
+  pending,
+  error,
+  submitLabel,
+  pendingLabel,
+  submitDisabled = false,
+  tone = "default",
+  onSubmit,
+  children,
+}: DialogProps) {
+  return (
+    <DialogOverlay
+      title={title}
+      onClose={onClose}
+      pending={pending}
+      overlayClassName="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 p-4 pt-24 sm:pt-32"
+      panelClassName="w-full max-w-sm overflow-hidden rounded border border-line bg-panel shadow-[0_16px_48px_rgba(28,25,23,0.12)]"
+    >
+      <form onSubmit={onSubmit} className="p-4">
+        <h2 className="mb-3 text-[1rem] font-semibold text-ink">{title}</h2>
+
+        <div className="flex flex-col gap-3">{children}</div>
+
+        {error ? (
+          <p role="alert" className="mt-3 text-[0.8rem] font-medium text-accent">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="rounded px-3 py-1.5 text-[0.85rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <Button
+            type="submit"
+            pending={pending}
+            pendingLabel={pendingLabel}
+            disabled={submitDisabled}
+            className={[
+              "rounded px-3 py-1.5 text-[0.85rem] font-semibold text-white disabled:opacity-50",
+              tone === "danger" ? "bg-accent" : "bg-ink",
+            ].join(" ")}
+          >
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+    </DialogOverlay>
+  );
+}
+
+interface PanelDialogProps {
+  title: string;
+  onClose: () => void;
+  /** When true, Escape and backdrop close are disabled. */
+  pending?: boolean;
+  error?: string | null;
+  /** Wider panel for Member management. */
+  size?: "sm" | "md";
+  children: ReactNode;
+}
+
+/**
+ * Non-form modal for multi-action surfaces (Share / Member management).
+ * Nested confirm dialogs stack above this panel via their own portals.
+ */
+export function PanelDialog({
+  title,
+  onClose,
+  pending = false,
+  error,
+  size = "sm",
+  children,
+}: PanelDialogProps) {
+  return (
+    <DialogOverlay
+      title={title}
+      onClose={onClose}
+      pending={pending}
+      overlayClassName="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 p-4 pt-20 sm:pt-28"
+      panelClassName={[
+        "w-full overflow-hidden rounded border border-line bg-panel shadow-[0_16px_48px_rgba(28,25,23,0.12)]",
+        size === "md" ? "max-w-md" : "max-w-sm",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+        <h2 className="text-[1rem] font-semibold text-ink">{title}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={pending}
+          aria-label="Close"
+          className="rounded px-2 py-1 text-[0.85rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
+        >
+          Close
+        </button>
+      </div>
+      <div className="max-h-[min(70vh,32rem)] overflow-y-auto p-4">
+        {children}
+        {error ? (
+          <p role="alert" className="mt-3 text-[0.8rem] font-medium text-accent">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </DialogOverlay>
   );
 }
 

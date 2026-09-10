@@ -9,6 +9,7 @@ import { vi } from "vitest";
 const apiMocks = vi.hoisted(() => ({
   database: undefined as unknown,
   getSession: vi.fn(),
+  sendEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/config", () => ({
@@ -27,9 +28,18 @@ vi.mock("@/lib/db/client", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/email/mailer", () => ({
+  sendEmail: apiMocks.sendEmail,
+}));
+
 /** Returns the shared mock session function. */
 export function getSessionMock() {
   return apiMocks.getSession;
+}
+
+/** Returns the shared mailer mock used by Invite delivery. */
+export function getSendEmailMock() {
+  return apiMocks.sendEmail;
 }
 
 /** Wires the shared mock to the test database client. */
