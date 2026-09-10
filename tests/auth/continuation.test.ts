@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   ACCEPT_INVITE_PATH,
   APP_PATH,
+  CONTINUATION_PARAM,
   acceptInvitePath,
   authCallbackUrl,
+  continuationFromSearchParams,
   parseLocalContinuation,
   verifyEmailPath,
   withContinuation,
@@ -43,5 +45,44 @@ describe("Invite auth continuation", () => {
     expect(verifyEmailPath("a@orbit.test", invite)).toBe(
       `/verify-email?email=${encodeURIComponent("a@orbit.test")}&continue=${encodeURIComponent(invite)}`,
     );
+  });
+
+  it("unwraps searchParams continue as string, string[], or undefined", () => {
+    expect(
+      continuationFromSearchParams({ [CONTINUATION_PARAM]: invite }),
+    ).toBe(invite);
+    expect(
+      continuationFromSearchParams({ [CONTINUATION_PARAM]: [invite] }),
+    ).toBe(invite);
+    expect(
+      continuationFromSearchParams({
+        [CONTINUATION_PARAM]: [invite, "/sign-in"],
+      }),
+    ).toBe(invite);
+    expect(continuationFromSearchParams({})).toBeNull();
+    expect(
+      continuationFromSearchParams({ [CONTINUATION_PARAM]: undefined }),
+    ).toBeNull();
+  });
+
+  it("still rejects open redirects after unwrapping searchParams", () => {
+    expect(
+      continuationFromSearchParams({
+        [CONTINUATION_PARAM]: "https://evil.test/accept-invite?token=x",
+      }),
+    ).toBeNull();
+    expect(
+      continuationFromSearchParams({
+        [CONTINUATION_PARAM]: ["//evil.test/accept-invite?token=x"],
+      }),
+    ).toBeNull();
+    expect(
+      continuationFromSearchParams({ [CONTINUATION_PARAM]: "/sign-in" }),
+    ).toBeNull();
+    expect(
+      continuationFromSearchParams({
+        [CONTINUATION_PARAM]: ["/accept-invite"],
+      }),
+    ).toBeNull();
   });
 });

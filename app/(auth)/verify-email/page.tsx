@@ -7,8 +7,7 @@ import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
 import {
   authCallbackUrl,
-  CONTINUATION_PARAM,
-  parseLocalContinuation,
+  continuationFromSearchParams,
   SIGN_IN_PATH,
   withContinuation,
 } from "@/lib/auth/paths";
@@ -22,10 +21,7 @@ export default async function VerifyEmailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const rawContinue = params[CONTINUATION_PARAM];
-  const continuation = parseLocalContinuation(
-    Array.isArray(rawContinue) ? rawContinue[0] : rawContinue,
-  );
+  const continuation = continuationFromSearchParams(params);
   const emailParam = params.email;
   const email = typeof emailParam === "string" ? emailParam : undefined;
   const session = await getAppSession();

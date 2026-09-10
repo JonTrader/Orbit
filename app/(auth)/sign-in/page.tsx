@@ -8,9 +8,8 @@ import { AuthLink } from "@/components/auth/kit/AuthLink";
 import { Divider } from "@/components/auth/kit/Divider";
 import {
   authCallbackUrl,
-  CONTINUATION_PARAM,
+  continuationFromSearchParams,
   FORGOT_PASSWORD_PATH,
-  parseLocalContinuation,
   SIGN_UP_PATH,
   withContinuation,
 } from "@/lib/auth/paths";
@@ -25,10 +24,7 @@ export default async function SignInPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const rawContinue = params[CONTINUATION_PARAM];
-  const continuation = parseLocalContinuation(
-    Array.isArray(rawContinue) ? rawContinue[0] : rawContinue,
-  );
+  const continuation = continuationFromSearchParams(params);
   await redirectIfVerified(authCallbackUrl(continuation));
   const oauthProviders = getConfiguredOAuthProviderIds();
 

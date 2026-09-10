@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import {
-  CONTINUATION_PARAM,
-  parseLocalContinuation,
-} from "@/lib/auth/paths";
+import { continuationFromSearchParams } from "@/lib/auth/paths";
 import { requireVerifiedSession, readCreatorTimeZone } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { resolveEntrySpace } from "@/lib/onboarding";
@@ -29,10 +26,7 @@ export default async function HomePage({
 }) {
   const session = await requireVerifiedSession();
   const params = await searchParams;
-  const rawContinue = params[CONTINUATION_PARAM];
-  const continuation = parseLocalContinuation(
-    Array.isArray(rawContinue) ? rawContinue[0] : rawContinue,
-  );
+  const continuation = continuationFromSearchParams(params);
   const spaceId = await resolveEntrySpace(getDb(), {
     userId: session.user.id,
     timezone: await readCreatorTimeZone(),

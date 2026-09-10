@@ -79,6 +79,17 @@ export function parseLocalContinuation(raw: unknown): string | null {
   return acceptInvitePath(token);
 }
 
+/**
+ * Reads `continue` from Next searchParams and validates it. Pages should use
+ * this instead of unwrapping the query value themselves.
+ */
+export function continuationFromSearchParams(
+  params: Record<string, string | string[] | undefined>,
+): string | null {
+  const raw = params[CONTINUATION_PARAM];
+  return parseLocalContinuation(Array.isArray(raw) ? raw[0] : raw);
+}
+
 /** Appends a validated continuation query when present. */
 export function withContinuation(
   path: string,
