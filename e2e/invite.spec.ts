@@ -95,7 +95,6 @@ async function openPeopleDialog(page: Page): Promise<void> {
 test.describe("Invite accept and ShareBar management", () => {
   test("Owner invites; recipient signs up, verifies, accepts as read-only", async ({
     page,
-    request,
   }) => {
     const spaceName = `Invite Join ${runSuffix()}`;
     const spaceId = await createOwnedSpace(spaceName);
@@ -143,27 +142,9 @@ test.describe("Invite accept and ShareBar management", () => {
       page.getByRole("heading", { name: "Accept Invite" }),
     ).toBeVisible({ timeout: 30_000 });
     await page.getByRole("button", { name: "Accept Invite" }).click();
-
-    // Membership is the source of truth: client redirect can race an RSC
-    // refresh of `/accept-invite` after the Invite is consumed.
-    const memberSession = await signIn(request, {
-      email: recipientEmail,
-      password,
-      name: "Invite Newcomer",
+    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming`), {
+      timeout: 30_000,
     });
-    await expect
-      .poll(
-        async () => {
-          const members = await spaceMembers(request, memberSession, spaceId);
-          return members.find((row) => row.name === "Invite Newcomer")?.role;
-        },
-        { timeout: 30_000 },
-      )
-      .toBe("read-only");
-
-    await page.context().clearCookies();
-    await authenticatePage(page, memberSession);
-    await page.goto(`/spaces/${spaceId}/upcoming`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText(/2 people/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Invite" })).toHaveCount(0);

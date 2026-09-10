@@ -53,8 +53,8 @@ export const sendInvite = defineAction(
 
 /**
  * Accepts a pending Invite for the verified session user. Revalidates the
- * Space directory; the client redirects with the write result's spaceId so
- * this request does not re-read memoized membership.
+ * Space directory; the client full-navigates with the write result's spaceId
+ * so this request does not re-read memoized membership.
  */
 export const acceptInvite = defineAction(
   acceptInviteInputSchema,
