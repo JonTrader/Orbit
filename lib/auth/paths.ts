@@ -9,6 +9,8 @@ export const VERIFY_EMAIL_PATH = "/verify-email";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 /** Email-token landing after a forgot-password link. Usable while signed out. */
 export const RESET_PASSWORD_PATH = "/reset-password";
+/** Invite email landing; accept UI is Phase H Step 2. */
+export const ACCEPT_INVITE_PATH = "/accept-invite";
 
 /**
  * Better Auth gives the reset callback a URL with the token in its path. Move

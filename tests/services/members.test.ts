@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { randomBytes, randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
+import { sendEmail } from "@/lib/email/mailer";
 import {
   acceptInvite,
+  hashInviteToken,
   inviteMember,
   leaveSpace,
   listMembers,
@@ -17,11 +19,24 @@ import {
 } from "@/lib/services/members";
 import { deleteSpace } from "@/lib/services/spaces";
 
+import { lastEmailedInviteToken } from "../setup/invite-email";
 import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
+vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
+
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+
+function emailedToken(): string {
+  return lastEmailedInviteToken(vi.mocked(sendEmail));
+}
+
 describe("Member and Invite services", () => {
-  beforeEach(truncateAll);
+  beforeEach(async () => {
+    await truncateAll();
+    vi.mocked(sendEmail).mockReset();
+    vi.mocked(sendEmail).mockResolvedValue(undefined);
+  });
 
   it("creates default read-only and editor Invites with seven-day expiry", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
@@ -36,6 +51,7 @@ describe("Member and Invite services", () => {
       spaceId: space.id,
       email: " Partner@Orbit.Test ",
     });
+    const readOnlyToken = emailedToken();
     const editor = await inviteMember(testDb, {
       userId: owner.id,
       spaceId: space.id,
@@ -49,7 +65,19 @@ describe("Member and Invite services", () => {
       invitedBy: owner.id,
       acceptedAt: null,
     });
+    expect(readOnly).not.toHaveProperty("token");
+    expect(readOnly).not.toHaveProperty("tokenDigest");
     expect(editor.role).toBe("editor");
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(sendEmail).mock.calls[0][1]).toEqual({
+      idempotencyKey: expect.stringMatching(/^invite:[0-9a-f-]+:[0-9a-f]{64}$/),
+    });
+    const [stored] = await testDb
+      .select()
+      .from(invite)
+      .where(eq(invite.id, readOnly.id));
+    expect(stored.tokenDigest).toBe(hashInviteToken(readOnlyToken));
+    expect(stored.tokenDigest).not.toBe(readOnlyToken);
     expect(readOnly.expiresAt.getTime()).toBeGreaterThanOrEqual(
       before + 7 * 24 * 60 * 60 * 1_000 - 100,
     );
@@ -107,6 +135,7 @@ describe("Member and Invite services", () => {
       acceptedAt: null,
     });
     expect(pending[0]).not.toHaveProperty("token");
+    expect(pending[0]).not.toHaveProperty("tokenDigest");
 
     await expect(
       listPendingInvites(testDb, { userId: editor.id, spaceId: space.id }),
@@ -129,6 +158,7 @@ describe("Member and Invite services", () => {
       email: recipient.email,
       role: "editor",
     });
+    const token = emailedToken();
 
     await expect(
       listMembers(testDb, { userId: owner.id, spaceId: space.id }),
@@ -136,7 +166,7 @@ describe("Member and Invite services", () => {
 
     const accepted = await acceptInvite(testDb, {
       userId: recipient.id,
-      token: pending.token,
+      token,
     });
     expect(accepted).toMatchObject({
       spaceId: space.id,
@@ -170,9 +200,10 @@ describe("Member and Invite services", () => {
       spaceId: space.id,
       email: recipient.email,
     });
+    const originalToken = emailedToken();
 
     await expect(
-      acceptInvite(testDb, { userId: wrongUser.id, token: pending.token }),
+      acceptInvite(testDb, { userId: wrongUser.id, token: originalToken }),
     ).rejects.toMatchObject({ code: "EMAIL_MISMATCH" });
 
     const oldExpiry = new Date(Date.now() - 1_000);
@@ -181,17 +212,23 @@ describe("Member and Invite services", () => {
       .set({ expiresAt: oldExpiry })
       .where(eq(invite.id, pending.id));
     await expect(
-      acceptInvite(testDb, { userId: recipient.id, token: pending.token }),
+      acceptInvite(testDb, { userId: recipient.id, token: originalToken }),
     ).rejects.toMatchObject({ code: "EXPIRED_INVITE" });
 
     const resent = await resendInvite(testDb, {
       userId: owner.id,
       inviteId: pending.id,
     });
+    const rotatedToken = emailedToken();
     expect(resent.expiresAt.getTime()).toBeGreaterThan(Date.now());
     expect(resent).not.toHaveProperty("token");
+    expect(resent).not.toHaveProperty("tokenDigest");
+    expect(rotatedToken).not.toBe(originalToken);
     await expect(
-      acceptInvite(testDb, { userId: recipient.id, token: pending.token }),
+      acceptInvite(testDb, { userId: recipient.id, token: originalToken }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    await expect(
+      acceptInvite(testDb, { userId: recipient.id, token: rotatedToken }),
     ).resolves.toMatchObject({ userId: recipient.id, role: "read-only" });
   });
 
@@ -559,22 +596,20 @@ describe("Member and Invite services", () => {
       }),
     ).rejects.toMatchObject({ code: "ALREADY_MEMBER" });
 
-    const [orphanedInvite] = await testDb
-      .insert(invite)
-      .values({
-        spaceId: space.id,
-        email: member.email,
-        role: "editor",
-        token: randomUUID(),
-        invitedBy: owner.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
-      })
-      .returning();
+    const orphanRaw = randomBytes(32).toString("base64url");
+    await testDb.insert(invite).values({
+      spaceId: space.id,
+      email: member.email,
+      role: "editor",
+      tokenDigest: hashInviteToken(orphanRaw),
+      invitedBy: owner.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
+    });
 
     await expect(
       acceptInvite(testDb, {
         userId: member.id,
-        token: orphanedInvite.token,
+        token: orphanRaw,
       }),
     ).rejects.toMatchObject({ code: "ALREADY_MEMBER" });
   });
@@ -591,28 +626,29 @@ describe("Member and Invite services", () => {
       spaceId: space.id,
       email: recipient.email,
     });
+    const token = emailedToken();
 
     await expect(
       acceptInvite(testDb, {
         userId: recipient.id,
-        token: randomUUID(),
+        token: randomBytes(32).toString("base64url"),
       }),
     ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
     await expect(
       acceptInvite(testDb, {
         userId: recipient.id,
-        token: `${pending.token.slice(0, -1)}x`,
+        token: `${token.slice(0, -1)}x`,
       }),
     ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
 
     await acceptInvite(testDb, {
       userId: recipient.id,
-      token: pending.token,
+      token,
     });
     await expect(
       acceptInvite(testDb, {
         userId: recipient.id,
-        token: pending.token,
+        token,
       }),
     ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
   });
@@ -686,5 +722,37 @@ describe("Member and Invite services", () => {
         targetUserId: stranger.id,
       }),
     ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
+  });
+
+  it("keeps a pending Invite when email delivery fails so the Owner can resend", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("Resend down"));
+
+    await expect(
+      inviteMember(testDb, {
+        userId: owner.id,
+        spaceId: space.id,
+        email: "retry@orbit.test",
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_EMAIL_FAILED" });
+
+    const pending = await listPendingInvites(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+    });
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.email).toBe("retry@orbit.test");
+
+    await expect(
+      resendInvite(testDb, {
+        userId: owner.id,
+        inviteId: pending[0]!.id,
+      }),
+    ).resolves.toMatchObject({ email: "retry@orbit.test" });
+    expect(sendEmail).toHaveBeenCalledTimes(2);
   });
 });

@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 
-import type { invite } from "@/lib/db/schema";
-import { inviteMember } from "@/lib/services/members";
+import { inviteMember, type InvitePublicView } from "@/lib/services/members";
 
 import { defineAction } from "./framework";
 import type { ActionResult } from "./result";
@@ -19,13 +18,12 @@ const sendInviteInputSchema = z
 
 export type SendInviteInput = z.input<typeof sendInviteInputSchema>;
 
-export type SendInviteResult = ActionResult<typeof invite.$inferSelect>;
+export type SendInviteResult = ActionResult<InvitePublicView>;
 
 /**
- * Creates an Invite for the Active Space from the share bar. Owner-only by
- * the underlying service; the default role is read-only and the Invite
- * expires after seven days. The invite email delivery itself lands with the
- * Phase H template work.
+ * Creates an Invite for the Active Space from the share bar and emails the
+ * accept link. Owner-only by the underlying service; the default role is
+ * read-only and the Invite expires after seven days.
  */
 export const sendInvite = defineAction(
   sendInviteInputSchema,

@@ -1,5 +1,5 @@
 import { migrateTestDb, testDb, truncateAll } from "./db";
-import { getSessionMock, setTestDatabase } from "./api-mocks";
+import { getSendEmailMock, getSessionMock, setTestDatabase } from "./api-mocks";
 
 export interface ErrorBody {
   error: {
@@ -137,6 +137,8 @@ export function apiTestLifecycle(): {
     beforeEach: async () => {
       await truncateAll();
       getSessionMock().mockReset();
+      getSendEmailMock().mockReset();
+      getSendEmailMock().mockResolvedValue(undefined);
     },
   };
 }

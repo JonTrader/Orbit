@@ -130,29 +130,29 @@ export interface MemberView {
   role: "owner" | "editor" | "read-only";
 }
 
-/** Invite + accept over the v1 API; accept-invite UI is not built yet. */
+/** Direct read-only membership insert; Invite email/accept UI is later Phase H. */
 export async function addMemberReadOnly(
-  request: APIRequestContext,
-  ownerSession: string,
+  _request: APIRequestContext,
+  _ownerSession: string,
   spaceId: string,
   member: TestUser,
-  memberSession: string,
+  _memberSession: string,
 ): Promise<void> {
-  const invite = await request.post(`/api/v1/spaces/${spaceId}/invites`, {
-    headers: { cookie: cookieHeader(ownerSession) },
-    data: { email: member.email, role: "read-only" },
-  });
-  if (invite.status() !== 201) {
-    throw new Error(`Invite failed: ${invite.status()} ${await invite.text()}`);
+  const userResult = await db().query(
+    'select id from "user" where email = $1',
+    [member.email],
+  );
+  const userId = userResult.rows[0]?.id as string | undefined;
+  if (!userId) {
+    throw new Error(`No user found for ${member.email}`);
   }
 
-  const accept = await request.post("/api/v1/invites/accept", {
-    headers: { cookie: cookieHeader(memberSession) },
-    data: { token: (await invite.json()).token },
-  });
-  if (accept.status() !== 201) {
-    throw new Error(`Accept failed: ${accept.status()} ${await accept.text()}`);
-  }
+  await db().query(
+    `insert into space_member (space_id, user_id, role)
+     values ($1, $2, 'read-only')
+     on conflict on constraint space_member_space_user_unique do nothing`,
+    [spaceId, userId],
+  );
 }
 
 /** Owner session cookie of the space's Personal Space owner, for brevity. */

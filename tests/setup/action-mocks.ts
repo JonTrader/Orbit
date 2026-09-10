@@ -43,6 +43,11 @@ export function getRevalidatePathMock() {
   return actionMocks.revalidatePath;
 }
 
+/** The shared mailer mock; assert Invite/auth delivery per test. */
+export function getSendEmailMock() {
+  return actionMocks.sendEmail;
+}
+
 /** Mocks the action session guard for one verified user. */
 export function authenticateAs(userId: string): void {
   actionMocks.requireVerifiedSession.mockResolvedValue({

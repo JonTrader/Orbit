@@ -1,13 +1,18 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import type { OrbitDb } from "@/lib/db/client";
-import { invite, spaceMember, user, type SpaceRole } from "@/lib/db/schema";
+import { invite, space, spaceMember, user, type SpaceRole } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
+import {
+  buildInviteAcceptUrl,
+} from "@/lib/email/templates/invite";
+import { sendInviteEmail } from "@/lib/email/templates/invite-emails";
 
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
+const PENDING_INVITE_CONSTRAINT = "invite_space_email_pending_unique";
 
 type InviteRole = Exclude<SpaceRole, "owner">;
 
@@ -18,6 +23,7 @@ export type MemberErrorCode =
   | "INVALID_EMAIL"
   | "INVALID_ROLE"
   | "INVITE_ALREADY_PENDING"
+  | "INVITE_EMAIL_FAILED"
   | "INVITE_NOT_FOUND"
   | "LAST_SPACE"
   | "MEMBER_NOT_FOUND"
@@ -74,76 +80,88 @@ export interface SpaceMemberView {
   updatedAt: Date;
 }
 
-/** Invite fields safe to return from list/resend (token omitted). */
-export type InvitePublicView = Omit<typeof invite.$inferSelect, "token">;
+/** Invite fields safe to return from create/list/resend (digest omitted). */
+export type InvitePublicView = Omit<typeof invite.$inferSelect, "tokenDigest">;
 
-/** Creates an Owner-authorized Invite without sending email yet. */
+/** SHA-256 hex digest of a raw Invite bearer secret. */
+export function hashInviteToken(rawToken: string): string {
+  return createHash("sha256").update(rawToken, "utf8").digest("hex");
+}
+
+/** Creates an Owner-authorized Invite and emails the accept link. */
 export async function inviteMember(
   db: OrbitDb,
   input: InviteMemberInput,
-): Promise<typeof invite.$inferSelect> {
+): Promise<InvitePublicView> {
   await requireMembership(db, { ...input, minimumRole: "owner" });
   const email = normalizeEmail(input.email);
   const role = validateInviteRole(input.role ?? "read-only");
 
-  const [existingPending] = await db
-    .select({ id: invite.id })
-    .from(invite)
-    .where(
+  const [context] = await db
+    .select({
+      spaceName: space.name,
+      memberId: spaceMember.id,
+    })
+    .from(space)
+    .leftJoin(user, sql`lower(${user.email}) = ${email}`)
+    .leftJoin(
+      spaceMember,
       and(
-        eq(invite.spaceId, input.spaceId),
-        eq(invite.email, email),
-        isNull(invite.acceptedAt),
+        eq(spaceMember.spaceId, space.id),
+        eq(spaceMember.userId, user.id),
       ),
     )
+    .where(eq(space.id, input.spaceId))
     .limit(1);
-  if (existingPending) {
+
+  if (!context) {
+    throw new MemberError("INVITE_NOT_FOUND", "Space was not found");
+  }
+  if (context.memberId) {
     throw new MemberError(
-      "INVITE_ALREADY_PENDING",
-      "An Invite is already pending for that email in this Space",
+      "ALREADY_MEMBER",
+      "That user is already a Member of this Space",
     );
   }
 
-  const [existingUser] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(sql`lower(${user.email}) = ${email}`)
-    .limit(1);
-  if (existingUser) {
-    const [existingMembership] = await db
-      .select({ id: spaceMember.id })
-      .from(spaceMember)
-      .where(
-        and(
-          eq(spaceMember.spaceId, input.spaceId),
-          eq(spaceMember.userId, existingUser.id),
-        ),
-      )
-      .limit(1);
-    if (existingMembership) {
+  const secret = createInviteSecret();
+  let created: typeof invite.$inferSelect;
+  try {
+    const [row] = await db
+      .insert(invite)
+      .values({
+        spaceId: input.spaceId,
+        email,
+        role,
+        tokenDigest: secret.digest,
+        invitedBy: input.userId,
+        expiresAt: inviteExpiry(),
+      })
+      .returning();
+    created = row;
+  } catch (error) {
+    if (isUniqueViolation(error, PENDING_INVITE_CONSTRAINT)) {
       throw new MemberError(
-        "ALREADY_MEMBER",
-        "That user is already a Member of this Space",
+        "INVITE_ALREADY_PENDING",
+        "An Invite is already pending for that email in this Space",
       );
     }
+    throw error;
   }
 
-  const [created] = await db
-    .insert(invite)
-    .values({
-      spaceId: input.spaceId,
-      email,
-      role,
-      token: randomUUID(),
-      invitedBy: input.userId,
-      expiresAt: inviteExpiry(),
-    })
-    .returning();
+  await deliverInviteEmail({
+    to: email,
+    spaceName: context.spaceName,
+    role,
+    rawToken: secret.raw,
+    expiresAt: created.expiresAt,
+    idempotencyKey: inviteEmailIdempotencyKey(created.id, secret.digest),
+  });
 
-  return created;
+  return withoutInviteDigest(created);
 }
 
-/** Refreshes a pending Invite to another seven-day window. */
+/** Refreshes expiry, rotates the secret, and re-sends the accept email. */
 export async function resendInvite(
   db: OrbitDb,
   input: InviteAccessInput,
@@ -155,17 +173,28 @@ export async function resendInvite(
   });
 
   const [current] = await db
-    .select()
+    .select({
+      id: invite.id,
+      email: invite.email,
+      role: invite.role,
+      acceptedAt: invite.acceptedAt,
+      spaceName: space.name,
+    })
     .from(invite)
+    .innerJoin(space, eq(space.id, invite.spaceId))
     .where(eq(invite.id, input.inviteId))
     .limit(1);
   if (!current || current.acceptedAt) {
     throw new MemberError("INVITE_NOT_FOUND", "Pending Invite was not found");
   }
 
+  const secret = createInviteSecret();
   const [updated] = await db
     .update(invite)
-    .set({ expiresAt: inviteExpiry() })
+    .set({
+      expiresAt: inviteExpiry(),
+      tokenDigest: secret.digest,
+    })
     .where(and(eq(invite.id, input.inviteId), isNull(invite.acceptedAt)))
     .returning();
 
@@ -173,7 +202,16 @@ export async function resendInvite(
     throw new MemberError("INVITE_NOT_FOUND", "Pending Invite was not found");
   }
 
-  return withoutInviteToken(updated);
+  await deliverInviteEmail({
+    to: current.email,
+    spaceName: current.spaceName,
+    role: validateInviteRole(current.role),
+    rawToken: secret.raw,
+    expiresAt: updated.expiresAt,
+    idempotencyKey: inviteEmailIdempotencyKey(updated.id, secret.digest),
+  });
+
+  return withoutInviteDigest(updated);
 }
 
 /** Accepts a pending Invite for a signed-in user whose email matches it. */
@@ -181,11 +219,13 @@ export async function acceptInvite(
   db: OrbitDb,
   input: AcceptInviteInput,
 ): Promise<typeof spaceMember.$inferSelect> {
+  const tokenDigest = hashInviteToken(input.token);
+
   return db.transaction(async (tx) => {
     const [pending] = await tx
       .select()
       .from(invite)
-      .where(eq(invite.token, input.token))
+      .where(eq(invite.tokenDigest, tokenDigest))
       .for("update")
       .limit(1);
 
@@ -256,7 +296,7 @@ export async function listPendingInvites(
     .where(and(eq(invite.spaceId, input.spaceId), isNull(invite.acceptedAt)))
     .orderBy(asc(invite.createdAt), asc(invite.id));
 
-  return rows.map(withoutInviteToken);
+  return rows.map(withoutInviteDigest);
 }
 
 /** Lists Members with the user fields needed by the share surface. */
@@ -461,6 +501,42 @@ export async function leaveSpace(
   });
 }
 
+async function deliverInviteEmail(input: {
+  to: string;
+  spaceName: string;
+  role: InviteRole;
+  rawToken: string;
+  expiresAt: Date;
+  idempotencyKey: string;
+}): Promise<void> {
+  try {
+    await sendInviteEmail(
+      input.to,
+      {
+        spaceName: input.spaceName,
+        role: input.role,
+        acceptUrl: buildInviteAcceptUrl(input.rawToken),
+        expiresAt: input.expiresAt,
+      },
+      { idempotencyKey: input.idempotencyKey },
+    );
+  } catch {
+    throw new MemberError(
+      "INVITE_EMAIL_FAILED",
+      "Invite was saved but the email could not be sent. Resend to try again.",
+    );
+  }
+}
+
+function inviteEmailIdempotencyKey(inviteId: string, tokenDigest: string): string {
+  return `invite:${inviteId}:${tokenDigest}`;
+}
+
+function createInviteSecret(): { raw: string; digest: string } {
+  const raw = randomBytes(32).toString("base64url");
+  return { raw, digest: hashInviteToken(raw) };
+}
+
 async function findMember(
   db: OrbitDb,
   spaceId: string,
@@ -495,10 +571,10 @@ async function findInviteSpaceId(db: OrbitDb, inviteId: string): Promise<string>
   return result.spaceId;
 }
 
-function withoutInviteToken(
+function withoutInviteDigest(
   row: typeof invite.$inferSelect,
 ): InvitePublicView {
-  const { token: _token, ...view } = row;
+  const { tokenDigest: _digest, ...view } = row;
   return view;
 }
 
@@ -522,4 +598,20 @@ function validateInviteRole(role: SpaceRole): InviteRole {
     );
   }
   return role;
+}
+
+function isUniqueViolation(error: unknown, constraint: string): boolean {
+  let current: unknown = error;
+  while (current && typeof current === "object") {
+    const record = current as {
+      code?: string;
+      constraint?: string;
+      cause?: unknown;
+    };
+    if (record.code === "23505" && record.constraint === constraint) {
+      return true;
+    }
+    current = record.cause;
+  }
+  return false;
 }

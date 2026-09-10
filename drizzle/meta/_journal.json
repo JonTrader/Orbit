@@ -43,6 +43,13 @@
       "when": 1788411009626,
       "tag": "0005_nebulous_gertrude_yorkes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789080000000,
+      "tag": "0006_invite_token_digest",
+      "breakpoints": true
     }
   ]
 }
