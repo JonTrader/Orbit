@@ -8,6 +8,7 @@ import { deleteSpace, renameSpace } from "@/lib/actions/spaces";
 import { APP_PATH } from "@/lib/auth/paths";
 import type { SpaceDirectoryEntry } from "@/lib/services/spaces";
 import { SPACES_PATH, spaceSectionPath } from "@/lib/spaces/paths";
+import { roleLabel } from "@/lib/spaces/role-label";
 
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { CreateSpaceDialog } from "./CreateSpaceDialog";
@@ -23,12 +24,6 @@ export interface SpacesDirectoryProps {
 type RowDialog =
   | { type: "rename"; entry: SpaceDirectoryEntry }
   | { type: "delete"; entry: SpaceDirectoryEntry };
-
-function roleLabel(role: SpaceDirectoryEntry["role"]): string {
-  if (role === "owner") return "Owner";
-  if (role === "editor") return "Editor";
-  return "Read-only";
-}
 
 function memberLabel(count: number): string {
   return count === 1 ? "1 Member" : `${count} Members`;

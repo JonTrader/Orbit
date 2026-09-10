@@ -14,6 +14,7 @@ import {
 } from "@/lib/actions/members";
 import type { InvitePublicView } from "@/lib/services/members";
 import { SPACES_PATH } from "@/lib/spaces/paths";
+import { roleLabel } from "@/lib/spaces/role-label";
 
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import {
@@ -58,12 +59,6 @@ const INVITE_ROLES = [
 ] as const;
 
 type InviteRole = (typeof INVITE_ROLES)[number]["value"];
-
-function roleLabel(role: ShareBarMember["role"]): string {
-  if (role === "owner") return "Owner";
-  if (role === "editor") return "Editor";
-  return "Read-only";
-}
 
 /**
  * Bottom-of-panel share surface for the Active Space. Shows member avatars,
@@ -237,6 +232,8 @@ function PeopleDialog({
   const [pendingInvites, setPendingInvites] = useState<InvitePublicView[] | null>(
     null,
   );
+  /** Wall clock when Invites last loaded; set outside render for purity. */
+  const [invitesLoadedAtMs, setInvitesLoadedAtMs] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -250,6 +247,7 @@ function PeopleDialog({
       const result = await listPendingInvites({ spaceId });
       if (cancelled) return;
       if (result.ok) {
+        setInvitesLoadedAtMs(Date.now());
         setPendingInvites(result.data);
         setLoadError(null);
       } else {
@@ -285,6 +283,7 @@ function PeopleDialog({
         setActionError(result.error.message);
         return;
       }
+      setInvitesLoadedAtMs(Date.now());
       setPendingInvites((current) =>
         (current ?? []).map((row) => (row.id === inviteId ? result.data : row)),
       );
@@ -389,7 +388,8 @@ function PeopleDialog({
             <ul className="flex flex-col gap-2" aria-label="Pending Invites">
               {pendingInvites.map((pendingInvite) => {
                 const expired =
-                  new Date(pendingInvite.expiresAt).getTime() <= Date.now();
+                  new Date(pendingInvite.expiresAt).getTime() <=
+                  invitesLoadedAtMs;
                 return (
                   <li
                     key={pendingInvite.id}

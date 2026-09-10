@@ -15,16 +15,13 @@ import {
 import { getAppSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { previewInviteByToken } from "@/lib/services/members";
+import { roleLabel } from "@/lib/spaces/role-label";
 
 export const metadata: Metadata = {
   title: "Accept Invite · Orbit",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
-
-function roleLabel(role: "editor" | "read-only"): string {
-  return role === "editor" ? "Editor" : "Read-only";
-}
 
 export default async function AcceptInvitePage({
   searchParams,

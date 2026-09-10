@@ -1,5 +1,6 @@
 import { ACCEPT_INVITE_PATH } from "@/lib/auth/paths";
 import { requireEnv } from "@/lib/env";
+import { roleLabel } from "@/lib/spaces/role-label";
 
 import { renderEmail, type RenderedEmail } from "./layout";
 
@@ -19,10 +20,6 @@ export function buildInviteAcceptUrl(rawToken: string): string {
   const url = new URL(ACCEPT_INVITE_PATH, `${base}/`);
   url.searchParams.set("token", rawToken);
   return url.toString();
-}
-
-function roleLabel(role: InviteEmailInput["role"]): string {
-  return role === "editor" ? "Editor" : "Read-only";
 }
 
 /** Pure escaped Invite email via the shared layout renderer. */
