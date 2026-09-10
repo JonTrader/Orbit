@@ -39,6 +39,7 @@ export default async function SpaceRouteLayout({
             spaceId={spaceId}
             members={members}
             canManageMembers={viewer.can.manageMembers}
+            viewerUserId={viewer.userId}
           />
         }
       >

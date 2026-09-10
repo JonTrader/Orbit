@@ -1,11 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 
-// `ShareBar` imports the server action `sendInvite` (and that action pulls in
-// Better Auth config at import-time). This component test only verifies
-// prop plumbing, so we stub the server action to avoid requiring DATABASE_URL.
+// ShareBar imports Server Actions that pull Better Auth at import-time.
 vi.mock("@/lib/actions/invites", () => ({
   sendInvite: vi.fn().mockResolvedValue({ ok: true, data: null }),
+}));
+
+vi.mock("@/lib/actions/members", () => ({
+  listPendingInvites: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+  resendInvite: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  updateMemberRole: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  removeMember: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  transferOwnership: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  leaveSpace: vi.fn().mockResolvedValue({ ok: true, data: null }),
 }));
 
 import { ShareBarSlot } from "@/components/spaces/ShareBarSlot";
@@ -22,10 +29,12 @@ describe("ShareBarSlot", () => {
       spaceId: "space-1",
       members,
       canManageMembers: true,
+      viewerUserId: "user-1",
     }) as ReactElement<{
       spaceId: string;
       members: typeof members;
       canManageMembers: boolean;
+      viewerUserId: string;
     }>;
 
     expect(spy).not.toHaveBeenCalled();
@@ -33,6 +42,7 @@ describe("ShareBarSlot", () => {
       spaceId: "space-1",
       members,
       canManageMembers: true,
+      viewerUserId: "user-1",
     });
     spy.mockRestore();
   });

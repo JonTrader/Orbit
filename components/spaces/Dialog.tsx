@@ -142,6 +142,109 @@ export function Dialog({
   );
 }
 
+interface PanelDialogProps {
+  title: string;
+  onClose: () => void;
+  /** When true, Escape and backdrop close are disabled. */
+  pending?: boolean;
+  error?: string | null;
+  /** Wider panel for Member management. */
+  size?: "sm" | "md";
+  children: ReactNode;
+}
+
+/**
+ * Non-form modal for multi-action surfaces (Share / Member management).
+ * Nested confirm dialogs stack above this panel via their own portals.
+ */
+export function PanelDialog({
+  title,
+  onClose,
+  pending = false,
+  error,
+  size = "sm",
+  children,
+}: PanelDialogProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isClient = useIsClient();
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (!pending) onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button, input, textarea, [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [pending, onClose]);
+
+  if (!isClient) return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 p-4 pt-20 sm:pt-28"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !pending) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        className={[
+          "w-full overflow-hidden rounded border border-line bg-panel shadow-[0_16px_48px_rgba(28,25,23,0.12)]",
+          size === "md" ? "max-w-md" : "max-w-sm",
+        ].join(" ")}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+          <h2 className="text-[1rem] font-semibold text-ink">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            aria-label="Close"
+            className="rounded px-2 py-1 text-[0.85rem] font-semibold text-muted hover:text-ink disabled:opacity-50"
+          >
+            Close
+          </button>
+        </div>
+        <div className="max-h-[min(70vh,32rem)] overflow-y-auto p-4">
+          {children}
+          {error ? (
+            <p role="alert" className="mt-3 text-[0.8rem] font-medium text-accent">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 interface DialogRadioPillOption<T extends string> {
   value: T;
   label: string;

@@ -4,6 +4,7 @@ interface ShareBarSlotProps {
   spaceId: string;
   members: ShareBarMember[];
   canManageMembers: boolean;
+  viewerUserId: string;
 }
 
 /**
@@ -14,12 +15,14 @@ export function ShareBarSlot({
   spaceId,
   members,
   canManageMembers,
+  viewerUserId,
 }: ShareBarSlotProps) {
   return (
     <ShareBar
       spaceId={spaceId}
       members={members}
       canManageMembers={canManageMembers}
+      viewerUserId={viewerUserId}
     />
   );
 }
