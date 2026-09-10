@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import {
@@ -8,6 +9,10 @@ import { requireVerifiedSession, readCreatorTimeZone } from "@/lib/auth/session"
 import { getDb } from "@/lib/db/client";
 import { resolveEntrySpace } from "@/lib/onboarding";
 import { spaceSectionPath } from "@/lib/spaces/paths";
+
+export const metadata: Metadata = {
+  referrer: "no-referrer",
+};
 
 /**
  * Entry route: forwards to the user's default Active Space, straight into its
