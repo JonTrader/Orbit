@@ -16,7 +16,7 @@ import type { InvitePublicView } from "@/lib/services/members";
 import { SPACES_PATH } from "@/lib/spaces/paths";
 import { roleLabel } from "@/lib/spaces/role-label";
 
-import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Dialog,
   DialogField,
@@ -134,7 +134,7 @@ export function ShareBar({
       ) : null}
 
       {dialog?.type === "remove" ? (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
           title="Remove Member"
           description={
             <>
@@ -150,13 +150,13 @@ export function ShareBar({
               targetUserId: dialog.member.userId,
             })
           }
-          onDeleted={() => {}}
+          onConfirmed={() => {}}
           onClose={() => setDialog({ type: "people" })}
         />
       ) : null}
 
       {dialog?.type === "transfer" ? (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
           title="Transfer ownership"
           description={
             <>
@@ -172,7 +172,7 @@ export function ShareBar({
               targetUserId: dialog.member.userId,
             })
           }
-          onDeleted={() => {}}
+          onConfirmed={() => {}}
           onClose={() => setDialog(null)}
         />
       ) : null}
@@ -514,13 +514,13 @@ function LeaveSpaceDialog({
   const router = useRouter();
 
   return (
-    <ConfirmDeleteDialog
+    <ConfirmDialog
       title="Leave Space"
       description="You will lose access to this Space. You can be invited again later."
       confirmLabel="Leave"
       pendingLabel="Leaving…"
       onConfirm={() => leaveSpace({ spaceId })}
-      onDeleted={() => {
+      onConfirmed={() => {
         router.replace(SPACES_PATH);
       }}
       onClose={onClose}

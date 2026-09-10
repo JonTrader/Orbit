@@ -6,7 +6,7 @@ import type { ActionResult } from "@/lib/actions/result";
 
 import { Dialog, DialogField } from "./Dialog";
 
-interface ConfirmDeleteDialogProps {
+interface ConfirmDialogProps {
   title: string;
   description: ReactNode;
   /** When set, submit stays disabled until the input matches exactly. */
@@ -14,24 +14,25 @@ interface ConfirmDeleteDialogProps {
   confirmLabel?: string;
   pendingLabel?: string;
   onConfirm: () => Promise<ActionResult<unknown>>;
-  onDeleted: () => void;
+  onConfirmed: () => void;
   onClose: () => void;
 }
 
 /**
  * Destructive confirm dialog. Spaces pass `confirmPhrase` (typed name);
- * Sections omit it for a one-step confirm.
+ * Sections omit it for a one-step confirm. Also used for ShareBar transfer /
+ * remove / leave confirms.
  */
-export function ConfirmDeleteDialog({
+export function ConfirmDialog({
   title,
   description,
   confirmPhrase,
   confirmLabel = "Delete",
   pendingLabel = "Deleting…",
   onConfirm,
-  onDeleted,
+  onConfirmed,
   onClose,
-}: ConfirmDeleteDialogProps) {
+}: ConfirmDialogProps) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -47,7 +48,7 @@ export function ConfirmDeleteDialog({
     startTransition(async () => {
       const result = await onConfirm();
       if (result.ok) {
-        onDeleted();
+        onConfirmed();
         onClose();
       } else {
         setError(result.error.message);

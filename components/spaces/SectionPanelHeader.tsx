@@ -6,7 +6,7 @@ import { useState } from "react";
 import { deleteSection, renameSection } from "@/lib/actions/sections";
 import { spaceSectionPath } from "@/lib/spaces/paths";
 
-import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { RenameDialog } from "./RenameDialog";
 import { RowMenu } from "./RowMenu";
 
@@ -77,7 +77,7 @@ export function SectionPanelHeader({
       ) : null}
 
       {dialog === "delete" ? (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
           title="Delete Section"
           description={
             <>
@@ -91,7 +91,7 @@ export function SectionPanelHeader({
               sectionId,
             })
           }
-          onDeleted={() => {
+          onConfirmed={() => {
             router.replace(spaceSectionPath(spaceId, "upcoming"));
           }}
           onClose={() => setDialog(null)}
