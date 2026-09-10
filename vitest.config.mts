@@ -13,7 +13,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     globalSetup: ["tests/setup/global-setup.ts"],
     setupFiles: ["tests/setup/teardown.ts"],
-    // One shared Neon branch: never run test files against it in parallel.
+    // One Vitest Neon branch: never run test files against it in parallel.
     fileParallelism: false,
     maxWorkers: 1,
     sequence: { concurrent: false },

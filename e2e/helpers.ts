@@ -22,8 +22,8 @@ const authHeaders = { origin: AUTH_ORIGIN };
 let pool: Pool | undefined;
 
 function db(): Pool {
-  // DATABASE_URL only — bootstrapE2eDatabaseUrl() already redirected it to
-  // DATABASE_URL_TEST when configured, matching the app server under test.
+  // DATABASE_URL only - bootstrapE2eDatabaseUrl() already redirected it to
+  // DATABASE_URL_E2E, matching the app server under test.
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL must be set for e2e user setup");

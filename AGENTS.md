@@ -44,9 +44,9 @@ App entities use UUIDs. Better Auth `user.id` is a 32-char alphanumeric string, 
 Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
 - Vitest + real Neon via `DATABASE_URL_TEST` (dedicated branch, never production). No SQLite. The suite drops/recreates `public` before migrating.
-- E2E (`npm run test:e2e`) requires the same `DATABASE_URL_TEST` + `DATABASE_URL_TEST_CONFIRMATION` guardrails as Vitest; it does not fall back to `DATABASE_URL`. Playwright holds the shared advisory lock for the run.
-- No parallel full suites against the same branch (`maxWorkers: 1`; advisory lock in global setup). Prefer domain/service tests; keep Route Handlers and Actions thin.
-- Orphaned advisory locks: if `npm test` / `npm run test:e2e` hangs before printing files, a killed Vitest/Playwright run may still hold key `0x4f524249` on `DATABASE_URL_TEST` (Neon pooler sessions can outlive the local process). Kill leftover local Vitest/Playwright `node` processes, then terminate only backends holding that lock (`pg_locks` where `locktype = 'advisory'` and `objid = 1330790985`) that are idle or stuck on `Neon/RelExists`. Do not terminate unrelated active backends.
+- E2E (`npm run test:e2e`) uses its own Neon branch via `DATABASE_URL_E2E` + `DATABASE_URL_E2E_CONFIRMATION` (same confirmation value `dedicated-neon-branch`). It does not fall back to `DATABASE_URL` or `DATABASE_URL_TEST`. CI migrates that branch before Playwright; locally set `DRIZZLE_DATABASE_URL` to the e2e URL and run `npm run db:migrate` after schema changes.
+- No parallel full Vitest suites against the same branch (`maxWorkers: 1`; advisory lock in global setup). Prefer domain/service tests; keep Route Handlers and Actions thin.
+- Orphaned advisory locks: if `npm test` hangs before printing files, a killed Vitest run may still hold key `0x4f524249` on `DATABASE_URL_TEST` (Neon pooler sessions can outlive the local process). Kill leftover local Vitest `node` processes, then terminate only backends holding that lock (`pg_locks` where `locktype = 'advisory'` and `objid = 1330790985`) that are idle or stuck on `Neon/RelExists`. Do not terminate unrelated active backends.
 - Authz footguns: Owner-only tests need an **editor** actor (read-only 403 does not prove Owner-only). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
 - API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers. See `tests/setup/api.ts` and existing action tests for patterns.
 - E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`); cookie-bearing auth calls without Origin fail with `MISSING_OR_NULL_ORIGIN`.
@@ -54,7 +54,7 @@ Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 
 ## CI / status
 
-- CI: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Add jobs there; do not create a second workflow. `test` and `e2e` need secret `DATABASE_URL_TEST`.
+- CI: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Add jobs there; do not create a second workflow. `test` needs secret `DATABASE_URL_TEST`; `e2e` needs secret `DATABASE_URL_E2E`.
 - Phase status and handoff prompts: [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md).
 
 

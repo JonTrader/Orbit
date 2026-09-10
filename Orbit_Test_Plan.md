@@ -54,7 +54,7 @@ Cross-cutting strategy for the MVP. Implement tests **in the same phase** as the
 | Layer              | Choice                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | Unit / integration | **Vitest** (Node)                                                                                           |
-| DB                 | Real **Neon** Postgres via `DATABASE_URL_TEST` (dedicated Neon branch; ~7d TTL for throwaway test branches) |
+| DB                 | Real **Neon** Postgres. Vitest uses `DATABASE_URL_TEST`; Playwright uses `DATABASE_URL_E2E` (separate dedicated branches; ~7d TTL for throwaway test branches) |
 | E2E                | **Playwright** from Phase G                                                                                 |
 | Scripts            | `test`, `test:watch`, `test:db`; from G: `test:e2e`                                                         |
 
@@ -285,8 +285,8 @@ flowchart TB
 
 **What to verify:**
 
-1. GitHub Action (or equivalent): `npm test` against Neon branch/`DATABASE_URL_TEST` secret; Playwright against preview or local server when secrets exist.
-2. README documents how to create a Neon test branch, set `DATABASE_URL_TEST`, run `test` / `test:e2e`.
+1. GitHub Action (or equivalent): `npm test` against Neon branch/`DATABASE_URL_TEST` secret; Playwright against `DATABASE_URL_E2E` (local server in CI) when secrets exist.
+2. README documents how to create separate Neon branches for Vitest and E2E, set `DATABASE_URL_TEST` / `DATABASE_URL_E2E`, run `test` / `test:e2e`.
 3. Prod smoke checklist (manual ok): sign-in + one Reminder path; link from README.
 4. Confirm `.env.example` lists all test-related vars.
 

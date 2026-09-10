@@ -16,7 +16,7 @@ let closed = false;
 
 let lockClient: DbClient | undefined;
 
-/** Blocks until this runner owns the shared Neon test branch. */
+/** Blocks until this runner owns the Vitest Neon branch. */
 export async function acquireTestDbLock(): Promise<void> {
   if (!lockClient) {
     lockClient = createDbClient(resolveTestDatabaseUrl());
