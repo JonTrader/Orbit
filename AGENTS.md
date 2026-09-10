@@ -48,6 +48,7 @@ Source of truth: [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md).
 - No parallel full Vitest suites against the same branch (`maxWorkers: 1`; advisory lock in global setup). Prefer domain/service tests; keep Route Handlers and Actions thin.
 - Orphaned advisory locks: if `npm test` hangs before printing files, a killed Vitest run may still hold key `0x4f524249` on `DATABASE_URL_TEST` (Neon pooler sessions can outlive the local process). Kill leftover local Vitest `node` processes, then terminate only backends holding that lock (`pg_locks` where `locktype = 'advisory'` and `objid = 1330790985`) that are idle or stuck on `Neon/RelExists`. Do not terminate unrelated active backends.
 - Authz footguns: Owner-only tests need an **editor** actor (read-only 403 does not prove Owner-only). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
+- Authz contract (`tests/services/authorization-contract.test.ts`) is a completeness net: mutating and gated-read services call `requireMembership` with the right min role. It does not replace editor-actor 403s in domain tests.
 - API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers. See `tests/setup/api.ts` and existing action tests for patterns.
 - E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`); cookie-bearing auth calls without Origin fail with `MISSING_OR_NULL_ORIGIN`.
 - Schema changes: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`.

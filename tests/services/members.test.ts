@@ -233,7 +233,7 @@ describe("Member and Invite services", () => {
     ).resolves.toMatchObject({ userId: recipient.id, role: "read-only" });
   });
 
-  it("lists Members and lets only the Owner change roles or remove Members", async () => {
+  it("lists Members and lets the Owner change roles or remove Members", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
     const editor = await createUser({ email: "editor@orbit.test" });
     const readOnly = await createUser({ email: "read-only@orbit.test" });
@@ -271,14 +271,6 @@ describe("Member and Invite services", () => {
         role: "read-only",
       }),
     ).resolves.toMatchObject({ userId: editor.id, role: "read-only" });
-    await expect(
-      updateMemberRole(testDb, {
-        userId: editor.id,
-        spaceId: space.id,
-        targetUserId: readOnly.id,
-        role: "editor",
-      }),
-    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
     await expect(
       updateMemberRole(testDb, {
         userId: owner.id,
@@ -555,6 +547,13 @@ describe("Member and Invite services", () => {
           inviteId: pending.id,
         }),
       () =>
+        updateMemberRole(testDb, {
+          userId: editor.id,
+          spaceId: space.id,
+          targetUserId: target.id,
+          role: "editor",
+        }),
+      () =>
         removeMember(testDb, {
           userId: editor.id,
           spaceId: space.id,
@@ -574,6 +573,47 @@ describe("Member and Invite services", () => {
         status: 403,
       });
     }
+  });
+
+  it("rejects member-target mutations when the target is only in another Space", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const otherMember = await createUser({ email: "other-member@orbit.test" });
+    const spaceA = await createSpaceWithSystemSections(testDb, {
+      name: "Alpha",
+      ownerUserId: owner.id,
+    });
+    const spaceB = await createSpaceWithSystemSections(testDb, {
+      name: "Beta",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: spaceB.space.id,
+      userId: otherMember.id,
+      role: "editor",
+    });
+
+    await expect(
+      updateMemberRole(testDb, {
+        userId: owner.id,
+        spaceId: spaceA.space.id,
+        targetUserId: otherMember.id,
+        role: "read-only",
+      }),
+    ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
+    await expect(
+      removeMember(testDb, {
+        userId: owner.id,
+        spaceId: spaceA.space.id,
+        targetUserId: otherMember.id,
+      }),
+    ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
+    await expect(
+      transferOwnership(testDb, {
+        userId: owner.id,
+        spaceId: spaceA.space.id,
+        targetUserId: otherMember.id,
+      }),
+    ).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
   });
 
   it("rejects inviting or accepting when the user is already a Member", async () => {
