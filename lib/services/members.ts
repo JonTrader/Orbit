@@ -1,5 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
@@ -10,6 +8,10 @@ import {
   buildInviteAcceptUrl,
 } from "@/lib/email/templates/invite";
 import { sendInviteEmail } from "@/lib/email/templates/invite-emails";
+import {
+  hashInviteToken,
+  newInviteBearerToken,
+} from "@/lib/invites/token";
 
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
 const PENDING_INVITE_CONSTRAINT = "invite_space_email_pending_unique";
@@ -94,11 +96,6 @@ export interface InvitePreview {
   maskedEmail: string | null;
   /** Set only when a viewer email was supplied for a pending Invite. */
   emailMatches: boolean | null;
-}
-
-/** SHA-256 hex digest of a raw Invite bearer secret. */
-export function hashInviteToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken, "utf8").digest("hex");
 }
 
 /**
@@ -625,7 +622,7 @@ function inviteEmailIdempotencyKey(inviteId: string, tokenDigest: string): strin
 }
 
 function createInviteSecret(): { raw: string; digest: string } {
-  const raw = randomBytes(32).toString("base64url");
+  const raw = newInviteBearerToken();
   return { raw, digest: hashInviteToken(raw) };
 }
 

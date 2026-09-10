@@ -1,9 +1,14 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import { Pool } from "@neondatabase/serverless";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
+import {
+  hashInviteToken,
+  newInviteBearerToken,
+} from "../lib/invites/token";
+
 import { bootstrapE2eDatabaseUrl } from "./env";
+
+export { newInviteBearerToken };
 
 /**
  * E2E helpers: real verified users, real Spaces, real cookies. Users are
@@ -164,16 +169,6 @@ export async function addMemberReadOnly(
   );
 }
 
-/** Same digest algorithm as `hashInviteToken` in lib/services/members. */
-export function inviteTokenDigest(rawToken: string): string {
-  return createHash("sha256").update(rawToken, "utf8").digest("hex");
-}
-
-/** Fresh 256-bit Invite bearer secret (base64url), matching production secrets. */
-export function newInviteBearerToken(): string {
-  return randomBytes(32).toString("base64url");
-}
-
 export interface PendingInviteRow {
   id: string;
   email: string;
@@ -219,7 +214,7 @@ export async function setInviteBearerToken(
     `update invite
      set token_digest = $1, updated_at = now()
      where id = $2`,
-    [inviteTokenDigest(rawToken), inviteId],
+    [hashInviteToken(rawToken), inviteId],
   );
   if (result.rowCount !== 1) {
     throw new Error(`setInviteBearerToken matched no Invite ${inviteId}`);

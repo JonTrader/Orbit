@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite } from "@/lib/db/schema";
 import type { MinimumMembershipRole } from "@/lib/spaces/membership";
-import { hashInviteToken } from "@/lib/services/members";
+import { hashInviteToken } from "@/lib/invites/token";
 
 const membershipMocks = vi.hoisted(() => ({
   requireMembership: vi.fn(),

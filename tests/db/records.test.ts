@@ -11,7 +11,7 @@ import {
   notificationPreference,
   section,
 } from "@/lib/db/schema";
-import { hashInviteToken } from "@/lib/services/members";
+import { hashInviteToken } from "@/lib/invites/token";
 
 import { expectPostgresConstraint } from "../setup/assertions";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";

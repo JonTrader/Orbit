@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/mailer";
+import { hashInviteToken } from "@/lib/invites/token";
 import {
   acceptInvite,
-  hashInviteToken,
   inviteMember,
   leaveSpace,
   listMembers,
