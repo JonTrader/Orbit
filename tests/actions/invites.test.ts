@@ -1,10 +1,10 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath } from "@/lib/spaces/paths";
+import { spaceLayoutPath, SPACES_PATH } from "@/lib/spaces/paths";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { sendInvite } from "@/lib/actions/invites";
+import { acceptInvite, sendInvite } from "@/lib/actions/invites";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { invite, spaceMember } from "@/lib/db/schema";
 
@@ -13,10 +13,12 @@ import {
   getRevalidatePathMock,
   getRequireVerifiedSessionMock,
   getSendEmailMock,
+  guardRedirectsTo,
 } from "../setup/action-mocks";
 import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
+import { lastEmailedInviteToken } from "../setup/invite-email";
 
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
@@ -49,6 +51,10 @@ async function seedSpace(): Promise<SeededSpace> {
     readOnlyId: readOnly.id,
     spaceId: seeded.space.id,
   };
+}
+
+function emailedToken(): string {
+  return lastEmailedInviteToken(getSendEmailMock());
 }
 
 describe("sendInvite action", () => {
@@ -230,5 +236,81 @@ describe("sendInvite action", () => {
     }
     expect(await testDb.select().from(invite)).toHaveLength(0);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+});
+
+describe("acceptInvite action", () => {
+  beforeAll(async () => {
+    setTestDatabase(testDb);
+    await migrateTestDb();
+  });
+
+  beforeEach(async () => {
+    await truncateAll();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
+    getSendEmailMock().mockReset();
+    getSendEmailMock().mockResolvedValue(undefined);
+  });
+
+  it("accepts a matching Invite, revalidates /spaces, and returns spaceId", async () => {
+    const s = await seedSpace();
+    const recipient = await createUser({ email: "guest@orbit.test" });
+    authenticateAs(s.ownerId);
+    await sendInvite({
+      spaceId: s.spaceId,
+      email: recipient.email,
+      role: "editor",
+    });
+    const token = emailedToken();
+    getRevalidatePathMock().mockReset();
+
+    authenticateAs(recipient.id);
+    const result = await acceptInvite({ token });
+
+    if (!result.ok) {
+      throw new Error(`Expected accept: ${result.error.code}`);
+    }
+    expect(result.data).toMatchObject({
+      spaceId: s.spaceId,
+      userId: recipient.id,
+      role: "editor",
+    });
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(SPACES_PATH, "layout");
+  });
+
+  it("maps email mismatch and missing token without revalidating", async () => {
+    const s = await seedSpace();
+    const recipient = await createUser({ email: "guest@orbit.test" });
+    const wrong = await createUser({ email: "wrong@orbit.test" });
+    authenticateAs(s.ownerId);
+    await sendInvite({
+      spaceId: s.spaceId,
+      email: recipient.email,
+    });
+    const token = emailedToken();
+    getRevalidatePathMock().mockReset();
+
+    authenticateAs(wrong.id);
+    const mismatch = await acceptInvite({ token });
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) {
+      expect(mismatch.error.code).toBe("EMAIL_MISMATCH");
+    }
+
+    authenticateAs(recipient.id);
+    const missing = await acceptInvite({ token: "totally-wrong" });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.error.code).toBe("INVITE_NOT_FOUND");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("lets the session guard redirect unverified callers", async () => {
+    guardRedirectsTo("/verify-email");
+    await expect(acceptInvite({ token: "anything" })).rejects.toMatchObject({
+      digest: expect.stringContaining("NEXT_REDIRECT"),
+    });
   });
 });

@@ -3,16 +3,23 @@
 import { useState } from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
-import { APP_PATH } from "@/lib/auth/paths";
+import { authCallbackUrl } from "@/lib/auth/paths";
 
 import { Field } from "@/components/auth/kit/AuthField";
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
-export function ResendVerification({ email }: { email?: string }) {
+export function ResendVerification({
+  email,
+  continuation = null,
+}: {
+  email?: string;
+  continuation?: string | null;
+}) {
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const callbackURL = authCallbackUrl(continuation);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,7 +31,7 @@ export function ResendVerification({ email }: { email?: string }) {
     try {
       const { error: failure } = await authClient.sendVerificationEmail({
         email: String(form.get("email") ?? ""),
-        callbackURL: APP_PATH,
+        callbackURL,
       });
 
       setPending(false);

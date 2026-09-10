@@ -12,6 +12,7 @@ import {
   leaveSpace,
   listMembers,
   listPendingInvites,
+  previewInviteByToken,
   removeMember,
   resendInvite,
   transferOwnership,
@@ -754,5 +755,75 @@ describe("Member and Invite services", () => {
       }),
     ).resolves.toMatchObject({ email: "retry@orbit.test" });
     expect(sendEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it("previews pending Invites by digest without leaking the secret", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const recipient = await createUser({ email: "guest@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    await inviteMember(testDb, {
+      userId: owner.id,
+      spaceId: space.id,
+      email: recipient.email,
+      role: "editor",
+    });
+    const token = emailedToken();
+
+    const pending = await previewInviteByToken(testDb, token, {
+      viewerEmail: recipient.email,
+    });
+    expect(pending).toMatchObject({
+      status: "pending",
+      spaceName: "Home",
+      role: "editor",
+      maskedEmail: "g***@orbit.test",
+      emailMatches: true,
+    });
+    expect(pending).not.toHaveProperty("token");
+    expect(pending).not.toHaveProperty("tokenDigest");
+    expect(pending).not.toHaveProperty("email");
+
+    const mismatch = await previewInviteByToken(testDb, token, {
+      viewerEmail: "other@orbit.test",
+    });
+    expect(mismatch.emailMatches).toBe(false);
+
+    const signedOut = await previewInviteByToken(testDb, token);
+    expect(signedOut.emailMatches).toBeNull();
+
+    expect(await previewInviteByToken(testDb, "not-a-real-token")).toMatchObject({
+      status: "unavailable",
+      spaceName: null,
+      role: null,
+      maskedEmail: null,
+    });
+
+    const [row] = await testDb.select().from(invite);
+    await testDb
+      .update(invite)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(invite.id, row!.id));
+    expect(await previewInviteByToken(testDb, token)).toMatchObject({
+      status: "expired",
+      spaceName: "Home",
+      role: "editor",
+      maskedEmail: "g***@orbit.test",
+      emailMatches: null,
+    });
+
+    await testDb
+      .update(invite)
+      .set({
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
+        acceptedAt: new Date(),
+      })
+      .where(eq(invite.id, row!.id));
+    expect(await previewInviteByToken(testDb, token)).toMatchObject({
+      status: "unavailable",
+      spaceName: null,
+    });
   });
 });

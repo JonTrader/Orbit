@@ -83,9 +83,101 @@ export interface SpaceMemberView {
 /** Invite fields safe to return from create/list/resend (digest omitted). */
 export type InvitePublicView = Omit<typeof invite.$inferSelect, "tokenDigest">;
 
+export type InvitePreviewStatus = "pending" | "expired" | "unavailable";
+
+/** Minimal Invite landing payload; never includes the raw token or digest. */
+export interface InvitePreview {
+  status: InvitePreviewStatus;
+  spaceName: string | null;
+  role: InviteRole | null;
+  expiresAt: Date | null;
+  maskedEmail: string | null;
+  /** Set only when a viewer email was supplied for a pending Invite. */
+  emailMatches: boolean | null;
+}
+
 /** SHA-256 hex digest of a raw Invite bearer secret. */
 export function hashInviteToken(rawToken: string): string {
   return createHash("sha256").update(rawToken, "utf8").digest("hex");
+}
+
+/**
+ * Resolves an Invite by raw bearer token for the accept page. No membership
+ * required; safe for signed-out visitors. Used and unknown tokens share the
+ * same unavailable terminal so the response does not leak account existence.
+ */
+export async function previewInviteByToken(
+  db: OrbitDb,
+  rawToken: string,
+  options: { viewerEmail?: string | null } = {},
+): Promise<InvitePreview> {
+  const empty: InvitePreview = {
+    status: "unavailable",
+    spaceName: null,
+    role: null,
+    expiresAt: null,
+    maskedEmail: null,
+    emailMatches: null,
+  };
+
+  if (
+    typeof rawToken !== "string" ||
+    rawToken.length === 0 ||
+    rawToken.length > 256
+  ) {
+    return empty;
+  }
+
+  const [row] = await db
+    .select({
+      spaceName: space.name,
+      role: invite.role,
+      expiresAt: invite.expiresAt,
+      email: invite.email,
+      acceptedAt: invite.acceptedAt,
+    })
+    .from(invite)
+    .innerJoin(space, eq(space.id, invite.spaceId))
+    .where(eq(invite.tokenDigest, hashInviteToken(rawToken)))
+    .limit(1);
+
+  if (!row || row.acceptedAt) {
+    return empty;
+  }
+
+  const role = validateInviteRole(row.role);
+  const maskedEmail = maskEmail(row.email);
+  const expired = row.expiresAt.getTime() <= Date.now();
+
+  if (expired) {
+    return {
+      status: "expired",
+      spaceName: row.spaceName,
+      role,
+      expiresAt: row.expiresAt,
+      maskedEmail,
+      emailMatches: null,
+    };
+  }
+
+  let emailMatches: boolean | null = null;
+  if (options.viewerEmail) {
+    try {
+      emailMatches =
+        normalizeEmail(options.viewerEmail) === row.email;
+    } catch {
+      emailMatches = false;
+    }
+  }
+
+  return {
+    status: "pending",
+    spaceName: row.spaceName,
+    role,
+    expiresAt: row.expiresAt,
+    maskedEmail,
+    emailMatches,
+  };
 }
 
 /** Creates an Owner-authorized Invite and emails the accept link. */
@@ -588,6 +680,16 @@ function normalizeEmail(email: string): string {
     throw new MemberError("INVALID_EMAIL", "Invite email is invalid");
   }
   return normalized;
+}
+
+/** Masks a recipient address for the accept page (no account-existence leak). */
+function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const visible = local.slice(0, 1);
+  return `${visible}***@${domain}`;
 }
 
 function validateInviteRole(role: SpaceRole): InviteRole {

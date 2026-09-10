@@ -4,17 +4,22 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { authClient, NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
-import { APP_PATH, verifyEmailPath } from "@/lib/auth/paths";
+import { authCallbackUrl, verifyEmailPath } from "@/lib/auth/paths";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 
 import { Field } from "@/components/auth/kit/AuthField";
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
-export function SignUpForm() {
+export function SignUpForm({
+  continuation = null,
+}: {
+  continuation?: string | null;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const callbackURL = authCallbackUrl(continuation);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,7 +34,7 @@ export function SignUpForm() {
         name: String(form.get("name") ?? "").trim(),
         email,
         password: String(form.get("password") ?? ""),
-        callbackURL: APP_PATH,
+        callbackURL,
       });
 
       setPending(false);
@@ -40,7 +45,7 @@ export function SignUpForm() {
       }
 
       // No session yet: the address has to be verified first (spec §3).
-      router.push(verifyEmailPath(email));
+      router.push(verifyEmailPath(email, continuation));
     } catch {
       setPending(false);
       setError(NETWORK_ERROR_MESSAGE);

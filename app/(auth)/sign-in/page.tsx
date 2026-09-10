@@ -6,14 +6,30 @@ import { SignInForm } from "@/components/auth/SignInForm";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
 import { Divider } from "@/components/auth/kit/Divider";
-import { FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from "@/lib/auth/paths";
+import {
+  authCallbackUrl,
+  CONTINUATION_PARAM,
+  FORGOT_PASSWORD_PATH,
+  parseLocalContinuation,
+  SIGN_UP_PATH,
+  withContinuation,
+} from "@/lib/auth/paths";
 import { getConfiguredOAuthProviderIds } from "@/lib/auth/oauth";
 import { redirectIfVerified } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Sign in · Orbit" };
 
-export default async function SignInPage() {
-  await redirectIfVerified();
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const rawContinue = params[CONTINUATION_PARAM];
+  const continuation = parseLocalContinuation(
+    Array.isArray(rawContinue) ? rawContinue[0] : rawContinue,
+  );
+  await redirectIfVerified(authCallbackUrl(continuation));
   const oauthProviders = getConfiguredOAuthProviderIds();
 
   return (
@@ -23,7 +39,9 @@ export default async function SignInPage() {
         intro="The household list without the fridge magnets. Daily and Monthlies, in one Space."
         footer={
           <>
-            <AuthLink href={SIGN_UP_PATH}>Create an account</AuthLink>
+            <AuthLink href={withContinuation(SIGN_UP_PATH, continuation)}>
+              Create an account
+            </AuthLink>
             <AuthLink href={FORGOT_PASSWORD_PATH} tone="muted">
               Forgot password?
             </AuthLink>
@@ -31,11 +49,14 @@ export default async function SignInPage() {
         }
       >
         <div className="flex flex-col gap-4">
-          <SignInForm />
+          <SignInForm continuation={continuation} />
           {oauthProviders.length > 0 ? (
             <>
               <Divider label="or" />
-              <OAuthButtons providers={oauthProviders} />
+              <OAuthButtons
+                providers={oauthProviders}
+                callbackURL={authCallbackUrl(continuation)}
+              />
             </>
           ) : null}
         </div>

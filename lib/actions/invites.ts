@@ -2,7 +2,12 @@
 
 import { z } from "zod";
 
-import { inviteMember, type InvitePublicView } from "@/lib/services/members";
+import { SPACES_PATH } from "@/lib/spaces/paths";
+import {
+  acceptInvite as acceptInviteMember,
+  inviteMember,
+  type InvitePublicView,
+} from "@/lib/services/members";
 
 import { defineAction } from "./framework";
 import type { ActionResult } from "./result";
@@ -16,9 +21,19 @@ const sendInviteInputSchema = z
   })
   .strict();
 
+const acceptInviteInputSchema = z
+  .object({
+    token: z.string().min(1).max(256),
+  })
+  .strict();
+
 export type SendInviteInput = z.input<typeof sendInviteInputSchema>;
+export type AcceptInviteInput = z.input<typeof acceptInviteInputSchema>;
 
 export type SendInviteResult = ActionResult<InvitePublicView>;
+export type AcceptInviteResult = ActionResult<
+  Awaited<ReturnType<typeof acceptInviteMember>>
+>;
 
 /**
  * Creates an Invite for the Active Space from the share bar and emails the
@@ -34,4 +49,19 @@ export const sendInvite = defineAction(
       email: parsed.email,
       role: parsed.role,
     }),
+);
+
+/**
+ * Accepts a pending Invite for the verified session user. Revalidates the
+ * Space directory; the client redirects with the write result's spaceId so
+ * this request does not re-read memoized membership.
+ */
+export const acceptInvite = defineAction(
+  acceptInviteInputSchema,
+  async (parsed, { userId, db }) =>
+    acceptInviteMember(db, {
+      userId,
+      token: parsed.token,
+    }),
+  { revalidate: SPACES_PATH },
 );

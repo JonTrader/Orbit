@@ -5,7 +5,13 @@ import { AuthLayoutPad } from "@/components/auth/AuthLayoutPad";
 import { ResendVerification } from "@/components/auth/ResendVerification";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
-import { APP_PATH, SIGN_IN_PATH } from "@/lib/auth/paths";
+import {
+  authCallbackUrl,
+  CONTINUATION_PARAM,
+  parseLocalContinuation,
+  SIGN_IN_PATH,
+  withContinuation,
+} from "@/lib/auth/paths";
 import { getAppSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Verify your email · Orbit" };
@@ -13,13 +19,17 @@ export const metadata: Metadata = { title: "Verify your email · Orbit" };
 export default async function VerifyEmailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ email }, session] = await Promise.all([
-    searchParams,
-    getAppSession(),
-  ]);
-  if (session?.user.emailVerified) redirect(APP_PATH);
+  const params = await searchParams;
+  const rawContinue = params[CONTINUATION_PARAM];
+  const continuation = parseLocalContinuation(
+    Array.isArray(rawContinue) ? rawContinue[0] : rawContinue,
+  );
+  const emailParam = params.email;
+  const email = typeof emailParam === "string" ? emailParam : undefined;
+  const session = await getAppSession();
+  if (session?.user.emailVerified) redirect(authCallbackUrl(continuation));
   const address = email ?? session?.user.email;
 
   return (
@@ -28,12 +38,15 @@ export default async function VerifyEmailPage({
         title="Verify your email"
         intro="Open the link to unlock your Spaces."
         footer={
-          <AuthLink href={SIGN_IN_PATH} tone="muted">
+          <AuthLink
+            href={withContinuation(SIGN_IN_PATH, continuation)}
+            tone="muted"
+          >
             Back to sign in
           </AuthLink>
         }
       >
-        <ResendVerification email={address} />
+        <ResendVerification email={address} continuation={continuation} />
       </AuthCard>
     </AuthLayoutPad>
   );
