@@ -24,9 +24,9 @@ import {
 } from "./helpers";
 
 /**
- * Phase H Invite + ShareBar management E2E. Email delivery is unavailable in
- * this harness; after Owner invite/resend, helpers pin a known bearer token
- * onto the pending Invite digest so accept links are deterministic.
+ * Phase H Invite + ShareBar management E2E. Playwright clears Resend env for
+ * the app under test; after Owner invite/resend, helpers pin a known bearer
+ * token onto the pending Invite digest so accept links are deterministic.
  */
 
 let ownerApi: APIRequestContext;

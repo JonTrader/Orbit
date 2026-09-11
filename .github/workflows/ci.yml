@@ -105,6 +105,10 @@ jobs:
           DATABASE_URL_E2E_CONFIRMATION: dedicated-neon-branch
           BETTER_AUTH_URL: http://localhost:3000
           BETTER_AUTH_SECRET: orbit-ci-test-secret-orbit-ci-test-secret
+          # E2E does not send mail; keep Resend unset even if org secrets exist.
+          RESEND_API_KEY: ""
+          EMAIL_FROM: ""
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

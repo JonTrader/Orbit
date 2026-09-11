@@ -26,6 +26,11 @@ export default defineConfig({
     env: {
       ...process.env,
       DATABASE_URL: e2eEnv.databaseUrl,
+      // Do not inherit local `.env` Resend credentials. E2E pins Invite
+      // tokens and flips email_verified in the DB; live delivery is not
+      // under test and must not burn provider quota (matches CI).
+      RESEND_API_KEY: "",
+      EMAIL_FROM: "",
     },
   },
 });

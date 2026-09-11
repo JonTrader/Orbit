@@ -13,12 +13,12 @@ export { newInviteBearerToken };
 /**
  * E2E helpers: real verified users, real Spaces, real cookies. Users are
  * created through Better Auth's own HTTP endpoints and then verified by a
- * direct database update, because the verification email cannot be received
- * by a test address.
+ * direct database update, because the verification email is not delivered
+ * under test (Playwright clears Resend env for the app server).
  *
  * Invite accept links use bearer tokens that are never stored - only SHA-256
- * digests. When email delivery is mocked/unavailable, pin a known raw token
- * onto the pending Invite row so Playwright can open `/accept-invite`.
+ * digests. Pin a known raw token onto the pending Invite row so Playwright
+ * can open `/accept-invite` without reading an inbox.
  */
 
 bootstrapE2eDatabaseUrl();
@@ -222,8 +222,8 @@ export async function setInviteBearerToken(
 }
 
 /**
- * After ShareBar/API invite (email mocked), pin a known bearer onto the
- * pending row and return its id.
+ * After ShareBar/API invite (no inbox under test), pin a known bearer onto
+ * the pending row and return its id.
  */
 export async function pinInviteBearerToken(
   spaceId: string,
