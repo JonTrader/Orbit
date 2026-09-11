@@ -21,10 +21,10 @@ export interface SpaceSidebarShellProps {
 }
 
 /**
- * Persistent sidebar frame: grid, mobile drawer, and Space list. Lives in
- * the `(active)` layout so it does not remount when spaceId changes. On large
- * screens the sidebar is sticky to the viewport so its height does not follow
- * SpaceLayout content.
+ * Persistent sidebar frame: mobile drawer and Space list. Lives in the
+ * `(active)` layout so it does not remount when spaceId changes. The rail is
+ * `position: fixed` on all breakpoints so its height stays viewport-bound when
+ * SpaceLayout content grows (sticky fails under overflow clipping ancestors).
  */
 export function SpaceSidebarShell({
   user,
@@ -52,7 +52,7 @@ export function SpaceSidebarShell({
 
   return (
     <SidebarNavProvider value={nav}>
-      <div className="grid min-h-screen w-full max-w-[100vw] overflow-x-hidden lg:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]">
+      <div className="relative min-h-screen w-full">
         {sidebarOpen ? (
           <button
             type="button"
@@ -65,7 +65,7 @@ export function SpaceSidebarShell({
         <div
           className={[
             "fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] transition-transform duration-200",
-            "lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-full lg:translate-x-0 lg:self-start",
+            "lg:w-[var(--sidebar-w)] lg:translate-x-0",
             sidebarOpen
               ? "translate-x-0 shadow-[8px_0_32px_rgba(28,25,23,0.08)]"
               : "translate-x-[-105%] lg:translate-x-0",
@@ -79,7 +79,7 @@ export function SpaceSidebarShell({
           />
         </div>
 
-        {children}
+        <div className="min-w-0 lg:pl-[var(--sidebar-w)]">{children}</div>
       </div>
     </SidebarNavProvider>
   );

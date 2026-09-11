@@ -28,11 +28,21 @@ export default async function VerifyEmailPage({
   if (session?.user.emailVerified) redirect(authCallbackUrl(continuation));
   const address = email ?? session?.user.email;
 
+  if (!address) {
+    redirect(withContinuation(SIGN_IN_PATH, continuation));
+  }
+
   return (
     <AuthLayoutPad>
       <AuthCard
         title="Verify your email"
-        intro="Open the link to unlock your Spaces."
+        intro={
+          <>
+            We sent a link to{" "}
+            <span className="font-medium break-all">{address}</span>. Open it
+            to unlock your Spaces.
+          </>
+        }
         footer={
           <AuthLink
             href={withContinuation(SIGN_IN_PATH, continuation)}

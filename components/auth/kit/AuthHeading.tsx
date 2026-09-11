@@ -22,7 +22,7 @@ export function AuthHeading({
           className={[
             "mt-1.5 text-[0.95rem] leading-relaxed",
             theme === "pad"
-              ? "max-w-88 text-var(--auth-muted)"
+              ? "max-w-88 text-(--auth-muted)"
               : "text-[color-mix(in_srgb,var(--auth-ink)_62%,var(--auth-ash))]",
           ].join(" ")}
         >
