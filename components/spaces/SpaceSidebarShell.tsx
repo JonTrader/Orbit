@@ -65,7 +65,7 @@ export function SpaceSidebarShell({
         <div
           className={[
             "fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] transition-transform duration-200",
-            "lg:w-[var(--sidebar-w)] lg:translate-x-0",
+            "lg:w-(--sidebar-w) lg:translate-x-0",
             sidebarOpen
               ? "translate-x-0 shadow-[8px_0_32px_rgba(28,25,23,0.08)]"
               : "translate-x-[-105%] lg:translate-x-0",
@@ -79,7 +79,7 @@ export function SpaceSidebarShell({
           />
         </div>
 
-        <div className="min-w-0 lg:pl-[var(--sidebar-w)]">{children}</div>
+        <div className="min-w-0 lg:pl-(--sidebar-w)">{children}</div>
       </div>
     </SidebarNavProvider>
   );

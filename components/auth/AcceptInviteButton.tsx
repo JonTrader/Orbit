@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 
 import { acceptInvite } from "@/lib/actions/invites";
-import { spaceSectionPath } from "@/lib/spaces/paths";
 
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
@@ -17,19 +16,17 @@ export function AcceptInviteButton({ token }: { token: string }) {
     if (pending) return;
     setError(null);
     setPending(true);
-    const result = await acceptInvite({ token });
-    if (result.ok) {
-      const href = spaceSectionPath(result.data.spaceId, "upcoming");
-      // Full load, scheduled outside Next's action refresh, so an RSC
-      // rerender of `/accept-invite` cannot cancel the navigation after
-      // the Invite token is consumed.
-      window.setTimeout(() => {
-        window.location.assign(href);
-      }, 0);
-      return;
+    try {
+      const result = await acceptInvite({ token });
+      // Successful accept redirects on the server. Keep pending so a
+      // consumed-token preview cannot paint an error state.
+      if (result.ok) return;
+      setPending(false);
+      setError(result.error.message);
+    } catch {
+      // `redirect()` rejects the action promise on the client while the
+      // destination loads. Keep pending; do not treat navigation as failure.
     }
-    setPending(false);
-    setError(result.error.message);
   }
 
   return (

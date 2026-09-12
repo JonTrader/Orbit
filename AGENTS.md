@@ -32,7 +32,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 ## Auth / Invites
 
 - Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers.
-- Invite continuation: validated local `/accept-invite?token=...` only (`parseLocalContinuation`). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/` so Personal Space onboarding runs before returning to the Invite. After `acceptInvite`, redirect with the write result's `spaceId` (do not re-read memoized membership in the same request). Accept client uses `window.location.assign` to Upcoming (not `router.replace` / `startTransition`) so an RSC refresh cannot race navigation. Auth layout and `/` use `referrer: "no-referrer"` so tokens in `continue` do not leak via Referer.
+- Invite continuation: validated local `/accept-invite?token=...` only (`parseLocalContinuation`). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/` so Personal Space onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"` so tokens in `continue` do not leak via Referer.
 
 ## Testing and CI
 

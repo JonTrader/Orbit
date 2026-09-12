@@ -92,6 +92,30 @@ async function openPeopleDialog(page: Page): Promise<void> {
   await expect(peopleDialog).toBeVisible();
 }
 
+/** Click Accept Invite and fail if the generic error page paints before Upcoming. */
+async function acceptInviteWithoutErrorFlash(
+  page: Page,
+  spaceId: string,
+): Promise<void> {
+  const errorFlash = page.getByRole("heading", { name: "Something went wrong" });
+  let sawError = false;
+  void errorFlash
+    .waitFor({ state: "visible", timeout: 30_000 })
+    .then(() => {
+      sawError = true;
+    })
+    .catch(() => {
+      // Timeout or navigation tore down the accept page; not a flash.
+    });
+
+  await page.getByRole("button", { name: "Accept Invite" }).click();
+  await page.waitForURL(new RegExp(`/spaces/${spaceId}/upcoming`), {
+    timeout: 30_000,
+  });
+  expect(sawError).toBe(false);
+  await expect(errorFlash).toHaveCount(0);
+}
+
 test.describe("Invite accept and ShareBar management", () => {
   test("Owner invites; recipient signs up, verifies, accepts as read-only", async ({
     page,
@@ -141,10 +165,7 @@ test.describe("Invite accept and ShareBar management", () => {
     await expect(
       page.getByRole("heading", { name: "Accept Invite" }),
     ).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Accept Invite" }).click();
-    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming`), {
-      timeout: 30_000,
-    });
+    await acceptInviteWithoutErrorFlash(page, spaceId);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText(/2 people/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Invite" })).toHaveCount(0);
@@ -201,8 +222,7 @@ test.describe("Invite accept and ShareBar management", () => {
     await expect(
       page.getByRole("heading", { name: "Accept Invite" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Accept Invite" }).click();
-    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming`));
+    await acceptInviteWithoutErrorFlash(page, spaceId);
 
     const members = await spaceMembers(request, recipientSession, spaceId);
     expect(members.some((row) => row.name === recipient.name)).toBe(true);
@@ -255,8 +275,7 @@ test.describe("Invite accept and ShareBar management", () => {
 
     await authenticatePage(page, editorSession);
     await page.goto(acceptInviteUrl(rawToken));
-    await page.getByRole("button", { name: "Accept Invite" }).click();
-    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming`));
+    await acceptInviteWithoutErrorFlash(page, spaceId);
 
     await authenticateOwner(page, spaceId);
     await openPeopleDialog(page);
@@ -314,8 +333,7 @@ test.describe("Invite accept and ShareBar management", () => {
     await page.context().clearCookies();
     await authenticatePage(page, memberSession);
     await page.goto(acceptInviteUrl(rawToken));
-    await page.getByRole("button", { name: "Accept Invite" }).click();
-    await expect(page).toHaveURL(new RegExp(`/spaces/${spaceId}/upcoming`));
+    await acceptInviteWithoutErrorFlash(page, spaceId);
 
     await authenticateOwner(page, spaceId);
     await sendInviteFromDialog(page, pendingEmail);

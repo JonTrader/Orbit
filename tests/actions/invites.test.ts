@@ -1,8 +1,9 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath, SPACES_PATH } from "@/lib/spaces/paths";
+import { spaceLayoutPath, spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 
 import { acceptInvite, sendInvite } from "@/lib/actions/invites";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
@@ -10,6 +11,7 @@ import { invite, spaceMember } from "@/lib/db/schema";
 
 import {
   authenticateAs,
+  getRedirectMock,
   getRevalidatePathMock,
   getRequireVerifiedSessionMock,
   getSendEmailMock,
@@ -249,11 +251,12 @@ describe("acceptInvite action", () => {
     await truncateAll();
     getRequireVerifiedSessionMock().mockReset();
     getRevalidatePathMock().mockReset();
+    getRedirectMock().mockClear();
     getSendEmailMock().mockReset();
     getSendEmailMock().mockResolvedValue(undefined);
   });
 
-  it("accepts a matching Invite, revalidates /spaces, and returns spaceId", async () => {
+  it("accepts a matching Invite, revalidates /spaces, and redirects to Upcoming", async () => {
     const s = await seedSpace();
     const recipient = await createUser({ email: "guest@orbit.test" });
     authenticateAs(s.ownerId);
@@ -264,19 +267,29 @@ describe("acceptInvite action", () => {
     });
     const token = emailedToken();
     getRevalidatePathMock().mockReset();
+    getRedirectMock().mockClear();
 
     authenticateAs(recipient.id);
-    const result = await acceptInvite({ token });
-
-    if (!result.ok) {
-      throw new Error(`Expected accept: ${result.error.code}`);
-    }
-    expect(result.data).toMatchObject({
-      spaceId: s.spaceId,
-      userId: recipient.id,
-      role: "editor",
+    await expect(acceptInvite({ token })).rejects.toMatchObject({
+      digest: expect.stringContaining(
+        spaceSectionPath(s.spaceId, "upcoming"),
+      ),
     });
+    expect(getRedirectMock()).toHaveBeenCalledWith(
+      spaceSectionPath(s.spaceId, "upcoming"),
+      "replace",
+    );
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(SPACES_PATH, "layout");
+
+    const members = await testDb
+      .select()
+      .from(spaceMember)
+      .where(eq(spaceMember.spaceId, s.spaceId));
+    expect(
+      members.some(
+        (row) => row.userId === recipient.id && row.role === "editor",
+      ),
+    ).toBe(true);
   });
 
   it("maps email mismatch and missing token without revalidating", async () => {
@@ -305,6 +318,7 @@ describe("acceptInvite action", () => {
       expect(missing.error.code).toBe("INVITE_NOT_FOUND");
     }
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+    expect(getRedirectMock()).not.toHaveBeenCalled();
   });
 
   it("lets the session guard redirect unverified callers", async () => {

@@ -13,6 +13,13 @@ const actionMocks = vi.hoisted(() => ({
   readCreatorTimeZone: vi.fn(),
   revalidatePath: vi.fn(),
   sendEmail: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    const redirectError = new Error(`NEXT_REDIRECT: ${url}`) as Error & {
+      digest?: string;
+    };
+    redirectError.digest = `NEXT_REDIRECT;replace;${url};307;`;
+    throw redirectError;
+  }),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -22,6 +29,11 @@ vi.mock("@/lib/auth/session", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: actionMocks.revalidatePath,
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: actionMocks.redirect,
+  RedirectType: { push: "push", replace: "replace" },
 }));
 
 vi.mock("@/lib/email/mailer", () => ({
@@ -41,6 +53,11 @@ export function getReadCreatorTimeZoneMock() {
 /** The shared revalidatePath mock; assert calls per test. */
 export function getRevalidatePathMock() {
   return actionMocks.revalidatePath;
+}
+
+/** The shared next/navigation redirect mock; acceptInvite asserts on this. */
+export function getRedirectMock() {
+  return actionMocks.redirect;
 }
 
 /** The shared mailer mock; assert Invite/auth delivery per test. */

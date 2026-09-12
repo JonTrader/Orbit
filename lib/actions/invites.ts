@@ -1,8 +1,9 @@
 "use server";
 
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 
-import { SPACES_PATH } from "@/lib/spaces/paths";
+import { spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
 import {
   acceptInvite as acceptInviteMember,
   inviteMember,
@@ -51,12 +52,7 @@ export const sendInvite = defineAction(
     }),
 );
 
-/**
- * Accepts a pending Invite for the verified session user. Revalidates the
- * Space directory; the client full-navigates with the write result's spaceId
- * so this request does not re-read memoized membership.
- */
-export const acceptInvite = defineAction(
+const runAcceptInvite = defineAction(
   acceptInviteInputSchema,
   async (parsed, { userId, db }) =>
     acceptInviteMember(db, {
@@ -65,3 +61,21 @@ export const acceptInvite = defineAction(
     }),
   { revalidate: SPACES_PATH },
 );
+
+/**
+ * Accepts a pending Invite for the verified session user. Revalidates the
+ * Space directory, then `redirect()`s to Upcoming with the write result's
+ * spaceId so `/accept-invite` is never re-rendered with a consumed token.
+ */
+export async function acceptInvite(
+  input: unknown,
+): Promise<AcceptInviteResult> {
+  const result = await runAcceptInvite(input);
+  if (result.ok) {
+    redirect(
+      spaceSectionPath(result.data.spaceId, "upcoming"),
+      RedirectType.replace,
+    );
+  }
+  return result;
+}
