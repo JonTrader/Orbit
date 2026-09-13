@@ -59,6 +59,14 @@ describe("better auth configuration", () => {
     );
   });
 
+  it("exposes id on the rateLimit drizzle table (adapter inserts it)", async () => {
+    const { rateLimit } = await import("@/lib/db/schema");
+    expect(rateLimit.id).toBeDefined();
+    expect(rateLimit.key).toBeDefined();
+    expect(rateLimit.count).toBeDefined();
+    expect(rateLimit.lastRequest).toBeDefined();
+  });
+
   it("marks federated accounts verified at account creation", async () => {
     const updateUser = vi.fn();
     const after = auth.options.databaseHooks?.account?.create?.after;

@@ -14,6 +14,7 @@ flowchart TB
     SE["session"]
     AC["account"]
     VE["verification"]
+    RL["rate_limit<br/><i>id PK · unique key</i>"]
   end
 
   subgraph ACCESS["Space and access"]
@@ -55,7 +56,7 @@ flowchart TB
   classDef content fill:#e6f2f0,stroke:#0f766e,stroke-width:1px,color:#1c1917
   classDef notify fill:#f3ece0,stroke:#78716c,stroke-width:1px,color:#1c1917
 
-  class U,SE,AC,VE auth
+  class U,SE,AC,VE,RL auth
   class SP,SM,IN access
   class SC,TK,MO,NO content
   class NP,NL notify
@@ -66,7 +67,7 @@ flowchart TB
   style NOTIFY fill:#faf6ef,stroke:#e7e0d4,color:#78716c
 ```
 
-`verification` stands alone — Better Auth keys it by email/token, not by `user.id`.
+`verification` stands alone - Better Auth keys it by email/token, not by `user.id`. `rate_limit` is Better Auth's serverless rate-limit bucket (`id` primary key; `key` unique). The Drizzle adapter writes `id` on every insert.
 
 ## Entities and columns
 

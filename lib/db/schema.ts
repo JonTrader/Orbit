@@ -102,7 +102,10 @@ export const verification = pgTable(
 
 /** Better Auth's database-backed rate-limit bucket for serverless runtimes. */
 export const rateLimit = pgTable("rate_limit", {
-  key: text("key").primaryKey(),
+  // The Drizzle adapter always inserts an `id` (and later updates by it).
+  // `key` is the logical unique bucket; it cannot be the only identifier.
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
   count: integer("count").notNull(),
   lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });

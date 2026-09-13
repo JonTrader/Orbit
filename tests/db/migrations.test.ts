@@ -116,6 +116,37 @@ describe("migrations", () => {
     }
   });
 
+  it("gives rate_limit an id primary key", async () => {
+    const columns = await testDb.execute<{
+      columnName: string;
+      isNullable: string;
+    }>(sql`
+      select column_name as "columnName", is_nullable as "isNullable"
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'rate_limit'
+    `);
+    expect(columns.rows).toEqual(
+      expect.arrayContaining([
+        { columnName: "id", isNullable: "NO" },
+        { columnName: "key", isNullable: "NO" },
+        { columnName: "count", isNullable: "NO" },
+        { columnName: "last_request", isNullable: "NO" },
+      ]),
+    );
+
+    const primaryKey = await testDb.execute<{ columnName: string }>(sql`
+      select kcu.column_name as "columnName"
+      from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu
+        on tc.constraint_name = kcu.constraint_name
+        and tc.table_schema = kcu.table_schema
+      where tc.table_schema = 'public'
+        and tc.table_name = 'rate_limit'
+        and tc.constraint_type = 'PRIMARY KEY'
+    `);
+    expect(primaryKey.rows).toEqual([{ columnName: "id" }]);
+  });
+
   it("creates the Section and updated_at triggers", async () => {
     const result = await testDb.execute<{
       triggerName: string;
