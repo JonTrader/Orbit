@@ -135,7 +135,7 @@ export function NoteRow({
           <button
             type="button"
             onClick={startEdit}
-            className="shrink-0 rounded border-0 bg-transparent px-[0.35rem] py-[0.15rem] pt-[0.1rem] text-[0.72rem] font-semibold text-muted hover:bg-[rgba(255,253,249,0.8)] hover:text-ink"
+            className="inline-flex shrink-0 items-center rounded border-0 bg-transparent px-[0.35rem] py-[0.2rem] text-[0.72rem] font-semibold leading-none text-muted hover:bg-[rgba(255,253,249,0.8)] hover:text-ink"
           >
             Edit
           </button>
