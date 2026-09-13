@@ -27,7 +27,7 @@ flowchart TB
     direction TB
     SC["section<br/><i>daily | monthlies | tasks | notes | mixed</i>"]
     TK["task<br/><i>Daily + custom tasks/mixed</i>"]
-    MO["monthly<br/><i>Monthlies only</i>"]
+    MO["monthly<br/><i>Monthlies only · optional body</i>"]
     NO["note<br/><i>notes/mixed · plain text</i>"]
   end
 
@@ -180,6 +180,7 @@ erDiagram
     uuid section_id FK
     section_kind section_kind "mirror of section.kind; monthlies only"
     text title
+    text body "optional Description; empty string when absent"
     integer due_day_of_month "1-31 as authored"
     date next_due_on "already clamped to a real day"
     text assignee_id FK

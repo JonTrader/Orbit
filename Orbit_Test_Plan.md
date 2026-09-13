@@ -242,11 +242,14 @@ flowchart TB
 1. Nav order Upcoming → Daily → Monthlies → customs; no Shared tab.
 2. Active Space switch changes listed content (two Spaces with distinct Tasks).
 3. Daily: compose adds Task; complete hides by default; show-completed reveals.
-4. Monthlies: complete updates next due display.
-5. Upcoming: shows dated items; **no** compose control.
-6. Custom section add (name + kind) and content for tasks/notes/mixed.
-7. Read-only member: mutation controls disabled/absent; cannot complete via UI.
-8. Share bar shows members; invite entry visible to Owner.
+4. Daily compose with optional due date: dated Task appears in Daily and Upcoming; undated Task does not appear in Upcoming.
+5. Monthlies: complete updates next due display.
+6. Monthlies compose with optional Description; Description displays on the Monthlies row.
+7. Upcoming: shows dated items; **no** compose control.
+8. Custom section add (name + kind) and content for tasks/notes/mixed.
+9. Cancel then confirm delete for Task, Monthly, and Note; completed Task can be deleted from show-completed.
+10. Read-only member: mutation controls disabled/absent; cannot complete via UI; seeded content has no row menus.
+11. Share bar shows members; invite entry visible to Owner.
 
 **Visual:** fail on obvious chrome regressions vs Orbit tokens (nav order, missing Shared) - not full pixel suite.
 

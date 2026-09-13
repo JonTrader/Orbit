@@ -49,15 +49,54 @@ test.afterAll(async () => {
   await closeDb();
 });
 
-/** Same en-US / UTC short-month formatting as MonthlyRow.formatDueDate. */
-function formatDueLabel(nextDueOn: string): string {
-  const [year, month, day] = nextDueOn.split("-").map(Number);
-  const formatted = new Intl.DateTimeFormat("en-US", {
+/** Same en-US / UTC short-month formatting as TaskRow / MonthlyRow. */
+function formatShortDate(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year!, month! - 1, day!)));
-  return `due ${formatted}`;
+}
+
+/** Same en-US / UTC short-month formatting as MonthlyRow.formatDueDate. */
+function formatDueLabel(nextDueOn: string): string {
+  return `due ${formatShortDate(nextDueOn)}`;
+}
+
+async function pickTodayDueDate(page: Page): Promise<string> {
+  await page.getByRole("button", { name: "Due date (optional)" }).click();
+  const picker = page.getByRole("dialog", { name: "Choose due date" });
+  await expect(picker).toBeVisible();
+  await picker.getByRole("grid").press("Enter");
+  await expect(picker).toBeHidden();
+  const today = new Date();
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+async function cancelThenConfirmDelete(
+  page: Page,
+  title: string,
+  dialogName: string,
+): Promise<void> {
+  await page.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  const dialog = page.getByRole("dialog", { name: dialogName });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: `Actions for ${title}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
 }
 
 /** Advance YYYY-MM-DD by one calendar month, clamping to dueDayOfMonth. */
@@ -239,6 +278,36 @@ test.describe("Active Space", () => {
     await page.getByRole("checkbox", { name: `Reopen ${title}` }).click();
   });
 
+  test("Daily due date compose appears in Daily and Upcoming; undated stays off Upcoming", async ({
+    page,
+  }) => {
+    await authenticate(page);
+    await page.goto(`/spaces/${personalSpaceId}/daily`);
+
+    const datedTitle = `E2E dated compose ${runSuffix()}`;
+    const undatedTitle = `E2E undated compose ${runSuffix()}`;
+
+    await page.getByLabel("Add to Daily").fill(datedTitle);
+    const dueOn = await pickTodayDueDate(page);
+    await page.getByLabel("Add to Daily").press("Enter");
+    await expect(page.getByText(datedTitle, { exact: true })).toBeVisible();
+    const datedRow = page
+      .locator("div")
+      .filter({ has: page.getByText(datedTitle, { exact: true }) })
+      .filter({
+        has: page.getByRole("checkbox", { name: `Complete ${datedTitle}` }),
+      });
+    await expect(datedRow.getByText(formatShortDate(dueOn))).toBeVisible();
+
+    await page.getByLabel("Add to Daily").fill(undatedTitle);
+    await page.getByLabel("Add to Daily").press("Enter");
+    await expect(page.getByText(undatedTitle, { exact: true })).toBeVisible();
+
+    await page.goto(`/spaces/${personalSpaceId}/upcoming`);
+    await expect(page.getByText(datedTitle, { exact: true })).toBeVisible();
+    await expect(page.getByText(undatedTitle, { exact: true })).toHaveCount(0);
+  });
+
   test("Monthlies: completing rolls the next due date forward", async ({
     page,
   }) => {
@@ -277,6 +346,29 @@ test.describe("Active Space", () => {
       .getByRole("button", { name: `Mark ${title} done for this period` })
       .click();
     await expect(dueLabel).toHaveText(expectedAfter);
+  });
+
+  test("Monthlies compose shows Description on the row", async ({ page }) => {
+    await authenticate(page);
+    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
+
+    const title = `E2E described monthly ${runSuffix()}`;
+    const description = `E2E monthly description ${runSuffix()}`;
+    await page.getByLabel("Add to Monthlies").fill(title);
+    await page.getByLabel("Due day of month").fill("12");
+    await page.getByLabel("Description").fill(description);
+    await page.getByLabel("Add to Monthlies").press("Enter");
+
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    const row = page
+      .locator("div")
+      .filter({ has: page.getByText(title, { exact: true }) })
+      .filter({
+        has: page.getByRole("button", {
+          name: `Mark ${title} done for this period`,
+        }),
+      });
+    await expect(row.getByText(description)).toBeVisible();
   });
 
   test("Upcoming shows dated items and has no compose", async ({
@@ -380,6 +472,61 @@ test.describe("Active Space", () => {
     ).toContainText("Mixed body");
   });
 
+  test("cancel then confirm deletes Task, completed Task, Monthly, and Note", async ({
+    page,
+  }) => {
+    await authenticate(page);
+
+    const daily = await sectionIdByKind(personalSpaceId, "daily");
+    const openTitle = `E2E delete task ${runSuffix()}`;
+    const completedTitle = `E2E delete completed ${runSuffix()}`;
+    const monthlyTitle = `E2E delete monthly ${runSuffix()}`;
+    const notesName = `E2E delete notes ${runSuffix()}`;
+    const noteTitle = `E2E delete note ${runSuffix()}`;
+
+    const openTask = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/tasks`,
+      { data: { sectionId: daily, title: openTitle } },
+    );
+    expect(openTask.status()).toBe(201);
+    const completedTask = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/tasks`,
+      { data: { sectionId: daily, title: completedTitle } },
+    );
+    expect(completedTask.status()).toBe(201);
+    const monthly = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/monthlies`,
+      { data: { title: monthlyTitle, dueDayOfMonth: 8 } },
+    );
+    expect(monthly.status()).toBe(201);
+    const notesSection = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/sections`,
+      { data: { name: notesName, kind: "notes" } },
+    );
+    expect(notesSection.status()).toBe(201);
+    const notesSectionId = (await notesSection.json()).id as string;
+    const note = await ownerApi.post(
+      `/api/v1/spaces/${personalSpaceId}/notes`,
+      { data: { sectionId: notesSectionId, title: noteTitle, body: "Gone" } },
+    );
+    expect(note.status()).toBe(201);
+
+    await page.goto(`/spaces/${personalSpaceId}/daily`);
+    await cancelThenConfirmDelete(page, openTitle, "Delete Task");
+
+    await page.getByRole("checkbox", { name: `Complete ${completedTitle}` }).click();
+    await expect(page.getByText(completedTitle, { exact: true })).toBeHidden();
+    await page.getByRole("button", { name: /Show completed/ }).click();
+    await expect(page.getByText(completedTitle, { exact: true })).toBeVisible();
+    await cancelThenConfirmDelete(page, completedTitle, "Delete Task");
+
+    await page.goto(`/spaces/${personalSpaceId}/monthlies`);
+    await cancelThenConfirmDelete(page, monthlyTitle, "Delete Monthly");
+
+    await page.goto(`/spaces/${personalSpaceId}/${notesSectionId}`);
+    await cancelThenConfirmDelete(page, noteTitle, "Delete Note");
+  });
+
   test("read-only member sees the badge and no mutation controls", async ({
     page,
     request,
@@ -390,6 +537,31 @@ test.describe("Active Space", () => {
     });
     expect(created.status()).toBe(201);
     const spaceId = (await created.json()).id as string;
+
+    const taskTitle = `Viewer task ${runSuffix()}`;
+    const monthlyTitle = `Viewer monthly ${runSuffix()}`;
+    const notesName = `Viewer notes ${runSuffix()}`;
+    const noteTitle = `Viewer note ${runSuffix()}`;
+    const daily = await sectionIdByKind(spaceId, "daily");
+    const seededTask = await ownerApi.post(`/api/v1/spaces/${spaceId}/tasks`, {
+      data: { sectionId: daily, title: taskTitle },
+    });
+    expect(seededTask.status()).toBe(201);
+    const seededMonthly = await ownerApi.post(
+      `/api/v1/spaces/${spaceId}/monthlies`,
+      { data: { title: monthlyTitle, dueDayOfMonth: 10, body: "Viewer body" } },
+    );
+    expect(seededMonthly.status()).toBe(201);
+    const notesSection = await ownerApi.post(
+      `/api/v1/spaces/${spaceId}/sections`,
+      { data: { name: notesName, kind: "notes" } },
+    );
+    expect(notesSection.status()).toBe(201);
+    const notesSectionId = (await notesSection.json()).id as string;
+    const seededNote = await ownerApi.post(`/api/v1/spaces/${spaceId}/notes`, {
+      data: { sectionId: notesSectionId, title: noteTitle, body: "Viewer note" },
+    });
+    expect(seededNote.status()).toBe(201);
 
     const member = await createVerifiedUser(request, "E2E Member");
     const memberSession = await signIn(request, member);
@@ -404,6 +576,25 @@ test.describe("Active Space", () => {
     await expect(page.getByRole("button", { name: "Add Section" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Invite" })).toHaveCount(0);
     await expect(page.getByText("2 people")).toBeVisible();
+    await expect(page.getByText(taskTitle, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Actions for ${taskTitle}` }),
+    ).toHaveCount(0);
+
+    await page.goto(`/spaces/${spaceId}/monthlies`);
+    await expect(page.getByText(monthlyTitle, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Actions for ${monthlyTitle}` }),
+    ).toHaveCount(0);
+
+    await page.goto(`/spaces/${spaceId}/${notesSectionId}`);
+    await expect(page.getByText(noteTitle, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Actions for ${noteTitle}` }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: `Actions for ${notesName}` }),
+    ).toHaveCount(0);
   });
 
   test("share bar shows members; Owner sees the invite entry point", async ({
