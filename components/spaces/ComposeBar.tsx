@@ -27,9 +27,9 @@ interface ComposeBarProps {
 
 /**
  * Quick-add form at the bottom of Daily, Monthlies, and custom Sections.
- * Layout matches the household-pad compose: underline title, compact date or
- * due-day, ink Add, optional Description as a second line. The input clears
- * the moment the request goes out; a failure restores what was typed.
+ * Underline title, compact date or due-day, ink Add, optional Description
+ * as a second line. The input clears the moment the request goes out; a
+ * failure restores what was typed.
  */
 export function ComposeBar({
   spaceId,

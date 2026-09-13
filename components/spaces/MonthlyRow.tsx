@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
-import { updateMonthly } from "@/lib/actions/monthlies";
+import { deleteMonthly, updateMonthly } from "@/lib/actions/monthlies";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 
 import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { RowMenu } from "./RowMenu";
 
 interface MonthlyRowProps {
   spaceId: string;
@@ -34,8 +36,10 @@ function formatDueDate(nextDueOn: string): string {
  * One Monthly obligation. Completing finishes the current period and rolls
  * the next due forward, so the button is not a toggle: it acknowledges done
  * instantly, then adopts the advanced due date from the action's returned
- * entity without waiting for a re-render. Editors open a carbon-copy form
- * under the still-visible item (title, due day, Description); Escape cancels.
+ * entity without waiting for a re-render. Editors open Edit / Delete from
+ * the overflow menu. Edit is a form under the still-visible item (title,
+ * due day, Description); Escape cancels. Delete uses a one-step confirm;
+ * layout revalidation removes the row.
  */
 export function MonthlyRow({
   spaceId,
@@ -55,6 +59,7 @@ export function MonthlyRow({
   const [dueOn, setDueOn] = useState(nextDueOn);
   const [flashDone, setFlashDone] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueDay, setDraftDueDay] = useState(String(dueDayOfMonth));
   const [draftBody, setDraftBody] = useState(body);
@@ -180,15 +185,17 @@ export function MonthlyRow({
           </button>
         ) : null}
         {canMutate && !isEditing ? (
-          <button
-            type="button"
-            onClick={startEdit}
-            disabled={pending}
-            aria-label={`Edit ${title}`}
-            className="inline-flex shrink-0 items-center rounded border-0 bg-transparent px-[0.35rem] py-[0.2rem] text-[0.72rem] font-semibold leading-none text-muted hover:text-ink disabled:opacity-50"
-          >
-            Edit
-          </button>
+          <RowMenu
+            label={`Actions for ${title}`}
+            items={[
+              { label: "Edit", onSelect: startEdit },
+              {
+                label: "Delete",
+                tone: "danger",
+                onSelect: () => setConfirmingDelete(true),
+              },
+            ]}
+          />
         ) : null}
       </div>
       {isEditing && canMutate ? (
@@ -207,7 +214,7 @@ export function MonthlyRow({
           className="mb-[0.15rem] ml-8 mt-[0.65rem] border border-line border-l-2 border-l-accent bg-bg px-[0.85rem] py-3 max-sm:ml-2"
         >
           <p className="mb-[0.55rem] font-mono text-[0.58rem] uppercase tracking-[0.08em] text-muted">
-            Copy · Edit Monthly
+            Edit Monthly
           </p>
           <div className="mb-[0.45rem] flex flex-col gap-[0.45rem] sm:flex-row sm:items-center">
             <input
@@ -271,6 +278,19 @@ export function MonthlyRow({
         <p role="alert" className="mt-1 pl-8 text-[0.75rem] font-medium text-accent">
           Could not save that change. Try again.
         </p>
+      ) : null}
+      {confirmingDelete ? (
+        <ConfirmDialog
+          title="Delete Monthly"
+          description={
+            <>
+              Delete {title}? It will no longer recur. This cannot be undone.
+            </>
+          }
+          onConfirm={() => deleteMonthly({ spaceId, monthlyId })}
+          onConfirmed={() => {}}
+          onClose={() => setConfirmingDelete(false)}
+        />
       ) : null}
     </div>
   );

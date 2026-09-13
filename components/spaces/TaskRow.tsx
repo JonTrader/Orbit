@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
-import { updateTask } from "@/lib/actions/tasks";
+import { deleteTask, updateTask } from "@/lib/actions/tasks";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 
 import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
+import { RowMenu } from "./RowMenu";
 
 interface TaskRowProps {
   spaceId: string;
@@ -31,7 +33,9 @@ function formatDueDate(dueOn: string): string {
  * One checklist row; the checkbox toggles completion in place. The row owns
  * its completed state: it flips instantly on click and reconciles against
  * the action's returned entity, so settling never waits for a re-render.
- * Editors open a carbon-copy form under the still-visible item; Escape cancels.
+ * Editors open Edit / Delete from the overflow menu. Edit is a form under
+ * the still-visible item; Escape cancels. Delete uses a one-step confirm;
+ * layout revalidation removes the row.
  */
 export function TaskRow({
   spaceId,
@@ -47,6 +51,7 @@ export function TaskRow({
   const [saveFailed, setSaveFailed] = useState(false);
   const [shownCompleted, setShownCompleted] = useState(completed);
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueOn, setDraftDueOn] = useState(dueOn ?? "");
   const [editError, setEditError] = useState<string | null>(null);
@@ -166,15 +171,17 @@ export function TaskRow({
           </span>
         ) : null}
         {canMutate && !isEditing ? (
-          <button
-            type="button"
-            onClick={startEdit}
-            disabled={pending}
-            aria-label={`Edit ${title}`}
-            className="inline-flex shrink-0 items-center rounded border-0 bg-transparent px-[0.35rem] py-[0.2rem] text-[0.72rem] font-semibold leading-none text-muted hover:text-ink disabled:opacity-50"
-          >
-            Edit
-          </button>
+          <RowMenu
+            label={`Actions for ${title}`}
+            items={[
+              { label: "Edit", onSelect: startEdit },
+              {
+                label: "Delete",
+                tone: "danger",
+                onSelect: () => setConfirmingDelete(true),
+              },
+            ]}
+          />
         ) : null}
       </div>
       {isEditing && canMutate ? (
@@ -193,7 +200,7 @@ export function TaskRow({
           className="mb-[0.15rem] ml-8 mt-[0.65rem] border border-line border-l-2 border-l-accent bg-bg px-[0.85rem] py-3 max-sm:ml-2"
         >
           <p className="mb-[0.55rem] font-mono text-[0.58rem] uppercase tracking-[0.08em] text-muted">
-            Copy · Edit Task
+            Edit Task
           </p>
           <input
             ref={titleRef}
@@ -241,6 +248,19 @@ export function TaskRow({
         <p role="alert" className="mt-1 pl-8 text-[0.75rem] font-medium text-accent">
           Could not save that change. Try again.
         </p>
+      ) : null}
+      {confirmingDelete ? (
+        <ConfirmDialog
+          title="Delete Task"
+          description={
+            <>
+              Delete {title}? This cannot be undone.
+            </>
+          }
+          onConfirm={() => deleteTask({ spaceId, taskId })}
+          onConfirmed={() => {}}
+          onClose={() => setConfirmingDelete(false)}
+        />
       ) : null}
     </div>
   );
