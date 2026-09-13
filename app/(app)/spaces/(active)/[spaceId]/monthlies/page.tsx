@@ -44,6 +44,7 @@ export default async function MonthliesPage({ params }: MonthliesPageProps) {
             sectionId={monthliesSection.id}
             label="Add to Monthlies"
             requiresDueDay
+            requiresBody
           />
         ) : null}
       </Suspense>
@@ -77,6 +78,8 @@ async function MonthliesList({ spaceId, canMutate }: MonthliesListProps) {
               spaceId={spaceId}
               monthlyId={monthly.id}
               title={monthly.title}
+              body={monthly.body}
+              dueDayOfMonth={monthly.dueDayOfMonth}
               nextDueOn={monthly.nextDueOn}
               canMutate={canMutate}
             />

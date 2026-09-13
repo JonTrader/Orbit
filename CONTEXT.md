@@ -31,7 +31,7 @@ A pending offer to join a Space at a given role, addressed by email. Becomes a M
 _Avoid_: Pending member, guest, share link (MVP uses email invites, not link membership)
 
 **Owner** / **Editor** / **Read-only**:
-Space-level roles. All sections in a Space inherit the member's role. Read-only is view-only (no complete/reopen/create/edit/delete). Editor mutates content and custom Sections. Owner alone invites, changes roles, removes Members, and transfers ownership. A Space has a single Owner at a time.
+Space-level roles. All sections in a Space inherit the member's role. Read-only is view-only (no complete/reopen/create/edit/delete). Editor mutates content and custom Sections, including permanently deleting Tasks, Monthlies, and Notes after a one-step confirmation. Owner alone invites, changes roles, removes Members, and transfers ownership. A Space has a single Owner at a time.
 
 **Viewer**:
 The Member currently viewing the Active Space. Each request resolves exactly one Viewer for that Space, carrying the Member's role and its derived capabilities: mutate content (editor or owner) and manage members (owner). A read-only Viewer sees every view with mutations disabled.
@@ -60,12 +60,12 @@ The system section for recurring monthly obligations only. Always present in a S
 _Avoid_: Recurring, Bills (unless a future bills feature is named)
 
 **Task**:
-A checklist item in Daily or in a custom tasks/mixed Section. Optional due date; not a monthly recurring obligation. Distinct from a Monthly. May move among Daily and custom task/mixed Sections; cannot be reclassified into Monthlies by moving - that requires delete and recreate as a Monthly. Completing a Daily Task keeps it completed until someone reopens or deletes it (no automatic midnight reset). Completed Daily Tasks are hidden by default, with an optional show-completed control.
+A checklist item in Daily or in a custom tasks/mixed Section. Optional one-shot due date (set, change, or clear; past dates remain valid; completion preserves the date). Not a monthly recurring obligation. Distinct from a Monthly. May move among Daily and custom task/mixed Sections; cannot be reclassified into Monthlies by moving - that requires delete and recreate as a Monthly. Completing a Daily Task keeps it completed until someone reopens or deletes it (no automatic midnight reset). Completed Daily Tasks are hidden by default, with an optional show-completed control.
 _Avoid_: Todo (as the entity name), Item, Card, Chore
 
 
 **Monthly**:
-A recurring monthly obligation that lives only in the Monthlies section. Completing one finishes the current period and advances it to the next month's due date; it is not a one-shot Task. Cannot be moved into Daily or custom Sections - that requires delete and recreate as a Task. If the due day does not exist in a month, it clamps to that month's last day.
+A recurring monthly obligation that lives only in the Monthlies section. Completing one finishes the current period and advances it to the next month's due date; it is not a one-shot Task. Optional plain-text body, labeled Description in the UI (stored as an empty string when absent; shown only in Monthlies, not Upcoming or Reminder emails). Cannot be moved into Daily or custom Sections - that requires delete and recreate as a Task. If the due day does not exist in a month, it clamps to that month's last day.
 _Avoid_: Recurring task, monthly task (as the entity name), Bill
 
 **Note**:

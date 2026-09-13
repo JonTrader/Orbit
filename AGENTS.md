@@ -16,7 +16,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 - **Active Space views**: `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` (layout data + Viewer). Do not call `requireVerifiedSession` / `requireMembership` or re-declare `[spaceId]` params in those views. Services enforce membership at the API boundary.
 - **Params**: `resolveSpaceContext` in `lib/spaces/params.ts` is the only `[spaceId]` params schema.
 - **Onboarding**: Personal Space via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards. Layouts and pages render concurrently.
-- **Actions** (`lib/actions/`): web-only (ADR 0005). Thin wrappers over `lib/services` - no business logic. Always use `defineAction` from `lib/actions/framework.ts`. Alias service imports so action names do not collide with the service they wrap.
+- **Actions** (`lib/actions/`): web-only (ADR 0005). Thin wrappers over `lib/services` - no business logic. Always use `defineAction` from `lib/actions/framework.ts`. Alias service imports so action names do not collide with the service they wrap. Monthly `body` defaults to `""` (UI label Description). Task due dates, Monthly body, and content delete use existing Server Actions and existing Monthly REST handlers - do not add new REST routes for them.
 - **IDs**: app entities are UUIDs; Better Auth `user.id` is a 32-char alphanumeric string. Fields that hold a user ID (`assigneeId`, `completedBy`, ...) use `z.string().min(1)`, never `z.uuid()`.
 
 ## Active Space UI

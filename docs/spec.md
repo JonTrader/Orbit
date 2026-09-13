@@ -66,11 +66,13 @@ flowchart TB
 | ------- | ----- |
 | **Daily** | System Section; Tasks only; cannot rename/delete/retype |
 | **Monthlies** | System Section; Monthlies only; cannot rename/delete/retype |
-| **Task** | Daily or custom `tasks`/`mixed`; optional due date; no monthly recurrence. May move among Daily and custom task/mixed Sections only. Complete stays complete (no midnight reset). Completed Daily Tasks **hidden by default** (show-completed toggle). |
-| **Monthly** | Lives only in Monthlies. Due day-of-month; complete → advance to next month; missing days **clamp to last day of month**. |
+| **Task** | Daily or custom `tasks`/`mixed`; optional one-shot due date (set, change, or clear; past dates remain valid; completion preserves the date); no monthly recurrence. May move among Daily and custom task/mixed Sections only. Complete stays complete (no midnight reset). Completed Daily Tasks **hidden by default** (show-completed toggle). |
+| **Monthly** | Lives only in Monthlies. Due day-of-month; complete → advance to next month; missing days **clamp to last day of month**. Optional plain-text Description stored as `body` (default `""`; shown only in Monthlies, not Upcoming or Reminder emails). |
 | **Note** | `notes` or `mixed`; title + **plain text** body; many Notes per Section; no assignee/reminders/complete |
 | **Custom Section** | kinds: `tasks` \| `notes` \| `mixed`; create/rename/reorder/delete (editor+). System Sections fixed at top of nav after Upcoming. |
 | **Upcoming** | Read-only view: Monthlies by next due + Tasks with due dates in Active Space. No quick-add. |
+
+Editor and Owner can permanently delete Tasks (including completed Tasks), Monthlies, and Notes after a one-step confirmation. Read-only Viewers do not see delete controls.
 
 Quick-add targets the selected Section. Compose disabled (or not shown) on Upcoming.
 

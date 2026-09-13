@@ -15,6 +15,7 @@ const dueDayOfMonthSchema = z
 export const createMonthlyBodySchema = z
   .object({
     title: z.string().trim().min(1, "Monthly title cannot be empty"),
+    body: z.string().optional(),
     dueDayOfMonth: dueDayOfMonthSchema,
     assigneeId: z.string().min(1).nullable().optional(),
   })
@@ -23,6 +24,7 @@ export const createMonthlyBodySchema = z
 export const updateMonthlyBodySchema = z
   .object({
     title: z.string().trim().min(1, "Monthly title cannot be empty").optional(),
+    body: z.string().optional(),
     dueDayOfMonth: dueDayOfMonthSchema.optional(),
     assigneeId: z.string().min(1).nullable().optional(),
   })

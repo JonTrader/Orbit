@@ -76,6 +76,7 @@ export default async function CustomSectionPage({
                 spaceId={spaceId}
                 sectionId={sectionId}
                 label={`Add task to ${section.name}`}
+                allowsDueOn
               />
               <ComposeBar
                 spaceId={spaceId}
@@ -91,6 +92,7 @@ export default async function CustomSectionPage({
               sectionId={sectionId}
               label={`Add to ${section.name}`}
               requiresBody={kind === "notes"}
+              allowsDueOn={kind === "tasks"}
             />
           )
         ) : null}

@@ -35,6 +35,7 @@ interface MonthlyBody {
   spaceId: string;
   sectionKind: string;
   title: string;
+  body: string;
   dueDayOfMonth: number;
   nextDueOn: string;
   assigneeId: string | null;
@@ -94,6 +95,7 @@ describe("Monthlies API", () => {
     const createResponse = await createMonthlyRoute(
       jsonRequest(`/api/v1/spaces/${space.id}/monthlies`, {
         title: "  Rent  ",
+        body: "First line\nSecond line <plain text>",
         dueDayOfMonth: 15,
         assigneeId: assignee.id,
       }),
@@ -105,6 +107,7 @@ describe("Monthlies API", () => {
       spaceId: space.id,
       sectionKind: "monthlies",
       title: "Rent",
+      body: "First line\nSecond line <plain text>",
       dueDayOfMonth: 15,
       assigneeId: assignee.id,
       lastCompletedAt: null,
@@ -118,7 +121,11 @@ describe("Monthlies API", () => {
     );
     expect(listResponse.status).toBe(200);
     await expect(responseJson<MonthlyBody[]>(listResponse)).resolves.toEqual([
-      expect.objectContaining({ id: created.id, title: "Rent" }),
+      expect.objectContaining({
+        id: created.id,
+        title: "Rent",
+        body: "First line\nSecond line <plain text>",
+      }),
     ]);
 
     const getResponse = await getMonthlyRoute(
@@ -129,12 +136,18 @@ describe("Monthlies API", () => {
     await expect(responseJson<MonthlyBody>(getResponse)).resolves.toMatchObject({
       id: created.id,
       title: "Rent",
+      body: "First line\nSecond line <plain text>",
     });
 
     const updateResponse = await updateMonthlyRoute(
       jsonRequest(
         `/api/v1/spaces/${space.id}/monthlies/${created.id}`,
-        { title: "Mortgage", dueDayOfMonth: 31, assigneeId: null },
+        {
+          title: "Mortgage",
+          body: "Updated description",
+          dueDayOfMonth: 31,
+          assigneeId: null,
+        },
         "PATCH",
       ),
       monthlyContext(space.id, created.id),
@@ -144,10 +157,25 @@ describe("Monthlies API", () => {
     expect(updated).toMatchObject({
       id: created.id,
       title: "Mortgage",
+      body: "Updated description",
       dueDayOfMonth: 31,
       assigneeId: null,
     });
     expect(updated.nextDueOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const clearResponse = await updateMonthlyRoute(
+      jsonRequest(
+        `/api/v1/spaces/${space.id}/monthlies/${created.id}`,
+        { body: "" },
+        "PATCH",
+      ),
+      monthlyContext(space.id, created.id),
+    );
+    expect(clearResponse.status).toBe(200);
+    await expect(responseJson<MonthlyBody>(clearResponse)).resolves.toMatchObject({
+      id: created.id,
+      body: "",
+    });
 
     const completeResponse = await completeMonthlyRoute(
       new Request(
@@ -233,6 +261,7 @@ describe("Monthlies API", () => {
       spaceContext(space.id),
     );
     const created = await responseJson<MonthlyBody>(createResponse);
+    expect(created.body).toBe("");
 
     authenticateAs(readOnly.id);
     const readResponse = await listMonthliesRoute(

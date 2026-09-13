@@ -43,6 +43,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
             spaceId={spaceId}
             sectionId={daily.id}
             label="Add to Daily"
+            allowsDueOn
           />
         ) : null}
       </Suspense>

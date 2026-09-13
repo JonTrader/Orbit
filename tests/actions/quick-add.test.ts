@@ -107,8 +107,31 @@ describe("quickAdd action", () => {
     assertCreatedTask(result, s.dailyId, "Water plants");
     const rows = await testDb.select().from(task);
     expect(rows).toHaveLength(1);
+    expect(rows[0].dueOn).toBeNull();
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(spaceLayoutPath(s.spaceId), "layout");
+  });
+
+  it("creates a Task with a due date and ignores a body", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.dailyId,
+      title: "Take out recycling",
+      dueOn: "2026-08-12",
+      body: "Not stored on Tasks",
+    });
+
+    assertCreatedTask(result, s.dailyId, "Take out recycling");
+    if (!result.ok || result.data.entity !== "task") {
+      throw new Error("Expected a created task");
+    }
+    expect(result.data.task.dueOn).toBe("2026-08-12");
+    const [row] = await testDb.select().from(task);
+    expect(row.dueOn).toBe("2026-08-12");
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
   });
 
   it("creates a Task in a custom tasks Section", async () => {
@@ -267,10 +290,34 @@ describe("quickAdd action", () => {
     }
     expect(result.data.monthly.title).toBe("Pay rent");
     expect(result.data.monthly.dueDayOfMonth).toBe(15);
+    expect(result.data.monthly.body).toBe("");
     // The next due date lands on the requested day of a real month.
     expect(result.data.monthly.nextDueOn).toMatch(/-15$/);
     const rows = await testDb.select().from(monthly);
     expect(rows).toHaveLength(1);
+  });
+
+  it("creates a Monthly with a body and ignores a Task due date", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.monthliesId,
+      title: "Pay insurance",
+      dueDayOfMonth: 1,
+      body: "Policy #441\nDue by mail",
+      dueOn: "2026-08-12",
+    });
+
+    if (!result.ok || result.data.entity !== "monthly") {
+      throw new Error("Expected a created monthly");
+    }
+    expect(result.data.monthly.body).toBe("Policy #441\nDue by mail");
+    expect(result.data.monthly.dueDayOfMonth).toBe(1);
+    expect(result.data.monthly.nextDueOn).toMatch(/-01$/);
+    const [row] = await testDb.select().from(monthly);
+    expect(row.body).toBe("Policy #441\nDue by mail");
   });
 
   it("rejects a Monthly quick-add without a due day and creates nothing", async () => {
@@ -318,6 +365,26 @@ describe("quickAdd action", () => {
     }
     expect(await testDb.select().from(task)).toHaveLength(0);
     expect(await testDb.select().from(note)).toHaveLength(0);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid Task due date as a validation error", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.ownerId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.dailyId,
+      title: "Invalid date",
+      dueOn: "2026-02-30",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("VALIDATION_ERROR");
+      expect(result.error.issues?.[0]?.path).toEqual(["dueOn"]);
+    }
+    expect(await testDb.select().from(task)).toHaveLength(0);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 

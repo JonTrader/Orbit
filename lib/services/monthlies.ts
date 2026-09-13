@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
@@ -35,6 +35,7 @@ export interface MonthlyAccessInput {
 
 export interface CreateMonthlyInput extends MonthlyAccessInput {
   title: string;
+  body?: string;
   dueDayOfMonth: number;
   assigneeId?: string | null;
   /** Optional clock for next-due math; defaults to wall clock. */
@@ -47,6 +48,7 @@ export interface GetMonthlyInput extends MonthlyAccessInput {
 
 export interface UpdateMonthlyInput extends GetMonthlyInput {
   title?: string;
+  body?: string;
   dueDayOfMonth?: number;
   assigneeId?: string | null;
   /** Optional clock for next-due math; defaults to wall clock. */
@@ -97,6 +99,7 @@ export async function createMonthly(
       sectionId: monthliesSection.id,
       sectionKind: "monthlies",
       title,
+      body: input.body ?? "",
       dueDayOfMonth,
       nextDueOn: nextDueOnForDueDay(
         dueDayOfMonth,
@@ -122,6 +125,9 @@ export async function updateMonthly(
 
   if (input.title !== undefined) {
     updates.title = normalizeMonthlyTitle(input.title);
+  }
+  if (input.body !== undefined) {
+    updates.body = input.body;
   }
   if (input.dueDayOfMonth !== undefined) {
     const dueDayOfMonth = validateDueDay(input.dueDayOfMonth);

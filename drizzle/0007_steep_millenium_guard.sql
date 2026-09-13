@@ -1,0 +1,1 @@
+ALTER TABLE "monthly" ADD COLUMN "body" text DEFAULT '' NOT NULL;

@@ -1,13 +1,22 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   countAppliedMigrations,
   listPublicTables,
+  MIGRATIONS_FOLDER,
   migrateTestDb,
   resetTestSchema,
   testDb,
 } from "../setup/db";
+
+const MONTHLY_BODY_MIGRATION = readFileSync(
+  resolve(MIGRATIONS_FOLDER, "0007_steep_millenium_guard.sql"),
+  "utf8",
+);
 
 const ORBIT_TABLES = [
   "space",
@@ -60,6 +69,44 @@ describe("migrations", () => {
       expect(tables, `missing table ${table}`).toContain(table);
     }
     expect(appliedAfterFirstRun).toBeGreaterThan(0);
+  });
+
+  it("backfills existing Monthly rows with an empty body", async () => {
+    await testDb.execute(
+      sql.raw('drop schema if exists "monthly_body_migration_test" cascade'),
+    );
+    await testDb.execute(sql.raw('create schema "monthly_body_migration_test"'));
+
+    try {
+      await testDb.transaction(async (tx) => {
+        await tx.execute(
+          sql.raw('set local search_path to "monthly_body_migration_test"'),
+        );
+        await tx.execute(
+          sql.raw(
+            'create table "monthly" ("id" uuid primary key, "title" text not null)',
+          ),
+        );
+        await tx.execute(
+          sql.raw(
+            `insert into "monthly" ("id", "title") values ('00000000-0000-0000-0000-000000000001', 'Existing')`,
+          ),
+        );
+
+        await tx.execute(sql.raw(MONTHLY_BODY_MIGRATION));
+
+        const result = await tx.execute<{ body: string }>(
+          sql.raw(
+            `select "body" from "monthly" where "id" = '00000000-0000-0000-0000-000000000001'`,
+          ),
+        );
+        expect(result.rows).toEqual([{ body: "" }]);
+      });
+    } finally {
+      await testDb.execute(
+        sql.raw('drop schema if exists "monthly_body_migration_test" cascade'),
+      );
+    }
   });
 
   it("creates the Better Auth tables", async () => {
