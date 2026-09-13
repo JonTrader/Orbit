@@ -16,8 +16,10 @@ const quickAddInputSchema = z
     spaceId: z.uuid(),
     sectionId: z.uuid(),
     title: z.string().trim().min(1, "Title cannot be empty"),
-    /** Optional body for Notes; Tasks and Monthlies ignore it. */
+    /** Optional body for Notes and Monthlies; Tasks ignore it. */
     body: z.string().optional(),
+    /** Optional due date for Tasks; Notes and Monthlies ignore it. */
+    dueOn: z.iso.date().nullable().optional(),
     dueDayOfMonth: z
       .number()
       .int("Monthly due day must be an integer")
@@ -67,6 +69,7 @@ export const quickAdd = defineAction(
             userId,
             spaceId: parsed.spaceId,
             title: parsed.title,
+            body: parsed.body,
             dueDayOfMonth: parsed.dueDayOfMonth!,
           }),
         };
@@ -83,6 +86,7 @@ export const quickAdd = defineAction(
               // The switch already validated the kind; skip createTask's re-query.
               section: target,
               title: parsed.title,
+              dueOn: parsed.dueOn,
             }),
           };
         }
@@ -109,6 +113,7 @@ export const quickAdd = defineAction(
             // The switch already validated the kind; skip createTask's re-query.
             section: target,
             title: parsed.title,
+            dueOn: parsed.dueOn,
           }),
         };
       }

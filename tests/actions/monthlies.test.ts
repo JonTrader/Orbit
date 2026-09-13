@@ -5,9 +5,9 @@ import { spaceLayoutPath } from "@/lib/spaces/paths";
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { deleteNote, updateNote } from "@/lib/actions/notes";
+import { deleteMonthly, updateMonthly } from "@/lib/actions/monthlies";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { note, section, spaceMember } from "@/lib/db/schema";
+import { monthly, spaceMember } from "@/lib/db/schema";
 
 import {
   authenticateAs,
@@ -18,16 +18,18 @@ import { setTestDatabase } from "../setup/api-mocks";
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
-interface SeededNote {
+interface SeededMonthly {
   ownerId: string;
   editorId: string;
   readOnlyId: string;
   outsiderId: string;
   spaceId: string;
-  noteId: string;
+  monthlyId: string;
 }
 
-async function seedNote(): Promise<SeededNote> {
+async function seedMonthly(
+  overrides: Partial<typeof monthly.$inferInsert> = {},
+): Promise<SeededMonthly> {
   const owner = await createUser({ email: "owner@orbit.test" });
   const editor = await createUser({ email: "editor@orbit.test" });
   const readOnly = await createUser({ email: "read-only@orbit.test" });
@@ -42,25 +44,18 @@ async function seedNote(): Promise<SeededNote> {
     { spaceId: seeded.space.id, userId: readOnly.id, role: "read-only" },
   ]);
 
-  const [notesSection] = await testDb
-    .insert(section)
-    .values({
-      spaceId: seeded.space.id,
-      name: "Ideas",
-      kind: "notes",
-      sortOrder: 2,
-    })
-    .returning();
-
   const [created] = await testDb
-    .insert(note)
+    .insert(monthly)
     .values({
       spaceId: seeded.space.id,
-      sectionId: notesSection.id,
-      sectionKind: "notes",
+      sectionId: seeded.sections.monthlies.id,
+      sectionKind: "monthlies",
       title: "Original title",
       body: "Original body",
+      dueDayOfMonth: 15,
+      nextDueOn: "2030-06-15",
       createdBy: owner.id,
+      ...overrides,
     })
     .returning();
 
@@ -70,39 +65,32 @@ async function seedNote(): Promise<SeededNote> {
     readOnlyId: readOnly.id,
     outsiderId: outsider.id,
     spaceId: seeded.space.id,
-    noteId: created.id,
+    monthlyId: created.id,
   };
 }
 
-async function seedNoteInOtherSpace(ownerId: string) {
+async function seedMonthlyInOtherSpace(ownerId: string) {
   const other = await createSpaceWithSystemSections(testDb, {
     name: "Other",
     ownerUserId: ownerId,
   });
-  const [notesSection] = await testDb
-    .insert(section)
-    .values({
-      spaceId: other.space.id,
-      name: "Other ideas",
-      kind: "notes",
-      sortOrder: 2,
-    })
-    .returning();
   const [created] = await testDb
-    .insert(note)
+    .insert(monthly)
     .values({
       spaceId: other.space.id,
-      sectionId: notesSection.id,
-      sectionKind: "notes",
-      title: "Other Space Note",
+      sectionId: other.sections.monthlies.id,
+      sectionKind: "monthlies",
+      title: "Other Space Monthly",
       body: "Secret",
+      dueDayOfMonth: 1,
+      nextDueOn: "2030-06-01",
       createdBy: ownerId,
     })
     .returning();
   return created;
 }
 
-describe("updateNote action", () => {
+describe("updateMonthly action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
     await migrateTestDb();
@@ -114,25 +102,29 @@ describe("updateNote action", () => {
     getRevalidatePathMock().mockReset();
   });
 
-  it("updates a Note's title and body and revalidates the Space layout", async () => {
-    const s = await seedNote();
-    authenticateAs(s.ownerId);
+  it("updates a Monthly's title, body, and due day and revalidates the Space layout", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.editorId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
       title: "  Renamed  ",
       body: "New body",
+      dueDayOfMonth: 20,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("Expected the update to succeed");
     expect(result.data.title).toBe("Renamed");
     expect(result.data.body).toBe("New body");
+    expect(result.data.dueDayOfMonth).toBe(20);
+    expect(result.data.nextDueOn).toMatch(/-20$/);
 
-    const [row] = await testDb.select().from(note);
+    const [row] = await testDb.select().from(monthly);
     expect(row.title).toBe("Renamed");
     expect(row.body).toBe("New body");
+    expect(row.dueDayOfMonth).toBe(20);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(
       spaceLayoutPath(s.spaceId),
@@ -140,30 +132,31 @@ describe("updateNote action", () => {
     );
   });
 
-  it("updates the body alone, leaving the title untouched", async () => {
-    const s = await seedNote();
+  it("clears the body to an empty string, leaving the title untouched", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.editorId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
-      body: "Body only",
+      monthlyId: s.monthlyId,
+      body: "",
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("Expected the update to succeed");
     expect(result.data.title).toBe("Original title");
-    expect(result.data.body).toBe("Body only");
+    expect(result.data.body).toBe("");
+    expect(result.data.dueDayOfMonth).toBe(15);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a whitespace-only title as a validation error", async () => {
-    const s = await seedNote();
+    const s = await seedMonthly();
     authenticateAs(s.ownerId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
       title: "   ",
     });
 
@@ -172,18 +165,36 @@ describe("updateNote action", () => {
       expect(result.error.code).toBe("VALIDATION_ERROR");
       expect(result.error.issues?.[0]?.path).toEqual(["title"]);
     }
-    const [row] = await testDb.select().from(note);
+    const [row] = await testDb.select().from(monthly);
     expect(row.title).toBe("Original title");
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("rejects an update with neither title nor body", async () => {
-    const s = await seedNote();
+  it("rejects an out-of-range due day as a validation error", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.ownerId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
+      dueDayOfMonth: 32,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("VALIDATION_ERROR");
+      expect(result.error.issues?.[0]?.path).toEqual(["dueDayOfMonth"]);
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects an update with no fields", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.ownerId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
     });
 
     expect(result.ok).toBe(false);
@@ -193,30 +204,30 @@ describe("updateNote action", () => {
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("rejects unknown note ids with NOTE_NOT_FOUND", async () => {
-    const s = await seedNote();
+  it("rejects unknown monthly ids with MONTHLY_NOT_FOUND", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.ownerId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: crypto.randomUUID(),
+      monthlyId: crypto.randomUUID(),
       title: "Ghost",
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("NOTE_NOT_FOUND");
+      expect(result.error.code).toBe("MONTHLY_NOT_FOUND");
     }
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("blocks read-only Members from editing Notes", async () => {
-    const s = await seedNote();
+  it("blocks read-only Members from editing Monthlies", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.readOnlyId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
       title: "Read-only attempt",
     });
 
@@ -224,35 +235,18 @@ describe("updateNote action", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("INSUFFICIENT_ROLE");
     }
-    const [row] = await testDb.select().from(note);
+    const [row] = await testDb.select().from(monthly);
     expect(row.title).toBe("Original title");
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("clears the body to an empty string", async () => {
-    const s = await seedNote();
-    authenticateAs(s.editorId);
-
-    const result = await updateNote({
-      spaceId: s.spaceId,
-      noteId: s.noteId,
-      body: "",
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("Expected the update to succeed");
-    expect(result.data.body).toBe("");
-    const [row] = await testDb.select().from(note);
-    expect(row.body).toBe("");
-  });
-
   it("blocks users who are not Members of the Space", async () => {
-    const s = await seedNote();
+    const s = await seedMonthly();
     authenticateAs(s.outsiderId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
       title: "Outsider attempt",
     });
 
@@ -263,26 +257,26 @@ describe("updateNote action", () => {
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("rejects a Note that does not belong to the given Space", async () => {
-    const s = await seedNote();
-    const otherNote = await seedNoteInOtherSpace(s.ownerId);
+  it("rejects a Monthly that does not belong to the given Space", async () => {
+    const s = await seedMonthly();
+    const otherMonthly = await seedMonthlyInOtherSpace(s.ownerId);
     authenticateAs(s.ownerId);
 
-    const result = await updateNote({
+    const result = await updateMonthly({
       spaceId: s.spaceId,
-      noteId: otherNote.id,
+      monthlyId: otherMonthly.id,
       title: "Stolen",
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("NOTE_NOT_FOUND");
+      expect(result.error.code).toBe("MONTHLY_NOT_FOUND");
     }
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });
 
-describe("deleteNote action", () => {
+describe("deleteMonthly action", () => {
   beforeAll(async () => {
     setTestDatabase(testDb);
     await migrateTestDb();
@@ -294,19 +288,19 @@ describe("deleteNote action", () => {
     getRevalidatePathMock().mockReset();
   });
 
-  it("deletes a Note and revalidates the Space layout", async () => {
-    const s = await seedNote();
+  it("deletes a Monthly and revalidates the Space layout", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.editorId);
 
-    const result = await deleteNote({
+    const result = await deleteMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("Expected the delete to succeed");
-    expect(result.data.id).toBe(s.noteId);
-    expect(await testDb.select().from(note)).toHaveLength(0);
+    expect(result.data.id).toBe(s.monthlyId);
+    expect(await testDb.select().from(monthly)).toHaveLength(0);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(
       spaceLayoutPath(s.spaceId),
@@ -314,72 +308,72 @@ describe("deleteNote action", () => {
     );
   });
 
-  it("rejects unknown note ids with NOTE_NOT_FOUND", async () => {
-    const s = await seedNote();
+  it("rejects unknown monthly ids with MONTHLY_NOT_FOUND", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.ownerId);
 
-    const result = await deleteNote({
+    const result = await deleteMonthly({
       spaceId: s.spaceId,
-      noteId: crypto.randomUUID(),
+      monthlyId: crypto.randomUUID(),
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("NOTE_NOT_FOUND");
+      expect(result.error.code).toBe("MONTHLY_NOT_FOUND");
     }
-    expect(await testDb.select().from(note)).toHaveLength(1);
+    expect(await testDb.select().from(monthly)).toHaveLength(1);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("blocks read-only Members from deleting Notes", async () => {
-    const s = await seedNote();
+  it("blocks read-only Members from deleting Monthlies", async () => {
+    const s = await seedMonthly();
     authenticateAs(s.readOnlyId);
 
-    const result = await deleteNote({
+    const result = await deleteMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("INSUFFICIENT_ROLE");
     }
-    expect(await testDb.select().from(note)).toHaveLength(1);
+    expect(await testDb.select().from(monthly)).toHaveLength(1);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("blocks users who are not Members of the Space", async () => {
-    const s = await seedNote();
+    const s = await seedMonthly();
     authenticateAs(s.outsiderId);
 
-    const result = await deleteNote({
+    const result = await deleteMonthly({
       spaceId: s.spaceId,
-      noteId: s.noteId,
+      monthlyId: s.monthlyId,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("NOT_MEMBER");
     }
-    expect(await testDb.select().from(note)).toHaveLength(1);
+    expect(await testDb.select().from(monthly)).toHaveLength(1);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
-  it("rejects a Note that does not belong to the given Space", async () => {
-    const s = await seedNote();
-    const otherNote = await seedNoteInOtherSpace(s.ownerId);
+  it("rejects a Monthly that does not belong to the given Space", async () => {
+    const s = await seedMonthly();
+    const otherMonthly = await seedMonthlyInOtherSpace(s.ownerId);
     authenticateAs(s.ownerId);
 
-    const result = await deleteNote({
+    const result = await deleteMonthly({
       spaceId: s.spaceId,
-      noteId: otherNote.id,
+      monthlyId: otherMonthly.id,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("NOTE_NOT_FOUND");
+      expect(result.error.code).toBe("MONTHLY_NOT_FOUND");
     }
-    expect(await testDb.select().from(note)).toHaveLength(2);
+    expect(await testDb.select().from(monthly)).toHaveLength(2);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });
