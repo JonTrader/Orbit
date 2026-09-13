@@ -49,6 +49,7 @@ export async function PATCH(
       spaceId: params.spaceId,
       monthlyId: params.monthlyId,
       title: body.title,
+      body: body.body,
       dueDayOfMonth: body.dueDayOfMonth,
       assigneeId: body.assigneeId,
     });

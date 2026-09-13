@@ -196,6 +196,40 @@ describe("monthly", () => {
   beforeAll(migrateTestDb);
   beforeEach(truncateAll);
 
+  it("defaults body to empty and preserves plain text", async () => {
+    const owner = await createUser();
+    const { space, sections } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+
+    const [defaulted, described] = await testDb
+      .insert(monthly)
+      .values([
+        {
+          spaceId: space.id,
+          sectionId: sections.monthlies.id,
+          sectionKind: "monthlies",
+          title: "Default body",
+          dueDayOfMonth: 1,
+          nextDueOn: "2026-10-01",
+        },
+        {
+          spaceId: space.id,
+          sectionId: sections.monthlies.id,
+          sectionKind: "monthlies",
+          title: "Plain text body",
+          body: "First line\nSecond line <not markup>",
+          dueDayOfMonth: 2,
+          nextDueOn: "2026-10-02",
+        },
+      ])
+      .returning();
+
+    expect(defaulted.body).toBe("");
+    expect(described.body).toBe("First line\nSecond line <not markup>");
+  });
+
   it("rejects due_day_of_month outside the 1-31 range", async () => {
     const owner = await createUser();
     const { space, sections } = await createSpaceWithSystemSections(testDb, {

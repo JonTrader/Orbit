@@ -279,6 +279,8 @@ export const monthly = pgTable(
     /** Mirrors section.kind so the composite FK + check pin this to Monthlies. */
     sectionKind: sectionKind("section_kind").notNull(),
     title: text("title").notNull(),
+    /** Optional plain-text Description, stored as an empty string when absent. */
+    body: text("body").notNull().default(""),
     /** 1–31 as authored. Short months clamp when nextDueOn is computed. */
     dueDayOfMonth: integer("due_day_of_month").notNull(),
     /** Next due calendar day in the Space timezone, already clamped. */

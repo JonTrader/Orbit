@@ -95,6 +95,44 @@ describe("Monthly services", () => {
     ).rejects.toMatchObject({ code: "MONTHLY_NOT_FOUND" });
   });
 
+  it("creates, defaults, updates, and clears plain-text Monthly bodies", async () => {
+    const { space, editor, readOnly } = await seedSpace();
+    const description = "First line\nSecond line <kept as plain text>";
+
+    const described = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "Described",
+      body: description,
+      dueDayOfMonth: 10,
+    });
+    expect(described.body).toBe(description);
+
+    await expect(
+      getMonthly(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        monthlyId: described.id,
+      }),
+    ).resolves.toMatchObject({ body: description });
+
+    const defaulted = await createMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      title: "No description",
+      dueDayOfMonth: 20,
+    });
+    expect(defaulted.body).toBe("");
+
+    const cleared = await updateMonthly(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      monthlyId: described.id,
+      body: "",
+    });
+    expect(cleared.body).toBe("");
+  });
+
   it("completes a Monthly and clamps day 31 to the end of February", async () => {
     const { space, editor, sections } = await seedSpace();
     const [created] = await testDb

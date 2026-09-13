@@ -44,6 +44,7 @@ export async function POST(
       userId: session.user.id,
       spaceId,
       title: body.title,
+      body: body.body,
       dueDayOfMonth: body.dueDayOfMonth,
       assigneeId: body.assigneeId,
     });
