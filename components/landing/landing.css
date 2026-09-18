@@ -1,4 +1,4 @@
-/* Scoped Flare landing styles. Active when html has .landing-active. */
+/* Scoped marketing landing styles. Active when html has .landing-active. */
 
 html.landing-active,
 html.landing-active body {
@@ -253,7 +253,7 @@ html.landing-active body {
     0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
-.landing .chapter[data-chapter="household"] {
+.landing .chapter[data-chapter="shared"] {
   box-shadow:
     inset 0 3px 0 var(--landing-teal),
     0 18px 40px rgba(0, 0, 0, 0.22);

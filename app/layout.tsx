@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+
+import { LANDING_DESCRIPTION } from "@/components/landing/meta";
+
 import "./globals.css";
 
 const instrumentSans = Instrument_Sans({
@@ -17,8 +20,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Orbit",
-  description:
-    "Personal Space. Household Space. Daily Tasks. Monthlies. Same product - different gravity.",
+  description: LANDING_DESCRIPTION,
 };
 
 export default function RootLayout({

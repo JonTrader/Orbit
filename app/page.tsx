@@ -3,6 +3,7 @@ import { Manrope, Syne } from "next/font/google";
 import { redirect } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
+import { LANDING_DESCRIPTION } from "@/components/landing/meta";
 import { resolveAppAccess } from "@/lib/auth/access";
 import {
   continuationFromSearchParams,
@@ -34,13 +35,12 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   referrer: "no-referrer",
   title: "Orbit",
-  description:
-    "Personal Space. Household Space. Daily Tasks. Monthlies. Same product - different gravity.",
+  description: LANDING_DESCRIPTION,
 };
 
 /**
  * Public marketing entry at `/`. Guests and verified sessions both see the
- * Flare landing; verified CTAs enter the app via resolveEntrySpace → Upcoming.
+ * marketing landing; verified CTAs enter the app via resolveEntrySpace → Upcoming.
  * Invite continuations still redirect after onboarding. Unverified sessions go
  * to email verification.
  */

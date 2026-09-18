@@ -13,6 +13,8 @@ import {
   SIGN_UP_PATH,
 } from "@/lib/auth/paths";
 
+import { LANDING_DESCRIPTION } from "./meta";
+
 import "lenis/dist/lenis.css";
 import "./landing.css";
 
@@ -209,8 +211,7 @@ export function LandingPage({
           <em>Stop treating yourself like a shared calendar.</em>
         </h1>
         <p className="lede">
-          Personal Space. Household Space. Daily Tasks. Monthlies. Same product -
-          different gravity. Scroll for the proof.
+          {LANDING_DESCRIPTION} Scroll for the proof.
         </p>
         <div className="hero-row">
           <Link className="cta large magnet" href={primaryHref} data-magnet>
@@ -239,9 +240,9 @@ export function LandingPage({
                 <li>Invite when you choose - not before</li>
               </ul>
             </article>
-            <article className="chapter" data-chapter="household">
+            <article className="chapter" data-chapter="shared">
               <p className="ch-num">02 · Together is explicit</p>
-              <h2>Household Space</h2>
+              <h2>Shared Space</h2>
               <p>
                 Coordination is chosen. Invites, roles, assignees - never implied
                 by a flat shared inbox.
@@ -302,8 +303,8 @@ export function LandingPage({
         <div className="slash-line" />
         <div className="slash-marquee">
           <div className="slash-track">
-            <p>personal / household / daily / monthlies / upcoming</p>
-            <p>personal / household / daily / monthlies / upcoming</p>
+            <p>personal / shared / daily / monthlies / upcoming</p>
+            <p>personal / shared / daily / monthlies / upcoming</p>
           </div>
         </div>
       </section>
