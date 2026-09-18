@@ -1,11 +1,4 @@
-"use client";
-
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Lenis from "lenis";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
 
 import {
   APP_PATH,
@@ -13,14 +6,10 @@ import {
   SIGN_UP_PATH,
 } from "@/lib/auth/paths";
 
+import { LandingEffects } from "./LandingEffects";
 import { LANDING_DESCRIPTION } from "./meta";
 
-import "lenis/dist/lenis.css";
 import "./landing.css";
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(useGSAP, ScrollTrigger);
-}
 
 const SIGNED_IN_CTA = "Open your Space";
 
@@ -43,151 +32,12 @@ export function LandingPage({
   signUpHref,
   signInHref,
 }: LandingPageProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
   const signedIn = Boolean(enterHref);
   const primaryHref = enterHref ?? signUpHref ?? SIGN_UP_PATH;
   const primaryLabel = signedIn ? SIGNED_IN_CTA : "Sign Up";
 
-  useEffect(() => {
-    document.documentElement.classList.add("landing-active");
-    return () => {
-      document.documentElement.classList.remove("landing-active");
-    };
-  }, []);
-
-  useGSAP(
-    () => {
-      const root = rootRef.current;
-      if (!root) return;
-
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const isMobile = window.matchMedia("(max-width: 720px)").matches;
-
-      const magnets = [
-        ...root.querySelectorAll<HTMLElement>("[data-magnet]"),
-      ];
-      const magnetCleanups: Array<() => void> = [];
-
-      if (!reduced) {
-        magnets.forEach((el) => {
-          const onMove = (event: PointerEvent) => {
-            const rect = el.getBoundingClientRect();
-            const x = event.clientX - rect.left - rect.width / 2;
-            const y = event.clientY - rect.top - rect.height / 2;
-            el.style.transform = `translate(${x * 0.22}px, ${y * 0.28}px)`;
-          };
-          const onLeave = () => {
-            el.style.transform = "translate(0, 0)";
-          };
-          el.addEventListener("pointermove", onMove);
-          el.addEventListener("pointerleave", onLeave);
-          magnetCleanups.push(() => {
-            el.removeEventListener("pointermove", onMove);
-            el.removeEventListener("pointerleave", onLeave);
-            el.style.transform = "";
-          });
-        });
-      }
-
-      gsap.fromTo(
-        root.querySelectorAll(".hero h1, .hero .lede, .hero-row"),
-        { y: 28, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.9,
-          stagger: 0.1,
-          ease: "power2.out",
-          clearProps: "transform",
-        },
-      );
-
-      if (!reduced) {
-        gsap.fromTo(
-          root.querySelector(".slash-line"),
-          { scaleX: 0 },
-          {
-            scaleX: 1,
-            ease: "none",
-            scrollTrigger: {
-              trigger: root.querySelector(".slash"),
-              start: "top 80%",
-              end: "top 40%",
-              scrub: true,
-            },
-          },
-        );
-      }
-
-      if (reduced || isMobile) {
-        return () => {
-          magnetCleanups.forEach((fn) => fn());
-        };
-      }
-
-      const lenis = new Lenis({
-        autoRaf: false,
-        lerp: 0.09,
-      });
-
-      lenis.on("scroll", ScrollTrigger.update);
-      const onTick = (time: number) => {
-        lenis.raf(time * 1000);
-      };
-      gsap.ticker.add(onTick);
-      gsap.ticker.lagSmoothing(0);
-
-      const track = root.querySelector<HTMLElement>(".track");
-      const pinInner = root.querySelector<HTMLElement>(".pin-inner");
-      const progress = root.querySelector<HTMLElement>(".progress-bar");
-      const chapters = root.querySelector("#chapters");
-
-      if (track && pinInner && progress && chapters) {
-        const getScrollDistance = () =>
-          Math.max(0, track.scrollWidth - window.innerWidth + 48);
-
-        gsap.to(track, {
-          x: () => -getScrollDistance(),
-          ease: "none",
-          scrollTrigger: {
-            trigger: chapters,
-            start: "top top",
-            end: () => `+=${getScrollDistance()}`,
-            pin: pinInner,
-            scrub: 1,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onUpdate: (self) => {
-              progress.style.width = `${self.progress * 100}%`;
-            },
-          },
-        });
-
-        const onLoad = () => ScrollTrigger.refresh();
-        window.addEventListener("load", onLoad);
-
-        return () => {
-          window.removeEventListener("load", onLoad);
-          magnetCleanups.forEach((fn) => fn());
-          gsap.ticker.remove(onTick);
-          lenis.destroy();
-        };
-      }
-
-      return () => {
-        magnetCleanups.forEach((fn) => fn());
-        gsap.ticker.remove(onTick);
-        lenis.destroy();
-      };
-    },
-    { scope: rootRef },
-  );
-
   return (
-    <div
-      ref={rootRef}
-      className={["landing", className].filter(Boolean).join(" ")}
-    >
+    <LandingEffects className={className}>
       <div className="grain" aria-hidden="true" />
 
       <header className="top">
@@ -195,7 +45,7 @@ export function LandingPage({
           Orbit
         </Link>
         <span className="tag">Spaces · Tasks · Monthlies</span>
-        <Link className="cta magnet" href={primaryHref} data-magnet>
+        <Link className="cta" href={primaryHref}>
           {primaryLabel}
         </Link>
       </header>
@@ -214,7 +64,7 @@ export function LandingPage({
           {LANDING_DESCRIPTION} Scroll for the proof.
         </p>
         <div className="hero-row">
-          <Link className="cta large magnet" href={primaryHref} data-magnet>
+          <Link className="cta large" href={primaryHref}>
             {primaryLabel}
           </Link>
           <div className="scroll-hint" aria-hidden="true">
@@ -313,7 +163,7 @@ export function LandingPage({
         {signedIn ? (
           <>
             <h2>You&apos;re one step ahead.</h2>
-            <Link className="cta large magnet" href={primaryHref} data-magnet>
+            <Link className="cta large" href={primaryHref}>
               {primaryLabel}
             </Link>
             <p className="back">Your Spaces are ready - jump back in.</p>
@@ -321,7 +171,7 @@ export function LandingPage({
         ) : (
           <>
             <h2>Pick a Space. Keep the rest in motion.</h2>
-            <Link className="cta large magnet" href={primaryHref} data-magnet>
+            <Link className="cta large" href={primaryHref}>
               {primaryLabel}
             </Link>
             <p className="back">
@@ -331,6 +181,6 @@ export function LandingPage({
           </>
         )}
       </section>
-    </div>
+    </LandingEffects>
   );
 }
