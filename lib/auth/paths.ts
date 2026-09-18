@@ -37,16 +37,21 @@ export function resetPasswordFragmentUrl(url: string): string {
 /** Signed-in change-password page (requires a verified session). */
 export const CHANGE_PASSWORD_PATH = "/change-password";
 
-/** Invite accept path with the bearer token in the query string. */
+/**
+ * Invite email landing with the bearer in the query string. Auth `continue` /
+ * `callbackURL` must use bare {@link ACCEPT_INVITE_PATH} instead - the bearer
+ * lives in an HttpOnly cookie after the first hit.
+ */
 export function acceptInvitePath(token: string): string {
   const params = new URLSearchParams({ token });
   return `${ACCEPT_INVITE_PATH}?${params.toString()}`;
 }
 
 /**
- * Narrowly validates a local Invite continuation. Only `/accept-invite` with a
- * non-empty token is allowed. Rejects absolute URLs, protocol-relative paths,
- * and malformed targets.
+ * Narrowly validates a local Invite continuation. Only bare `/accept-invite`
+ * is emitted. Legacy `?token=` continue values are accepted but canonicalized
+ * to the bare path so the bearer is never re-emitted into auth URLs.
+ * Rejects absolute URLs, protocol-relative paths, and malformed targets.
  */
 export function parseLocalContinuation(raw: unknown): string | null {
   if (typeof raw !== "string" || raw.length === 0) return null;
@@ -68,15 +73,13 @@ export function parseLocalContinuation(raw: unknown): string | null {
   if (parsed.pathname !== ACCEPT_INVITE_PATH) return null;
 
   const token = parsed.searchParams.get("token");
-  if (
-    !token ||
-    token.length === 0 ||
-    token.length > MAX_INVITE_TOKEN_LENGTH
-  ) {
-    return null;
+  if (token !== null) {
+    if (token.length === 0 || token.length > MAX_INVITE_TOKEN_LENGTH) {
+      return null;
+    }
   }
 
-  return acceptInvitePath(token);
+  return ACCEPT_INVITE_PATH;
 }
 
 /**

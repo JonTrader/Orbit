@@ -12,7 +12,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Marketing landing
 
-- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` is preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect).
+- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` is the bare `/accept-invite` path (bearer is not in the URL); preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect).
 
 ## Architecture
 
@@ -35,8 +35,8 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Auth / Invites
 
-- Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers.
-- Invite continuation: validated local `/accept-invite?token=...` only (`parseLocalContinuation`). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/` so Personal Space onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"` so tokens in `continue` do not leak via Referer.
+- Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers. Email links stay `/accept-invite?token=...`; `proxy.ts` stashes the bearer in the HttpOnly `orbit_invite` cookie (`lib/invites/pending-cookie.ts`) and redirects to bare `/accept-invite`. Accept reads/clears that cookie - never a client-supplied bearer.
+- Invite continuation: validated bare `/accept-invite` only (`parseLocalContinuation`; legacy `?token=` continue is accepted but canonicalized to bare). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/` so Personal Space onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"`.
 
 ## Testing and CI
 
