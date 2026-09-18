@@ -29,12 +29,21 @@ type LandingPageProps = {
    * their entry Space) instead of Sign Up / Sign in.
    */
   enterHref?: string;
+  /** Guest Sign Up target; defaults to SIGN_UP_PATH. May carry Invite continue. */
+  signUpHref?: string;
+  /** Guest Sign in target; defaults to SIGN_IN_PATH. May carry Invite continue. */
+  signInHref?: string;
 };
 
-export function LandingPage({ className, enterHref }: LandingPageProps) {
+export function LandingPage({
+  className,
+  enterHref,
+  signUpHref,
+  signInHref,
+}: LandingPageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const signedIn = Boolean(enterHref);
-  const primaryHref = enterHref ?? SIGN_UP_PATH;
+  const primaryHref = enterHref ?? signUpHref ?? SIGN_UP_PATH;
   const primaryLabel = signedIn ? SIGNED_IN_CTA : "Sign Up";
 
   useEffect(() => {
@@ -315,7 +324,8 @@ export function LandingPage({ className, enterHref }: LandingPageProps) {
               {primaryLabel}
             </Link>
             <p className="back">
-              Already have an account? <Link href={SIGN_IN_PATH}>Sign in</Link>
+              Already have an account?{" "}
+              <Link href={signInHref ?? SIGN_IN_PATH}>Sign in</Link>
             </p>
           </>
         )}
