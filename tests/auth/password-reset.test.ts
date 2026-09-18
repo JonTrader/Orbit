@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +27,15 @@ const CREDENTIALS = {
 };
 
 const NEW_PASSWORD = "orbit-new-password";
+
+/**
+ * Mirrors Better Auth's defaultKeyHasher: SHA-256 of the full identifier,
+ * encoded as unpadded base64url. Tests look up hashed verification rows
+ * without importing private better-auth paths.
+ */
+function hashStoredIdentifier(identifier: string): string {
+  return createHash("sha256").update(identifier, "utf8").digest("base64url");
+}
 
 /** The one answer the endpoint gives, account or no account. */
 const GENERIC_ANSWER = {
@@ -235,7 +245,12 @@ describe("password reset", () => {
     const expired = await testDb
       .update(verification)
       .set({ expiresAt: new Date(Date.now() - 60_000) })
-      .where(eq(verification.identifier, `reset-password:${token}`))
+      .where(
+        eq(
+          verification.identifier,
+          hashStoredIdentifier(`reset-password:${token}`),
+        ),
+      )
       .returning();
     expect(expired).toHaveLength(1);
 

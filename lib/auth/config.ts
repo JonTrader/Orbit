@@ -40,6 +40,18 @@ export const auth = betterAuth({
     // sensitive endpoint limits shared across serverless invocations.
     storage: "database",
   },
+  // Prefix match on identifier. Password-reset rows are `reset-password:${token}`;
+  // hashing them (SHA-256, unpadded base64url) keeps the bearer out of the table.
+  // Other verification identifiers stay plain. No schema change.
+  verification: {
+    storeIdentifier: {
+      default: "plain",
+      overrides: {
+        "email-verification": "hashed",
+        "reset-password": "hashed",
+      },
+    },
+  },
   trustedOrigins,
   emailAndPassword: {
     enabled: true,

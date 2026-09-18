@@ -59,6 +59,16 @@ describe("better auth configuration", () => {
     );
   });
 
+  it("hashes email-verification and password-reset identifiers at rest", () => {
+    expect(auth.options.verification?.storeIdentifier).toEqual({
+      default: "plain",
+      overrides: {
+        "email-verification": "hashed",
+        "reset-password": "hashed",
+      },
+    });
+  });
+
   it("exposes id on the rateLimit drizzle table (adapter inserts it)", async () => {
     const { rateLimit } = await import("@/lib/db/schema");
     expect(rateLimit.id).toBeDefined();
