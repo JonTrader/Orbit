@@ -58,6 +58,12 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins,
+  // Encrypts provider access/refresh tokens with AES-256-GCM from
+  // BETTER_AUTH_SECRET. No schema change; existing plaintext rows stay
+  // readable until the account re-authenticates.
+  account: {
+    encryptOAuthTokens: true,
+  },
   emailAndPassword: {
     enabled: true,
     // Spec §3: email/password users verify before they can use the app.

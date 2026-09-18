@@ -66,6 +66,10 @@ describe("better auth configuration", () => {
     });
   });
 
+  it("encrypts OAuth tokens at rest", () => {
+    expect(auth.options.account?.encryptOAuthTokens).toBe(true);
+  });
+
   it("hashes email-verification and password-reset identifiers at rest", () => {
     expect(auth.options.verification?.storeIdentifier).toEqual({
       default: "plain",
