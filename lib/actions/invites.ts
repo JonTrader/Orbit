@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
 import {
+  clearPendingInviteCookie,
+  readPendingInviteToken,
+} from "@/lib/invites/pending-cookie";
+import {
   acceptInvite as acceptInviteMember,
   inviteMember,
   type InvitePublicView,
@@ -29,7 +33,6 @@ const acceptInviteInputSchema = z
   .strict();
 
 export type SendInviteInput = z.input<typeof sendInviteInputSchema>;
-export type AcceptInviteInput = z.input<typeof acceptInviteInputSchema>;
 
 export type SendInviteResult = ActionResult<InvitePublicView>;
 export type AcceptInviteResult = ActionResult<
@@ -63,15 +66,17 @@ const runAcceptInvite = defineAction(
 );
 
 /**
- * Accepts a pending Invite for the verified session user. Revalidates the
- * Space directory, then `redirect()`s to Upcoming with the write result's
- * spaceId so `/accept-invite` is never re-rendered with a consumed token.
+ * Accepts a pending Invite for the verified session user. The bearer comes
+ * from the HttpOnly pending cookie (never from the client). Revalidates the
+ * Space directory, clears the cookie, then `redirect()`s to Upcoming with the
+ * write result's spaceId so `/accept-invite` is never re-rendered with a
+ * consumed token.
  */
-export async function acceptInvite(
-  input: unknown,
-): Promise<AcceptInviteResult> {
-  const result = await runAcceptInvite(input);
+export async function acceptInvite(): Promise<AcceptInviteResult> {
+  const token = (await readPendingInviteToken()) ?? "";
+  const result = await runAcceptInvite({ token });
   if (result.ok) {
+    await clearPendingInviteCookie();
     redirect(
       spaceSectionPath(result.data.spaceId, "upcoming"),
       RedirectType.replace,

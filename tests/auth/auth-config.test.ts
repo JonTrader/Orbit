@@ -59,6 +59,27 @@ describe("better auth configuration", () => {
     );
   });
 
+  it("pins tight rate limits on email-send auth routes", () => {
+    expect(auth.options.rateLimit?.customRules).toEqual({
+      "/request-password-reset": { window: 60, max: 3 },
+      "/send-verification-email": { window: 60, max: 3 },
+    });
+  });
+
+  it("encrypts OAuth tokens at rest", () => {
+    expect(auth.options.account?.encryptOAuthTokens).toBe(true);
+  });
+
+  it("hashes email-verification and password-reset identifiers at rest", () => {
+    expect(auth.options.verification?.storeIdentifier).toEqual({
+      default: "plain",
+      overrides: {
+        "email-verification": "hashed",
+        "reset-password": "hashed",
+      },
+    });
+  });
+
   it("exposes id on the rateLimit drizzle table (adapter inserts it)", async () => {
     const { rateLimit } = await import("@/lib/db/schema");
     expect(rateLimit.id).toBeDefined();

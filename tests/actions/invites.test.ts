@@ -2,8 +2,21 @@ import "../setup/api-mocks";
 import "../setup/action-mocks";
 
 import { spaceLayoutPath, spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
+
+const pendingCookie = vi.hoisted(() => ({
+  token: null as string | null,
+  readPendingInviteToken: vi.fn(async () => pendingCookie.token),
+  clearPendingInviteCookie: vi.fn(async () => {
+    pendingCookie.token = null;
+  }),
+}));
+
+vi.mock("@/lib/invites/pending-cookie", () => ({
+  readPendingInviteToken: pendingCookie.readPendingInviteToken,
+  clearPendingInviteCookie: pendingCookie.clearPendingInviteCookie,
+}));
 
 import { acceptInvite, sendInvite } from "@/lib/actions/invites";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
@@ -23,6 +36,12 @@ import { createUser } from "../setup/fixtures";
 import { lastEmailedInviteToken } from "../setup/invite-email";
 
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+
+function stashInviteToken(token: string): void {
+  pendingCookie.token = token;
+  pendingCookie.readPendingInviteToken.mockClear();
+  pendingCookie.clearPendingInviteCookie.mockClear();
+}
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1_000;
 
@@ -249,6 +268,9 @@ describe("acceptInvite action", () => {
 
   beforeEach(async () => {
     await truncateAll();
+    pendingCookie.token = null;
+    pendingCookie.readPendingInviteToken.mockClear();
+    pendingCookie.clearPendingInviteCookie.mockClear();
     getRequireVerifiedSessionMock().mockReset();
     getRevalidatePathMock().mockReset();
     getRedirectMock().mockClear();
@@ -270,7 +292,8 @@ describe("acceptInvite action", () => {
     getRedirectMock().mockClear();
 
     authenticateAs(recipient.id);
-    await expect(acceptInvite({ token })).rejects.toMatchObject({
+    stashInviteToken(token);
+    await expect(acceptInvite()).rejects.toMatchObject({
       digest: expect.stringContaining(
         spaceSectionPath(s.spaceId, "upcoming"),
       ),
@@ -280,6 +303,8 @@ describe("acceptInvite action", () => {
       "replace",
     );
     expect(getRevalidatePathMock()).toHaveBeenCalledWith(SPACES_PATH, "layout");
+    expect(pendingCookie.clearPendingInviteCookie).toHaveBeenCalled();
+    expect(pendingCookie.token).toBeNull();
 
     const members = await testDb
       .select()
@@ -305,25 +330,29 @@ describe("acceptInvite action", () => {
     getRevalidatePathMock().mockReset();
 
     authenticateAs(wrong.id);
-    const mismatch = await acceptInvite({ token });
+    stashInviteToken(token);
+    const mismatch = await acceptInvite();
     expect(mismatch.ok).toBe(false);
     if (!mismatch.ok) {
       expect(mismatch.error.code).toBe("EMAIL_MISMATCH");
     }
+    expect(pendingCookie.clearPendingInviteCookie).not.toHaveBeenCalled();
 
     authenticateAs(recipient.id);
-    const missing = await acceptInvite({ token: "totally-wrong" });
+    stashInviteToken("totally-wrong");
+    const missing = await acceptInvite();
     expect(missing.ok).toBe(false);
     if (!missing.ok) {
       expect(missing.error.code).toBe("INVITE_NOT_FOUND");
     }
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
     expect(getRedirectMock()).not.toHaveBeenCalled();
+    expect(pendingCookie.clearPendingInviteCookie).not.toHaveBeenCalled();
   });
 
   it("lets the session guard redirect unverified callers", async () => {
     guardRedirectsTo("/verify-email");
-    await expect(acceptInvite({ token: "anything" })).rejects.toMatchObject({
+    await expect(acceptInvite()).rejects.toMatchObject({
       digest: expect.stringContaining("NEXT_REDIRECT"),
     });
   });

@@ -6,7 +6,7 @@ import { SwitchAccountButton } from "@/components/auth/SwitchAccountButton";
 import { AuthCard } from "@/components/auth/kit/AuthCard";
 import { AuthLink } from "@/components/auth/kit/AuthLink";
 import {
-  acceptInvitePath,
+  ACCEPT_INVITE_PATH,
   SIGN_IN_PATH,
   SIGN_UP_PATH,
   verifyEmailPath,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/paths";
 import { getAppSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
+import { readPendingInviteToken } from "@/lib/invites/pending-cookie";
 import { previewInviteByToken } from "@/lib/services/members";
 import { roleLabel } from "@/lib/spaces/role-label";
 
@@ -23,20 +24,20 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default async function AcceptInvitePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ token?: string }>;
-}) {
-  const [{ token: rawToken }, session] = await Promise.all([
-    searchParams,
+/**
+ * Bearer arrives via email as `/accept-invite?token=...`. `proxy.ts` stashes it
+ * in an HttpOnly cookie and redirects here bare. Auth continue links use only
+ * {@link ACCEPT_INVITE_PATH} so the bearer never enters callbackURL / Referer.
+ */
+export default async function AcceptInvitePage() {
+  const [token, session] = await Promise.all([
+    readPendingInviteToken(),
     getAppSession(),
   ]);
-  const token = typeof rawToken === "string" ? rawToken : "";
-  const preview = await previewInviteByToken(getDb(), token, {
+  const preview = await previewInviteByToken(getDb(), token ?? "", {
     viewerEmail: session?.user.email,
   });
-  const continuation = token ? acceptInvitePath(token) : null;
+  const continuation = ACCEPT_INVITE_PATH;
 
   if (preview.status === "unavailable") {
     return (
@@ -170,9 +171,7 @@ export default async function AcceptInvitePage({
               <span className="font-mono text-[0.85rem]">{session.user.email}</span>.
               Switch to the invited account to continue.
             </p>
-            {continuation ? (
-              <SwitchAccountButton continuation={continuation} />
-            ) : null}
+            <SwitchAccountButton continuation={continuation} />
           </div>
         </AuthCard>
       </AuthLayoutPad>
@@ -187,7 +186,7 @@ export default async function AcceptInvitePage({
       >
         <div className="flex flex-col gap-4">
           {inviteSummary}
-          <AcceptInviteButton token={token} />
+          <AcceptInviteButton />
         </div>
       </AuthCard>
     </AuthLayoutPad>

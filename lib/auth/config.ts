@@ -39,8 +39,31 @@ export const auth = betterAuth({
     // Memory storage resets across Vercel instances. The table keeps the
     // sensitive endpoint limits shared across serverless invocations.
     storage: "database",
+    // Pins Better Auth's built-in 3/60s special rules so they cannot silently regress.
+    customRules: {
+      "/request-password-reset": { window: 60, max: 3 },
+      "/send-verification-email": { window: 60, max: 3 },
+    },
+  },
+  // Prefix match on identifier. Password-reset rows are `reset-password:${token}`;
+  // hashing them (SHA-256, unpadded base64url) keeps the bearer out of the table.
+  // Other verification identifiers stay plain. No schema change.
+  verification: {
+    storeIdentifier: {
+      default: "plain",
+      overrides: {
+        "email-verification": "hashed",
+        "reset-password": "hashed",
+      },
+    },
   },
   trustedOrigins,
+  // Encrypts provider access/refresh tokens with AES-256-GCM from
+  // BETTER_AUTH_SECRET. No schema change; existing plaintext rows stay
+  // readable until the account re-authenticates.
+  account: {
+    encryptOAuthTokens: true,
+  },
   emailAndPassword: {
     enabled: true,
     // Spec §3: email/password users verify before they can use the app.

@@ -4,7 +4,6 @@ import {
   ACCEPT_INVITE_PATH,
   APP_PATH,
   CONTINUATION_PARAM,
-  acceptInvitePath,
   authCallbackUrl,
   continuationFromSearchParams,
   parseLocalContinuation,
@@ -13,13 +12,16 @@ import {
 } from "@/lib/auth/paths";
 
 describe("Invite auth continuation", () => {
-  const invite = acceptInvitePath("secret-token");
+  const invite = ACCEPT_INVITE_PATH;
 
-  it("accepts a canonical accept-invite continuation and rebuilds it", () => {
-    expect(parseLocalContinuation(invite)).toBe(invite);
+  it("accepts bare accept-invite and canonicalizes legacy tokenful continue", () => {
+    expect(parseLocalContinuation(invite)).toBe(ACCEPT_INVITE_PATH);
+    expect(parseLocalContinuation("/accept-invite?token=secret-token")).toBe(
+      ACCEPT_INVITE_PATH,
+    );
     expect(
       parseLocalContinuation("/accept-invite?token=secret-token&utm=1"),
-    ).toBe(invite);
+    ).toBe(ACCEPT_INVITE_PATH);
   });
 
   it("rejects external, protocol-relative, and malformed targets", () => {
@@ -27,7 +29,6 @@ describe("Invite auth continuation", () => {
     expect(parseLocalContinuation("//evil.test/accept-invite?token=x")).toBeNull();
     expect(parseLocalContinuation("/\\evil.test")).toBeNull();
     expect(parseLocalContinuation("/sign-in")).toBeNull();
-    expect(parseLocalContinuation("/accept-invite")).toBeNull();
     expect(parseLocalContinuation("/accept-invite?token=")).toBeNull();
     expect(parseLocalContinuation(`${ACCEPT_INVITE_PATH}?token=${"a".repeat(257)}`)).toBeNull();
     expect(parseLocalContinuation(null)).toBeNull();
@@ -88,11 +89,6 @@ describe("Invite auth continuation", () => {
     ).toBeNull();
     expect(
       continuationFromSearchParams({ [CONTINUATION_PARAM]: "/sign-in" }),
-    ).toBeNull();
-    expect(
-      continuationFromSearchParams({
-        [CONTINUATION_PARAM]: ["/accept-invite"],
-      }),
     ).toBeNull();
   });
 });

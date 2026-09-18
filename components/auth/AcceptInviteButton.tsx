@@ -7,7 +7,8 @@ import { acceptInvite } from "@/lib/actions/invites";
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
 
-export function AcceptInviteButton({ token }: { token: string }) {
+/** Accepts the pending Invite from the HttpOnly cookie (no client bearer). */
+export function AcceptInviteButton() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -17,7 +18,7 @@ export function AcceptInviteButton({ token }: { token: string }) {
     setError(null);
     setPending(true);
     try {
-      const result = await acceptInvite({ token });
+      const result = await acceptInvite();
       // Successful accept redirects on the server. Keep pending so a
       // consumed-token preview cannot paint an error state.
       if (result.ok) return;
