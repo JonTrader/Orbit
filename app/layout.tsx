@@ -21,6 +21,13 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Orbit",
   description: LANDING_DESCRIPTION,
+  icons: {
+    icon: [
+      { url: "/icons/favicon.ico", sizes: "any" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icons/apple-icon.png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({

@@ -13,6 +13,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 ## Marketing landing
 
 - Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` is the bare `/accept-invite` path (bearer is not in the URL); preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect).
+- Brand icons live in [`public/icons/`](./public/icons/) (`icon.svg`, `favicon.ico`, `apple-icon.png`); wired via `metadata.icons` in [`app/layout.tsx`](./app/layout.tsx). Do not put Next.js `app/icon.*` / `app/favicon.ico` file conventions alongside them.
 
 ## Architecture
 
