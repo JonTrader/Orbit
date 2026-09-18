@@ -42,8 +42,18 @@ describe("Invite auth continuation", () => {
     expect(withContinuation("/sign-in", invite)).toBe(
       `/sign-in?continue=${encodeURIComponent(invite)}`,
     );
+    expect(withContinuation("/sign-up", invite)).toBe(
+      `/sign-up?continue=${encodeURIComponent(invite)}`,
+    );
+    expect(withContinuation("/sign-in", null)).toBe("/sign-in");
     expect(verifyEmailPath("a@orbit.test", invite)).toBe(
       `/verify-email?email=${encodeURIComponent("a@orbit.test")}&continue=${encodeURIComponent(invite)}`,
+    );
+    expect(verifyEmailPath("a@orbit.test")).toBe(
+      `/verify-email?email=${encodeURIComponent("a@orbit.test")}`,
+    );
+    expect(verifyEmailPath(undefined, invite)).toBe(
+      `/verify-email?continue=${encodeURIComponent(invite)}`,
     );
   });
 

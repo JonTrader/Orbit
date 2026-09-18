@@ -12,7 +12,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Marketing landing
 
-- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` on `/` still redirects after onboarding. Unverified → `/verify-email`.
+- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` is preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`.
 
 ## Architecture
 
