@@ -78,21 +78,28 @@ async function pickTodayDueDate(page: Page): Promise<string> {
   ].join("-");
 }
 
+async function openRowDeleteMenu(page: Page, title: string): Promise<void> {
+  const actions = page.getByRole("button", { name: `Actions for ${title}` });
+  await actions.scrollIntoViewIfNeeded();
+  await actions.click();
+  const menu = page.getByRole("menu", { name: `Actions for ${title}` });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Delete", exact: true }).click();
+}
+
 async function cancelThenConfirmDelete(
   page: Page,
   title: string,
   dialogName: string,
 ): Promise<void> {
-  await page.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await openRowDeleteMenu(page, title);
   const dialog = page.getByRole("dialog", { name: dialogName });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: `Actions for ${title}` }).click();
-  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await openRowDeleteMenu(page, title);
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(dialog).toBeHidden();
