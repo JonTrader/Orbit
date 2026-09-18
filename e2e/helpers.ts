@@ -262,6 +262,17 @@ export async function markEmailVerified(email: string): Promise<void> {
   }
 }
 
+/** Clears verification so an existing session is treated as unverified. */
+export async function markEmailUnverified(email: string): Promise<void> {
+  const result = await db().query(
+    'update "user" set email_verified = false where email = $1',
+    [email],
+  );
+  if (result.rowCount !== 1) {
+    throw new Error(`markEmailUnverified matched no user for ${email}`);
+  }
+}
+
 /** Accept-invite path for a known bearer (query-encoded). */
 export function acceptInviteUrl(rawToken: string): string {
   const params = new URLSearchParams({ token: rawToken });
