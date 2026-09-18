@@ -59,6 +59,13 @@ describe("better auth configuration", () => {
     );
   });
 
+  it("pins tight rate limits on email-send auth routes", () => {
+    expect(auth.options.rateLimit?.customRules).toEqual({
+      "/request-password-reset": { window: 60, max: 3 },
+      "/send-verification-email": { window: 60, max: 3 },
+    });
+  });
+
   it("hashes email-verification and password-reset identifiers at rest", () => {
     expect(auth.options.verification?.storeIdentifier).toEqual({
       default: "plain",
