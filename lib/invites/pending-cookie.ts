@@ -22,12 +22,6 @@ export function pendingInviteCookieOptions(): {
   };
 }
 
-/** Writes the Invite bearer (Server Action / mutable cookie context only). */
-export async function setPendingInviteCookie(token: string): Promise<void> {
-  const store = await cookies();
-  store.set(PENDING_INVITE_COOKIE, token, pendingInviteCookieOptions());
-}
-
 /** Reads the pending Invite bearer, or null when missing / malformed. */
 export async function readPendingInviteToken(): Promise<string | null> {
   const store = await cookies();

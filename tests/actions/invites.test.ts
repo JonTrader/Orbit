@@ -16,15 +16,6 @@ const pendingCookie = vi.hoisted(() => ({
 vi.mock("@/lib/invites/pending-cookie", () => ({
   readPendingInviteToken: pendingCookie.readPendingInviteToken,
   clearPendingInviteCookie: pendingCookie.clearPendingInviteCookie,
-  setPendingInviteCookie: vi.fn(),
-  PENDING_INVITE_COOKIE: "orbit_invite",
-  pendingInviteCookieOptions: () => ({
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: false,
-    path: "/" as const,
-    maxAge: 7 * 24 * 60 * 60,
-  }),
 }));
 
 import { acceptInvite, sendInvite } from "@/lib/actions/invites";

@@ -29,5 +29,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ACCEPT_INVITE_PATH,
+  // Literal so Next can statically analyze it. Imported constants are ignored
+  // and the proxy would run on every request.
+  matcher: "/accept-invite",
 };
