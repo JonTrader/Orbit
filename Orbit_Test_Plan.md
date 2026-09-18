@@ -107,7 +107,7 @@ flowchart TB
 
 ## Phase A — Shell (already done)
 
-**Goal of tests:** none automated beyond existing lint/build. Static chrome is validated manually against the prototype.
+**Goal of tests:** none automated beyond existing lint/build. Static chrome is validated manually against Spec §1 / the shipped Active Space shell.
 
 **What to verify (manual / smoke):**
 

@@ -81,7 +81,7 @@ flowchart LR
 | | |
 | --- | --- |
 | **Goal** | Runnable Next.js app with static Orbit v2 chrome, no real data |
-| **Read** | Spec §1 UI; prototype `prototypes/v2-agenda-feed.html` |
+| **Read** | Spec §1 UI; Active Space chrome in `components/spaces/` |
 | **ADRs** | none |
 | **Prereq** | none |
 

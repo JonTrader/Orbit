@@ -10,7 +10,7 @@ const instrumentSans = Instrument_Sans({
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["500"],
+  weight: ["400", "500"],
   variable: "--font-ibm-plex-mono",
   display: "swap",
 });
@@ -18,7 +18,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Orbit",
   description:
-    "Household-first agenda for day-to-day to-dos and recurring monthly obligations.",
+    "Personal Space. Household Space. Daily Tasks. Monthlies. Same product - different gravity.",
 };
 
 export default function RootLayout({

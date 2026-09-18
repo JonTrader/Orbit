@@ -6,7 +6,7 @@ Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT
 
 Orbit is a **household-first** coordination app for day-to-day to-dos and recurring monthly obligations. Solo use works via a Personal Space; sharing is a first-class path, not an afterthought.
 
-UI reference: [`prototype/ui-prototype.html`](../prototype/ui-prototype.html) (agenda + Spaces sidebar) and [`prototype/ui-spaces.html`](../prototype/ui-spaces.html) (all Spaces directory). Warm paper, Instrument Sans + IBM Plex Mono. Nav: **Upcoming → Daily → Monthlies → custom Sections**. No Shared tab. Spaces listed in the sidebar with **View all** / full directory for many Spaces.
+UI reference: Active Space chrome in [`components/spaces/`](../components/spaces/) (agenda + Spaces sidebar) and the Spaces directory under `app/(app)/spaces/(directory)/`. Warm paper, Instrument Sans + IBM Plex Mono. Nav: **Upcoming → Daily → Monthlies → custom Sections**. No Shared tab. Spaces listed in the sidebar with **View all** / full directory for many Spaces. Marketing landing (guests on `/`): [`components/landing/LandingPage.tsx`](../components/landing/LandingPage.tsx).
 
 
 ## 2. Stack (locked)

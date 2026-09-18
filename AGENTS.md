@@ -10,12 +10,16 @@
 
 Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite). Do not invent synonyms.
 
+## Marketing landing
+
+- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` on `/` still redirects after onboarding. Unverified → `/verify-email`.
+
 ## Architecture
 
 - **Auth**: web RSC uses `lib/auth/session.ts`; API routes use `lib/rest-api/auth.ts`. Do not mix them. Better Auth production rate limits use `rate_limit` (`storage: "database"`). That Drizzle model must expose `id` (PK) plus unique `key` - the adapter inserts `id` on every bucket write, and rate limiting is on by default only when `NODE_ENV=production`. Env vars on Vercel do not apply schema changes; after `npm run db:generate`, migrate the production Neon branch (`DRIZZLE_DATABASE_URL` = that URL, then `npm run db:migrate`).
 - **Active Space views**: `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` (layout data + Viewer). Do not call `requireVerifiedSession` / `requireMembership` or re-declare `[spaceId]` params in those views. Services enforce membership at the API boundary.
 - **Params**: `resolveSpaceContext` in `lib/spaces/params.ts` is the only `[spaceId]` params schema.
-- **Onboarding**: Personal Space via `resolveEntrySpace` in `lib/onboarding.ts`; the app layout only session-guards. Layouts and pages render concurrently.
+- **Onboarding**: Personal Space via `resolveEntrySpace` in `lib/onboarding.ts` when a verified session hits `/` (landing CTAs and Invite continuations); the `(app)` layout only session-guards Spaces routes. Layouts and pages render concurrently.
 - **Actions** (`lib/actions/`): web-only (ADR 0005). Thin wrappers over `lib/services` - no business logic. Always use `defineAction` from `lib/actions/framework.ts`. Alias service imports so action names do not collide with the service they wrap. Monthly `body` defaults to `""` (UI label Description). Task due dates, Monthly body, and content delete use existing Server Actions and existing Monthly REST handlers - do not add new REST routes for them.
 - **IDs**: app entities are UUIDs; Better Auth `user.id` is a 32-char alphanumeric string. Fields that hold a user ID (`assigneeId`, `completedBy`, ...) use `z.string().min(1)`, never `z.uuid()`.
 
