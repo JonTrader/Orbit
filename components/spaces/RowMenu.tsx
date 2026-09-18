@@ -46,8 +46,9 @@ const VIEWPORT_PAD = 8;
 /**
  * Portaled overflow menu for Space rows and Section panel headers. Positions
  * from the trigger's bounding rect on open, flipping above when there is not
- * enough room below (last directory rows). Closes on scroll/resize instead of
- * tracking continuously (overflow parents would clip a non-portaled menu).
+ * enough room below (last directory rows). Closes on user wheel/touch and
+ * resize instead of tracking continuously (overflow parents would clip a
+ * non-portaled menu).
  */
 export function RowMenu({
   items,
@@ -110,7 +111,7 @@ export function RowMenu({
     const itemsEls = menuRef.current?.querySelectorAll<HTMLElement>(
       '[role="menuitem"]',
     );
-    itemsEls?.[0]?.focus();
+    itemsEls?.[0]?.focus({ preventScroll: true });
   }, [open]);
 
   useEffect(() => {
@@ -147,13 +148,13 @@ export function RowMenu({
       if (event.key === "ArrowDown") {
         const next =
           currentIndex < 0 ? 0 : (currentIndex + 1) % itemsEls.length;
-        itemsEls[next]?.focus();
+        itemsEls[next]?.focus({ preventScroll: true });
       } else {
         const next =
           currentIndex < 0
             ? itemsEls.length - 1
             : (currentIndex - 1 + itemsEls.length) % itemsEls.length;
-        itemsEls[next]?.focus();
+        itemsEls[next]?.focus({ preventScroll: true });
       }
     }
 
@@ -163,13 +164,18 @@ export function RowMenu({
 
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("scroll", onViewportChange, true);
+    // Wheel/touch is user scrolling. A capture `scroll` listener also sees
+    // programmatic scrollIntoView (focus, Playwright clicks) and would close
+    // the menu before the click lands.
+    window.addEventListener("wheel", onViewportChange, { capture: true, passive: true });
+    window.addEventListener("touchmove", onViewportChange, { capture: true, passive: true });
     window.addEventListener("resize", onViewportChange);
 
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("wheel", onViewportChange, true);
+      window.removeEventListener("touchmove", onViewportChange, true);
       window.removeEventListener("resize", onViewportChange);
     };
   }, [open]);

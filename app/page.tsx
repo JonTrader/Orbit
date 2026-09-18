@@ -3,10 +3,15 @@ import { Manrope, Syne } from "next/font/google";
 import { redirect } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
+import { LANDING_DESCRIPTION } from "@/components/landing/meta";
 import { resolveAppAccess } from "@/lib/auth/access";
 import {
   continuationFromSearchParams,
+  SIGN_IN_PATH,
+  SIGN_UP_PATH,
   VERIFY_EMAIL_PATH,
+  verifyEmailPath,
+  withContinuation,
 } from "@/lib/auth/paths";
 import { getAppSession, readCreatorTimeZone } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
@@ -30,13 +35,12 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   referrer: "no-referrer",
   title: "Orbit",
-  description:
-    "Personal Space. Household Space. Daily Tasks. Monthlies. Same product - different gravity.",
+  description: LANDING_DESCRIPTION,
 };
 
 /**
  * Public marketing entry at `/`. Guests and verified sessions both see the
- * Flare landing; verified CTAs enter the app via resolveEntrySpace → Upcoming.
+ * marketing landing; verified CTAs enter the app via resolveEntrySpace → Upcoming.
  * Invite continuations still redirect after onboarding. Unverified sessions go
  * to email verification.
  */
@@ -48,17 +52,23 @@ export default async function HomePage({
   const session = await getAppSession();
   const access = resolveAppAccess({ session });
   const fontClass = `${syne.variable} ${manrope.variable}`;
-
-  if (!access.allowed) {
-    if (session && !session.user.emailVerified) {
-      redirect(VERIFY_EMAIL_PATH);
-    }
-
-    return <LandingPage className={fontClass} />;
-  }
-
   const params = await searchParams;
   const continuation = continuationFromSearchParams(params);
+
+  if (!access.allowed) {
+    if (access.redirectTo === VERIFY_EMAIL_PATH && session) {
+      redirect(verifyEmailPath(session.user.email, continuation));
+    }
+
+    return (
+      <LandingPage
+        className={fontClass}
+        signUpHref={withContinuation(SIGN_UP_PATH, continuation)}
+        signInHref={withContinuation(SIGN_IN_PATH, continuation)}
+      />
+    );
+  }
+
   const spaceId = await resolveEntrySpace(getDb(), {
     userId: access.session.user.id,
     timezone: await readCreatorTimeZone(),
