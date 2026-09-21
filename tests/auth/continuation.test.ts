@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCEPT_INVITE_PATH,
-  APP_PATH,
   CONTINUATION_PARAM,
   authCallbackUrl,
   continuationFromSearchParams,
@@ -10,6 +9,7 @@ import {
   verifyEmailPath,
   withContinuation,
 } from "@/lib/auth/paths";
+import { SPACES_PATH } from "@/lib/spaces/paths";
 
 describe("Invite auth continuation", () => {
   const invite = ACCEPT_INVITE_PATH;
@@ -35,10 +35,10 @@ describe("Invite auth continuation", () => {
     expect(parseLocalContinuation("")).toBeNull();
   });
 
-  it("routes callbacks through the app entry before returning to the Invite", () => {
-    expect(authCallbackUrl(null)).toBe(APP_PATH);
+  it("routes callbacks through Spaces onboarding before returning to the Invite", () => {
+    expect(authCallbackUrl(null)).toBe(SPACES_PATH);
     expect(authCallbackUrl(invite)).toBe(
-      `${APP_PATH}?continue=${encodeURIComponent(invite)}`,
+      `${SPACES_PATH}?continue=${encodeURIComponent(invite)}`,
     );
     expect(withContinuation("/sign-in", invite)).toBe(
       `/sign-in?continue=${encodeURIComponent(invite)}`,

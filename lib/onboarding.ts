@@ -62,9 +62,8 @@ export async function ensurePersonalSpace(
 }
 
 /**
- * Resolves the Space id the entry route should open: the caller's default
- * Active Space (first membership by creation order), idempotently ensuring a
- * Personal Space when they have none yet.
+ * Resolves the caller's default Active Space id (first membership by creation
+ * order), idempotently ensuring a Personal Space when they have none yet.
  */
 export async function resolveEntrySpace(
   db: OrbitDb,

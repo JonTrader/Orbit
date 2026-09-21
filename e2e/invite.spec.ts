@@ -39,7 +39,18 @@ test.beforeAll(async ({ request }) => {
   ownerApi = await playwrightRequest.newContext({
     extraHTTPHeaders: { cookie: cookieHeader(ownerSession) },
   });
-  await request.get("/", { headers: { cookie: cookieHeader(ownerSession) } });
+  // Onboarding runs in the web app: /spaces ensures the Personal Space so
+  // later leave flows are not blocked by LAST_SPACE.
+  const onboard = await request.get("/spaces", {
+    headers: { cookie: cookieHeader(ownerSession) },
+    maxRedirects: 5,
+  });
+  expect(onboard.ok()).toBeTruthy();
+
+  const spaces = await ownerApi.get("/api/v1/spaces");
+  expect(spaces.status()).toBe(200);
+  const list = (await spaces.json()) as Array<{ id: string; name: string }>;
+  expect(list.some((row) => row.name === "Personal")).toBe(true);
 });
 
 test.afterAll(async () => {
@@ -298,7 +309,10 @@ test.describe("Invite accept and ShareBar management", () => {
     await peopleAfter.getByRole("button", { name: "Leave Space" }).click();
     const leave = page.getByRole("dialog", { name: "Leave Space" });
     await leave.getByRole("button", { name: "Leave" }).click();
-    await expect(page).toHaveURL(/\/spaces$/);
+    // Leave returns through `/spaces` → entry Upcoming, not the left Space.
+    await expect(leave).toHaveCount(0);
+    await expect(page).not.toHaveURL(new RegExp(`/spaces/${spaceId}/`));
+    await expect(page).toHaveURL(/\/spaces\/[^/]+\/upcoming$/);
 
     const members = await spaceMembers(request, editorSession, spaceId);
     expect(members).toHaveLength(1);

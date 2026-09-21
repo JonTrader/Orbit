@@ -38,8 +38,7 @@ export function SignInForm({
       });
 
       if (!failure) {
-        // Better Auth set the session cookie; enter via `/` for Personal Space.
-        router.replace(callbackURL);
+        // Better Auth follows callbackURL after setting the session cookie.
         return;
       }
 

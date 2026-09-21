@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { deleteSpace, renameSpace } from "@/lib/actions/spaces";
-import { APP_PATH } from "@/lib/auth/paths";
 import type { SpaceDirectoryEntry } from "@/lib/services/spaces";
-import { SPACES_PATH, spaceSectionPath } from "@/lib/spaces/paths";
+import {
+  SPACES_DIRECTORY_PATH,
+  spaceSectionPath,
+} from "@/lib/spaces/paths";
 import { roleLabel } from "@/lib/spaces/role-label";
 
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -17,7 +19,8 @@ import { RowMenu } from "./RowMenu";
 
 export interface SpacesDirectoryProps {
   entries: SpaceDirectoryEntry[];
-  /** True when `/spaces?new=space` asked to open the create dialog. */
+  entrySpaceId: string;
+  /** True when `/spaces/all?new=space` asked to open the create dialog. */
   openCreate: boolean;
 }
 
@@ -48,7 +51,11 @@ function canManageSpace(entry: SpaceDirectoryEntry): boolean {
  * Space. Owners can rename or delete non-Personal Spaces from each row's
  * overflow menu.
  */
-export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
+export function SpacesDirectory({
+  entries,
+  entrySpaceId,
+  openCreate,
+}: SpacesDirectoryProps) {
   const router = useRouter();
   // Deep link drives open via prop; the header button uses local state only.
   const [localOpen, setLocalOpen] = useState(false);
@@ -66,7 +73,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
   function closeDialog() {
     setLocalOpen(false);
     if (openCreate) {
-      router.replace(SPACES_PATH);
+      router.replace(SPACES_DIRECTORY_PATH);
     }
   }
 
@@ -87,7 +94,7 @@ export function SpacesDirectory({ entries, openCreate }: SpacesDirectoryProps) {
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Link
-            href={APP_PATH}
+            href={spaceSectionPath(entrySpaceId, "upcoming")}
             className="inline-flex items-center gap-1.5 rounded-md border border-line bg-panel px-[0.7rem] py-[0.42rem] text-[0.78rem] font-semibold text-ink transition-colors hover:border-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <svg

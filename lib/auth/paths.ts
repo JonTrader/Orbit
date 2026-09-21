@@ -1,3 +1,5 @@
+import { SPACES_PATH } from "@/lib/spaces/paths";
+
 /**
  * Auth route constants. Kept apart from `lib/auth.ts` so client components can
  * import them without pulling the server auth instance into the browser bundle.
@@ -113,13 +115,14 @@ export function withContinuation(
 }
 
 /**
- * Post-auth callback through the app entry so Personal Space onboarding runs,
- * then optionally returns to a validated Invite URL.
+ * Post-auth callback through `/spaces` so Personal Space onboarding runs and
+ * the default Active Space opens, then optionally returns to a validated
+ * Invite URL.
  */
 export function authCallbackUrl(
   continuation: string | null | undefined,
 ): string {
-  return withContinuation(APP_PATH, continuation ?? null);
+  return withContinuation(SPACES_PATH, continuation ?? null);
 }
 
 export function verifyEmailPath(
