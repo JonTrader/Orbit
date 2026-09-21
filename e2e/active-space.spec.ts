@@ -36,9 +36,11 @@ test.beforeAll(async ({ request }) => {
     extraHTTPHeaders: { cookie: cookieHeader(ownerSession) },
   });
 
-  // Onboarding runs in the app shell, not the API: loading "/" once makes
-  // the entry route create the Personal Space before we list Spaces.
-  await request.get("/", { headers: { cookie: cookieHeader(ownerSession) } });
+  // Onboarding runs in the web app, not the API: /spaces ensures the Personal
+  // Space before we list Spaces.
+  await request.get("/spaces", {
+    headers: { cookie: cookieHeader(ownerSession) },
+  });
 
   const spaces = await ownerApi.get("/api/v1/spaces");
   const list = (await spaces.json()) as Array<{ id: string; name: string }>;

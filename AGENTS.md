@@ -12,7 +12,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 ## Marketing landing
 
-- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Invite `continue` is the bare `/accept-invite` path (bearer is not in the URL); preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect).
+- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Post-auth callbacks use `/spaces`, which onboards and redirects to entry-Space Upcoming. Invite `continue` is the bare `/accept-invite` path (bearer is not in the URL); preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect) and [`e2e/auth.spec.ts`](./e2e/auth.spec.ts) (sign-in entry-Space redirect + signed-in landing access).
 - Brand icons live in [`public/icons/`](./public/icons/) (`icon.svg`, `favicon.ico`, `apple-icon.png`); wired via `metadata.icons` in [`app/layout.tsx`](./app/layout.tsx). Do not put Next.js `app/icon.*` / `app/favicon.ico` file conventions alongside them.
 
 ## Architecture
@@ -20,7 +20,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 - **Auth**: web RSC uses `lib/auth/session.ts`; API routes use `lib/rest-api/auth.ts`. Do not mix them. Better Auth production rate limits use `rate_limit` (`storage: "database"`). That Drizzle model must expose `id` (PK) plus unique `key` - the adapter inserts `id` on every bucket write, and rate limiting is on by default only when `NODE_ENV=production`. Env vars on Vercel do not apply schema changes; after `npm run db:generate`, migrate the production Neon branch (`DRIZZLE_DATABASE_URL` = that URL, then `npm run db:migrate`). `verification.storeIdentifier` hashes `email-verification` and `reset-password` identifiers (reset prefix is `reset-password`). Tests that look up those rows must hash the identifier the same way.
 - **Active Space views**: `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` (layout data + Viewer). Do not call `requireVerifiedSession` / `requireMembership` or re-declare `[spaceId]` params in those views. Services enforce membership at the API boundary.
 - **Params**: `resolveSpaceContext` in `lib/spaces/params.ts` is the only `[spaceId]` params schema.
-- **Onboarding**: Personal Space via `resolveEntrySpace` in `lib/onboarding.ts` when a verified session hits `/` (landing CTAs and Invite continuations); the `(app)` layout only session-guards Spaces routes. Layouts and pages render concurrently.
+- **Onboarding / entry**: `resolveEntrySpace` in `lib/onboarding.ts` returns the first membership by creation order, creating a Personal Space only when the user has none. Auth and Invite continuations enter through `/spaces`, which onboards and then opens entry-Space Upcoming unless returning to an Invite; verified landing CTAs resolve their entry Space directly. The `(app)` layout only session-guards Spaces routes. Layouts and pages render concurrently.
 - **Actions** (`lib/actions/`): web-only (ADR 0005). Thin wrappers over `lib/services` - no business logic. Always use `defineAction` from `lib/actions/framework.ts`. Alias service imports so action names do not collide with the service they wrap. Monthly `body` defaults to `""` (UI label Description). Task due dates, Monthly body, and content delete use existing Server Actions and existing Monthly REST handlers - do not add new REST routes for them.
 - **IDs**: app entities are UUIDs; Better Auth `user.id` is a 32-char alphanumeric string. Fields that hold a user ID (`assigneeId`, `completedBy`, ...) use `z.string().min(1)`, never `z.uuid()`.
 
@@ -28,16 +28,18 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 
 - `components/spaces/` owns Active Space chrome. RSC: `getActiveSpace`; client: `useActiveSpace()` from `ActiveSpaceProvider`.
 - Route groups under `app/(app)/spaces/`:
-  - `(directory)/` owns `/spaces` and its `loading.tsx`. Never put directory loading at `spaces/loading.tsx` (it would wrap Active Space navigations).
+  - `page.tsx` owns `/spaces`, which redirects to entry-Space Upcoming after onboarding.
+  - `(directory)/all/` owns `/spaces/all` and its `loading.tsx`. Never put directory loading at `spaces/loading.tsx` (it would wrap Active Space navigations).
   - `(active)/` keeps the sidebar across `spaceId` changes. `(active)/loading.tsx` is a main-panel spinner only - no second sidebar.
   - Section routes own their own `loading.tsx`. Do not add `[spaceId]/loading.tsx` (flashes a generic skeleton on tab switches).
 - Sidebar is Spaces-only and `position: fixed` (`SpaceSidebarShell` + `lg:pl-[var(--sidebar-w)]` on main). Sections live in `SectionTabs` inside `SpaceLayout`; Section pages render content only.
+- The `/spaces/all` directory Home link opens entry-Space Upcoming using the `resolveEntrySpace` result passed into `SpacesDirectory`; it does not return to the marketing `/`.
 - URLs: system views `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment.
 
 ## Auth / Invites
 
 - Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers. Email links stay `/accept-invite?token=...`; `proxy.ts` stashes the bearer in the HttpOnly `orbit_invite` cookie (`lib/invites/pending-cookie.ts`) and redirects to bare `/accept-invite`. Accept reads/clears that cookie - never a client-supplied bearer.
-- Invite continuation: validated bare `/accept-invite` only (`parseLocalContinuation`; legacy `?token=` continue is accepted but canonicalized to bare). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/` so Personal Space onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"`.
+- Invite continuation: validated bare `/accept-invite` only (`parseLocalContinuation`; legacy `?token=` continue is accepted but canonicalized to bare). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/spaces` so onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"`.
 
 ## Testing and CI
 

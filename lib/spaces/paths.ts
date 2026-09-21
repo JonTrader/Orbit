@@ -5,12 +5,15 @@
 /** The fixed nav slugs for Upcoming, Daily, and Monthlies. */
 export type SystemSectionSlug = "upcoming" | "daily" | "monthlies";
 
-/** All-Spaces directory (membership-scoped list + create entry point). */
+/** Authenticated entry that resolves the default Active Space. */
 export const SPACES_PATH = "/spaces";
+
+/** Membership-scoped all-Spaces directory. */
+export const SPACES_DIRECTORY_PATH = "/spaces/all";
 
 /** Directory deep link that opens the create-Space dialog. */
 export function spacesCreateDialogPath(): string {
-  return `${SPACES_PATH}?new=space`;
+  return `${SPACES_DIRECTORY_PATH}?new=space`;
 }
 
 export function spaceSectionPath(

@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { CHANGE_PASSWORD_PATH } from "@/lib/auth/paths";
-import { SPACES_PATH } from "@/lib/spaces/paths";
+import { SPACES_DIRECTORY_PATH } from "@/lib/spaces/paths";
 
 import { CreateSpaceDialog } from "./CreateSpaceDialog";
 
@@ -38,7 +38,11 @@ export function SidebarFooter({
 
   return (
     <div className="mt-auto flex flex-col gap-1 border-t border-line px-1.5 pt-3">
-      <Link href={SPACES_PATH} onClick={onNavClick} className={footerLinkClass}>
+      <Link
+        href={SPACES_DIRECTORY_PATH}
+        onClick={onNavClick}
+        className={footerLinkClass}
+      >
         Browse all Spaces
       </Link>
       <button type="button" onClick={openCreate} className={footerLinkClass}>

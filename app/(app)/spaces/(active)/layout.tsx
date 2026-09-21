@@ -13,7 +13,7 @@ interface ActiveSpacesLayoutProps {
 /**
  * Persistent SpaceSidebarShell for Active Space routes. Sits above `[spaceId]`
  * so the sidebar and Spaces list Suspense tree stay mounted across Space switches.
- * The `/spaces` directory stays outside this route group.
+ * The `/spaces/all` directory stays outside this route group.
  */
 export default async function ActiveSpacesLayout({
   children,
