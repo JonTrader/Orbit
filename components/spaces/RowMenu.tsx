@@ -199,7 +199,7 @@ export function RowMenu({
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="size-[1rem]"
+            className="size-4"
             aria-hidden="true"
           >
             <path d="M6 10a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm5.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM16.5 10a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
@@ -220,7 +220,7 @@ export function RowMenu({
                 left: position.left,
                 transform: "translateX(-100%)",
               }}
-              className="z-50 min-w-[10rem] overflow-hidden rounded border border-line bg-panel py-1 shadow-[0_12px_32px_rgba(28,25,23,0.12)]"
+              className="z-50 min-w-40 overflow-hidden rounded border border-line bg-panel py-1 shadow-[0_12px_32px_rgba(28,25,23,0.12)]"
             >
               {items.map((item) => (
                 <button
