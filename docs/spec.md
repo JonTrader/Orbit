@@ -34,7 +34,7 @@ flowchart TB
 ```
 
 - **`/api/v1` Route Handlers**: mobile-ready CRUD (spaces, sections, tasks, monthlies, notes, members/invites, reminder prefs). Zod at the boundary. Auth via Better Auth session (bearer later for mobile).
-  - Invite API: `GET /api/v1/spaces/{spaceId}/invites` lists pending Invites for the Owner; `POST /api/v1/spaces/{spaceId}/invites` creates one; `POST /api/v1/invites/{inviteId}/resend` refreshes expiry; `POST /api/v1/invites/accept` accepts by token. Invite cancellation is out of MVP.
+  - Invite API: `GET /api/v1/spaces/{spaceId}/invites` lists pending Invites for the Owner; `POST /api/v1/spaces/{spaceId}/invites` creates one; `POST /api/v1/invites/{inviteId}/resend` refreshes expiry; `POST /api/v1/invites/accept` accepts by token. Owner cancellation is the `cancelInvite` Server Action, which deletes a pending or expired Invite. The old link shows Invite unavailable. There is no cancel REST route.
 - **Server Actions**: web UX only (quick-add, complete, section reorder, invite + revalidate). Same `lib/services/*` - no duplicated logic ([ADR 0005](./adr/0005-dual-api-surface.md)).
 
 ## 3. Accounts
@@ -54,7 +54,7 @@ flowchart TB
 - **Editor**: content + custom Sections; not membership.
 - **Owner**: invites, roles, remove, ownership transfer, Space rename/delete/settings. Exception: the **Personal Space** cannot be renamed or deleted.
 - Exception: every Member may update their own per-Space notification preferences, because those settings are personal and do not mutate shared content.
-- **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can list pending Invites and resend. Pending Invite is not a Member until accept. Invite cancellation is out of MVP.
+- **Invite**: email + role; default role **read-only**; expires **7 days**; Owner can list pending Invites, resend, and cancel. Cancelling deletes the row. The old link shows Invite unavailable. Pending Invite is not a Member until accept.
 - Ownership transfer required before Owner leaves a Space that still has Members. If the Owner is the only Member, the empty Space must be deleted instead of left ownerless. Cannot delete/leave last remaining Space.
 - Optional **Assignee** on Task/Monthly: any Member of that Space (including read-only). Assignment ≠ edit permission.
 
