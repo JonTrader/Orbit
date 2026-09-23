@@ -303,6 +303,27 @@ export async function resendInvite(
   return withoutInviteDigest(updated);
 }
 
+/** Hard-deletes a pending or expired Invite so the link stops resolving. */
+export async function cancelInvite(
+  db: OrbitDb,
+  input: InviteAccessInput,
+): Promise<void> {
+  await requireMembership(db, {
+    userId: input.userId,
+    spaceId: await findInviteSpaceId(db, input.inviteId),
+    minimumRole: "owner",
+  });
+
+  const [deleted] = await db
+    .delete(invite)
+    .where(and(eq(invite.id, input.inviteId), isNull(invite.acceptedAt)))
+    .returning({ id: invite.id });
+
+  if (!deleted) {
+    throw new MemberError("INVITE_NOT_FOUND", "Pending Invite was not found");
+  }
+}
+
 /** Accepts a pending Invite for a signed-in user whose email matches it. */
 export async function acceptInvite(
   db: OrbitDb,

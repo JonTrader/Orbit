@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import {
+  cancelInvite,
   leaveSpace,
   listPendingInvites,
   removeMember,
@@ -13,7 +14,7 @@ import {
   updateMemberRole,
 } from "@/lib/actions/members";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { spaceMember } from "@/lib/db/schema";
+import { invite, spaceMember } from "@/lib/db/schema";
 import { inviteMember } from "@/lib/services/members";
 import { spaceLayoutPath, SPACES_PATH } from "@/lib/spaces/paths";
 
@@ -127,6 +128,56 @@ describe("member management actions", () => {
       spaceLayoutPath(s.spaceId),
       "layout",
     );
+  });
+
+  it("cancels a pending Invite and revalidates the Space layout", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.ownerId);
+    const pending = await inviteMember(testDb, {
+      userId: s.ownerId,
+      spaceId: s.spaceId,
+      email: "cancel@orbit.test",
+    });
+    getRevalidatePathMock().mockClear();
+
+    const result = await cancelInvite({
+      spaceId: s.spaceId,
+      inviteId: pending.id,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toBeUndefined();
+    }
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(
+      spaceLayoutPath(s.spaceId),
+      "layout",
+    );
+    const remaining = await testDb
+      .select()
+      .from(invite)
+      .where(eq(invite.id, pending.id));
+    expect(remaining).toHaveLength(0);
+  });
+
+  it("blocks Editors from cancelling an Invite", async () => {
+    const s = await seedSpace();
+    const pending = await inviteMember(testDb, {
+      userId: s.ownerId,
+      spaceId: s.spaceId,
+      email: "cancel-denied@orbit.test",
+    });
+    authenticateAs(s.editorId);
+
+    const result = await cancelInvite({
+      spaceId: s.spaceId,
+      inviteId: pending.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+    }
   });
 
   it("updates a Member role and removes a Member as Owner", async () => {

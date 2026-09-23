@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { SPACES_PATH } from "@/lib/spaces/paths";
 import {
+  cancelInvite as cancelInviteService,
   leaveSpace as leaveSpaceService,
   listPendingInvites as listPendingInvitesService,
   removeMember as removeMemberService,
@@ -40,6 +41,7 @@ const updateMemberRoleSchema = memberTargetSchema
 
 export type ListPendingInvitesInput = z.input<typeof spaceIdSchema>;
 export type ResendInviteInput = z.input<typeof inviteIdWithSpaceSchema>;
+export type CancelInviteInput = z.input<typeof inviteIdWithSpaceSchema>;
 export type UpdateMemberRoleInput = z.input<typeof updateMemberRoleSchema>;
 export type RemoveMemberInput = z.input<typeof memberTargetSchema>;
 export type TransferOwnershipInput = z.input<typeof memberTargetSchema>;
@@ -59,6 +61,16 @@ export const listPendingInvites = defineAction(
       spaceId: parsed.spaceId,
     }),
   { revalidate: false },
+);
+
+/** Owner-only: hard-delete a pending or expired Invite. */
+export const cancelInvite = defineAction(
+  inviteIdWithSpaceSchema,
+  async (parsed, { userId, db }) =>
+    cancelInviteService(db, {
+      userId,
+      inviteId: parsed.inviteId,
+    }),
 );
 
 /** Owner-only: rotate the Invite secret, refresh expiry, and re-send email. */

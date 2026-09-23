@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email/mailer";
 import { hashInviteToken } from "@/lib/invites/token";
 import {
   acceptInvite,
+  cancelInvite,
   inviteMember,
   leaveSpace,
   listMembers,
@@ -547,6 +548,11 @@ describe("Member and Invite services", () => {
           inviteId: pending.id,
         }),
       () =>
+        cancelInvite(testDb, {
+          userId: editor.id,
+          inviteId: pending.id,
+        }),
+      () =>
         updateMemberRole(testDb, {
           userId: editor.id,
           spaceId: space.id,
@@ -739,6 +745,117 @@ describe("Member and Invite services", () => {
         inviteId: pendingB.id,
       }),
     ).rejects.toMatchObject({ code: "NOT_MEMBER" });
+  });
+
+  it("cancels a pending or expired Invite and frees the email", async () => {
+    const ownerA = await createUser({ email: "owner-a@orbit.test" });
+    const ownerB = await createUser({ email: "owner-b@orbit.test" });
+    const editor = await createUser({ email: "editor@orbit.test" });
+    const spaceA = await createSpaceWithSystemSections(testDb, {
+      name: "Space A",
+      ownerUserId: ownerA.id,
+    });
+    const spaceB = await createSpaceWithSystemSections(testDb, {
+      name: "Space B",
+      ownerUserId: ownerB.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: spaceA.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+
+    const pending = await inviteMember(testDb, {
+      userId: ownerA.id,
+      spaceId: spaceA.space.id,
+      email: "pending@orbit.test",
+    });
+    const pendingToken = emailedToken();
+
+    await expect(
+      cancelInvite(testDb, {
+        userId: editor.id,
+        inviteId: pending.id,
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE", status: 403 });
+
+    await cancelInvite(testDb, {
+      userId: ownerA.id,
+      inviteId: pending.id,
+    });
+    const [deleted] = await testDb
+      .select()
+      .from(invite)
+      .where(eq(invite.id, pending.id));
+    expect(deleted).toBeUndefined();
+    expect(await previewInviteByToken(testDb, pendingToken)).toMatchObject({
+      status: "unavailable",
+    });
+    await expect(
+      inviteMember(testDb, {
+        userId: ownerA.id,
+        spaceId: spaceA.space.id,
+        email: "pending@orbit.test",
+      }),
+    ).resolves.toMatchObject({ email: "pending@orbit.test", acceptedAt: null });
+
+    const otherSpace = await inviteMember(testDb, {
+      userId: ownerB.id,
+      spaceId: spaceB.space.id,
+      email: "elsewhere@orbit.test",
+    });
+    await expect(
+      cancelInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: otherSpace.id,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_MEMBER", status: 403 });
+
+    const accepted = await inviteMember(testDb, {
+      userId: ownerA.id,
+      spaceId: spaceA.space.id,
+      email: "accepted@orbit.test",
+    });
+    await testDb
+      .update(invite)
+      .set({ acceptedAt: new Date() })
+      .where(eq(invite.id, accepted.id));
+    await expect(
+      cancelInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: accepted.id,
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    await expect(
+      cancelInvite(testDb, {
+        userId: ownerA.id,
+        inviteId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    const [stillAccepted] = await testDb
+      .select()
+      .from(invite)
+      .where(eq(invite.id, accepted.id));
+    expect(stillAccepted?.acceptedAt).toBeInstanceOf(Date);
+
+    const expired = await inviteMember(testDb, {
+      userId: ownerA.id,
+      spaceId: spaceA.space.id,
+      email: "expired@orbit.test",
+    });
+    await testDb
+      .update(invite)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(invite.id, expired.id));
+    await cancelInvite(testDb, {
+      userId: ownerA.id,
+      inviteId: expired.id,
+    });
+    const [expiredRow] = await testDb
+      .select()
+      .from(invite)
+      .where(eq(invite.id, expired.id));
+    expect(expiredRow).toBeUndefined();
   });
 
   it("rejects transferring ownership to self or a non-Member", async () => {
