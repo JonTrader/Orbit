@@ -39,6 +39,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 ## Auth / Invites
 
 - Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers. Email links stay `/accept-invite?token=...`; `proxy.ts` stashes the bearer in the HttpOnly `orbit_invite` cookie (`lib/invites/pending-cookie.ts`) and redirects to bare `/accept-invite`. Accept reads/clears that cookie - never a client-supplied bearer.
+- Owner cancels a pending or expired Invite with the `cancelInvite` Server Action (`lib/actions/members.ts`). That deletes the row. The old link shows Invite unavailable on `/accept-invite`. Do not add a cancel REST route.
 - Invite continuation: validated bare `/accept-invite` only (`parseLocalContinuation`; legacy `?token=` continue is accepted but canonicalized to bare). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/spaces` so onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"`.
 
 ## Testing and CI

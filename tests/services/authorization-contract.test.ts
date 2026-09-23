@@ -27,6 +27,7 @@ vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 import {
   acceptInvite,
+  cancelInvite,
   inviteMember,
   leaveSpace,
   listMembers,
@@ -593,6 +594,35 @@ describe("authorization contract", () => {
     );
   });
 
+  it("cancelInvite requires owner after resolving the Invite Space", async () => {
+    await truncateAll();
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const { space } = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const [pending] = await testDb
+      .insert(invite)
+      .values({
+        spaceId: space.id,
+        email: "pending@orbit.test",
+        role: "read-only",
+        tokenDigest: hashInviteToken("contract-cancel-token"),
+        invitedBy: owner.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
+      })
+      .returning();
+
+    await expectMinimumRole(
+      () =>
+        cancelInvite(testDb, {
+          userId: owner.id,
+          inviteId: pending!.id,
+        }),
+      "owner",
+    );
+  });
+
   it("ungated entrypoints do not call requireMembership", async () => {
     await truncateAll();
     const owner = await createUser({ email: "owner@orbit.test" });
@@ -638,6 +668,7 @@ describe("authorization contract", () => {
     const classified = new Set<string>([
       ...MEMBERSHIP_GATED.map((entry) => entry.name),
       "resendInvite",
+      "cancelInvite",
       ...UNGATED,
     ]);
 

@@ -27,7 +27,7 @@ A user who belongs to a Space with a role of owner, editor, or read-only.
 _Avoid_: Collaborator, participant, guest
 
 **Invite**:
-A pending offer to join a Space at a given role, addressed by email. Becomes a Member when accepted; not a Member beforehand. Default role when inviting is read-only; Owner can choose editor instead. Expires after 7 days if not accepted; Owner can resend.
+A pending offer to join a Space at a given role, addressed by email. Becomes a Member when accepted; not a Member beforehand. Default role when inviting is read-only; Owner can choose editor instead. Expires after 7 days if not accepted; Owner can resend or cancel. Cancelling deletes the Invite, and the link no longer exists.
 _Avoid_: Pending member, guest, share link (MVP uses email invites, not link membership)
 
 **Owner** / **Editor** / **Read-only**:

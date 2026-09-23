@@ -44,7 +44,7 @@ export default async function AcceptInvitePage() {
       <AuthLayoutPad>
         <AuthCard
           title="Invite unavailable"
-          intro="This Invite link is invalid or has already been used."
+          intro="This Invite link is invalid, no longer exists, or has already been used."
           footer={
             <AuthLink href={SIGN_IN_PATH} tone="muted">
               Back to sign in

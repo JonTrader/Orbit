@@ -256,7 +256,7 @@ Stop at Phase D acceptance. Do not start Phase E.
 | **E4** | Tasks (+ complete/reopen/move as supported) |
 | **E5** | Monthlies (+ complete) |
 | **E6** | Notes |
-| **E7** | Members/invites (pending list, create/resend/accept; no cancellation) + notification preferences |
+| **E7** | Members/invites (pending list, create/resend/cancel/accept) + notification preferences |
 
 **Acceptance**
 

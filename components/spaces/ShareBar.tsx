@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { sendInvite } from "@/lib/actions/invites";
 import {
+  cancelInvite,
   leaveSpace,
   listPendingInvites,
   removeMember,
@@ -47,6 +48,11 @@ type ManageDialog =
       member: ShareBarMember;
     }
   | {
+      type: "cancel-invite";
+      inviteId: string;
+      email: string;
+    }
+  | {
       type: "transfer";
       member: ShareBarMember;
     }
@@ -80,15 +86,15 @@ export function ShareBar({
       <button
         type="button"
         onClick={() => setDialog({ type: "people" })}
-        className="flex min-w-0 items-center gap-3 rounded text-left transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="group flex min-w-0 items-center gap-3 rounded px-1.5 text-left transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         aria-label={`People in this Space, ${count} ${count === 1 ? "person" : "people"}`}
       >
-        <div className="flex -space-x-2">
+        <div className="flex -space-x-2 py-0.5">
           {members.slice(0, 5).map((member) => (
             <Avatar key={member.userId} name={member.name} role={member.role} />
           ))}
         </div>
-        <span className="text-[0.85rem] text-muted">
+        <span className="text-[0.85rem] text-muted transition-colors group-hover:text-ink">
           {count} {count === 1 ? "person" : "people"}
         </span>
       </button>
@@ -121,6 +127,13 @@ export function ShareBar({
           onClose={() => setDialog(null)}
           onInvite={() => setDialog({ type: "invite" })}
           onRemove={(member) => setDialog({ type: "remove", member })}
+          onCancelInvite={(invite) =>
+            setDialog({
+              type: "cancel-invite",
+              inviteId: invite.id,
+              email: invite.email,
+            })
+          }
           onTransfer={(member) => setDialog({ type: "transfer", member })}
           onLeave={() => setDialog({ type: "leave" })}
         />
@@ -129,7 +142,8 @@ export function ShareBar({
       {dialog?.type === "invite" ? (
         <InviteDialog
           spaceId={spaceId}
-          onClose={() => setDialog({ type: "people" })}
+          onClose={() => setDialog(null)}
+          onSent={() => setDialog({ type: "people" })}
         />
       ) : null}
 
@@ -148,6 +162,27 @@ export function ShareBar({
             removeMember({
               spaceId,
               targetUserId: dialog.member.userId,
+            })
+          }
+          onConfirmed={() => {}}
+          onClose={() => setDialog({ type: "people" })}
+        />
+      ) : null}
+
+      {dialog?.type === "cancel-invite" ? (
+        <ConfirmDialog
+          title="Cancel Invite"
+          description={
+            <>
+              Cancel the Invite for {dialog.email}? The link will stop working.
+            </>
+          }
+          confirmLabel="Cancel invite"
+          pendingLabel="Canceling…"
+          onConfirm={() =>
+            cancelInvite({
+              spaceId,
+              inviteId: dialog.inviteId,
             })
           }
           onConfirmed={() => {}}
@@ -199,7 +234,7 @@ function Avatar({ name, role }: { name: string; role: ShareBarMember["role"] }) 
     <span
       title={`${name} · ${roleLabel(role)}`}
       aria-label={`${name}, ${roleLabel(role)}`}
-      className="inline-flex size-8 items-center justify-center rounded-full border-2 border-panel bg-accent text-[0.7rem] font-semibold text-white"
+      className="inline-flex size-8 items-center justify-center rounded-full border-2 border-panel bg-accent text-[0.7rem] font-semibold text-white transition group-hover:scale-105 group-hover:border-ink/30"
     >
       {initials || "?"}
     </span>
@@ -214,6 +249,7 @@ interface PeopleDialogProps {
   onClose: () => void;
   onInvite: () => void;
   onRemove: (member: ShareBarMember) => void;
+  onCancelInvite: (invite: { id: string; email: string }) => void;
   onTransfer: (member: ShareBarMember) => void;
   onLeave: () => void;
 }
@@ -226,6 +262,7 @@ function PeopleDialog({
   onClose,
   onInvite,
   onRemove,
+  onCancelInvite,
   onTransfer,
   onLeave,
 }: PeopleDialogProps) {
@@ -375,7 +412,7 @@ function PeopleDialog({
               disabled={pending}
               className="text-[0.8rem] font-semibold text-ink hover:underline disabled:opacity-50"
             >
-              Invite someone
+              Send an invite
             </button>
           </div>
           {pendingInvites === null ? (
@@ -405,14 +442,30 @@ function PeopleDialog({
                         {expired ? "Expired" : "Pending"}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => onResend(pendingInvite.id)}
-                      className="shrink-0 rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-ink hover:border-muted disabled:opacity-50"
-                    >
-                      Resend
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => onResend(pendingInvite.id)}
+                        className="rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-ink hover:border-muted disabled:opacity-50"
+                      >
+                        Resend
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        aria-label={`Cancel invite for ${pendingInvite.email}`}
+                        onClick={() =>
+                          onCancelInvite({
+                            id: pendingInvite.id,
+                            email: pendingInvite.email,
+                          })
+                        }
+                        className="rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-accent hover:border-accent/40 hover:bg-accent/10 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </li>
                 );
               })}
@@ -440,9 +493,10 @@ function PeopleDialog({
 interface InviteDialogProps {
   spaceId: string;
   onClose: () => void;
+  onSent: () => void;
 }
 
-function InviteDialog({ spaceId, onClose }: InviteDialogProps) {
+function InviteDialog({ spaceId, onClose, onSent }: InviteDialogProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("read-only");
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +515,7 @@ function InviteDialog({ spaceId, onClose }: InviteDialogProps) {
         role,
       });
       if (result.ok) {
-        onClose();
+        onSent();
       } else {
         setError(result.error.message);
       }
