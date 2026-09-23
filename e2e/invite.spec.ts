@@ -422,6 +422,53 @@ test.describe("Invite accept and ShareBar management", () => {
     await expect(page.getByText("1 person")).toBeVisible();
   });
 
+  test("cancelled Invite link is unavailable and the email can be invited again", async ({
+    page,
+  }) => {
+    const spaceId = await createOwnedSpace(`Invite Cancelled Link ${runSuffix()}`);
+    const recipientEmail = `cancel-link-${runSuffix()}@e2e.orbit.test`;
+    const rawToken = newInviteBearerToken();
+
+    await authenticateOwner(page, spaceId);
+    await sendInviteFromDialog(page, recipientEmail);
+    await pinInviteBearerToken(spaceId, recipientEmail, rawToken);
+
+    const people = page.getByRole("dialog", { name: "People" });
+    await expect(people).toBeVisible();
+    await expect(people.getByText(recipientEmail)).toBeVisible();
+
+    await people
+      .getByRole("button", { name: `Cancel invite for ${recipientEmail}` })
+      .click();
+    const confirm = page.getByRole("dialog", { name: "Cancel Invite" });
+    await confirm
+      .getByRole("button", { name: "Cancel invite", exact: true })
+      .click();
+
+    await expect(confirm).toHaveCount(0);
+    await expect(people).toBeVisible();
+    await expect(people.getByText("No pending Invites.")).toBeVisible();
+    await expect(people.getByText(recipientEmail)).toHaveCount(0);
+
+    await page.context().clearCookies();
+    await page.goto(acceptInviteUrl(rawToken));
+    await expect(
+      page.getByRole("heading", { name: "Invite unavailable" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "This Invite link is invalid, no longer exists, or has already been used.",
+      ),
+    ).toBeVisible();
+
+    await authenticateOwner(page, spaceId);
+    await sendInviteFromDialog(page, recipientEmail);
+    const peopleAgain = page.getByRole("dialog", { name: "People" });
+    await expect(peopleAgain).toBeVisible();
+    await expect(peopleAgain.getByText(recipientEmail)).toBeVisible();
+    await expect(peopleAgain.getByText(/Read-only · Pending/)).toBeVisible();
+  });
+
   test("Owner cancels a pending Invite from People", async ({ page }) => {
     const spaceId = await createOwnedSpace(`Invite Cancel Row ${runSuffix()}`);
     const recipientEmail = `cancel-row-${runSuffix()}@e2e.orbit.test`;
