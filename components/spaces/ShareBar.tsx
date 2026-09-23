@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { sendInvite } from "@/lib/actions/invites";
 import {
+  cancelInvite,
   leaveSpace,
   listPendingInvites,
   removeMember,
@@ -45,6 +46,11 @@ type ManageDialog =
   | {
       type: "remove";
       member: ShareBarMember;
+    }
+  | {
+      type: "cancel-invite";
+      inviteId: string;
+      email: string;
     }
   | {
       type: "transfer";
@@ -121,6 +127,13 @@ export function ShareBar({
           onClose={() => setDialog(null)}
           onInvite={() => setDialog({ type: "invite" })}
           onRemove={(member) => setDialog({ type: "remove", member })}
+          onCancelInvite={(invite) =>
+            setDialog({
+              type: "cancel-invite",
+              inviteId: invite.id,
+              email: invite.email,
+            })
+          }
           onTransfer={(member) => setDialog({ type: "transfer", member })}
           onLeave={() => setDialog({ type: "leave" })}
         />
@@ -149,6 +162,27 @@ export function ShareBar({
             removeMember({
               spaceId,
               targetUserId: dialog.member.userId,
+            })
+          }
+          onConfirmed={() => {}}
+          onClose={() => setDialog({ type: "people" })}
+        />
+      ) : null}
+
+      {dialog?.type === "cancel-invite" ? (
+        <ConfirmDialog
+          title="Cancel Invite"
+          description={
+            <>
+              Cancel the Invite for {dialog.email}? The link will stop working.
+            </>
+          }
+          confirmLabel="Cancel invite"
+          pendingLabel="Canceling…"
+          onConfirm={() =>
+            cancelInvite({
+              spaceId,
+              inviteId: dialog.inviteId,
             })
           }
           onConfirmed={() => {}}
@@ -215,6 +249,7 @@ interface PeopleDialogProps {
   onClose: () => void;
   onInvite: () => void;
   onRemove: (member: ShareBarMember) => void;
+  onCancelInvite: (invite: { id: string; email: string }) => void;
   onTransfer: (member: ShareBarMember) => void;
   onLeave: () => void;
 }
@@ -227,6 +262,7 @@ function PeopleDialog({
   onClose,
   onInvite,
   onRemove,
+  onCancelInvite,
   onTransfer,
   onLeave,
 }: PeopleDialogProps) {
@@ -406,14 +442,30 @@ function PeopleDialog({
                         {expired ? "Expired" : "Pending"}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => onResend(pendingInvite.id)}
-                      className="shrink-0 rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-ink hover:border-muted disabled:opacity-50"
-                    >
-                      Resend
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => onResend(pendingInvite.id)}
+                        className="rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-ink hover:border-muted disabled:opacity-50"
+                      >
+                        Resend
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        aria-label={`Cancel invite for ${pendingInvite.email}`}
+                        onClick={() =>
+                          onCancelInvite({
+                            id: pendingInvite.id,
+                            email: pendingInvite.email,
+                          })
+                        }
+                        className="rounded border border-line px-2.5 py-1 text-[0.8rem] font-semibold text-accent hover:border-accent/40 hover:bg-accent/10 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </li>
                 );
               })}

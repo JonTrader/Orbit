@@ -422,6 +422,32 @@ test.describe("Invite accept and ShareBar management", () => {
     await expect(page.getByText("1 person")).toBeVisible();
   });
 
+  test("Owner cancels a pending Invite from People", async ({ page }) => {
+    const spaceId = await createOwnedSpace(`Invite Cancel Row ${runSuffix()}`);
+    const recipientEmail = `cancel-row-${runSuffix()}@e2e.orbit.test`;
+
+    await authenticateOwner(page, spaceId);
+    await sendInviteFromDialog(page, recipientEmail);
+
+    const people = page.getByRole("dialog", { name: "People" });
+    await expect(people).toBeVisible();
+    await expect(people.getByText(recipientEmail)).toBeVisible();
+
+    await people
+      .getByRole("button", { name: `Cancel invite for ${recipientEmail}` })
+      .click();
+    const confirm = page.getByRole("dialog", { name: "Cancel Invite" });
+    await expect(confirm.getByText(recipientEmail)).toBeVisible();
+    await confirm
+      .getByRole("button", { name: "Cancel invite", exact: true })
+      .click();
+
+    await expect(confirm).toHaveCount(0);
+    await expect(people).toBeVisible();
+    await expect(people.getByText("No pending Invites.")).toBeVisible();
+    await expect(people.getByText(recipientEmail)).toHaveCount(0);
+  });
+
   test("Invite to Space Cancel closes without opening People", async ({
     page,
   }) => {
