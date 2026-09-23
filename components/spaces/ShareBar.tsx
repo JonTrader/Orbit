@@ -80,15 +80,15 @@ export function ShareBar({
       <button
         type="button"
         onClick={() => setDialog({ type: "people" })}
-        className="flex min-w-0 items-center gap-3 rounded text-left transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="group flex min-w-0 items-center gap-3 rounded px-1.5 text-left transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         aria-label={`People in this Space, ${count} ${count === 1 ? "person" : "people"}`}
       >
-        <div className="flex -space-x-2">
+        <div className="flex -space-x-2 py-0.5">
           {members.slice(0, 5).map((member) => (
             <Avatar key={member.userId} name={member.name} role={member.role} />
           ))}
         </div>
-        <span className="text-[0.85rem] text-muted">
+        <span className="text-[0.85rem] text-muted transition-colors group-hover:text-ink">
           {count} {count === 1 ? "person" : "people"}
         </span>
       </button>
@@ -200,7 +200,7 @@ function Avatar({ name, role }: { name: string; role: ShareBarMember["role"] }) 
     <span
       title={`${name} · ${roleLabel(role)}`}
       aria-label={`${name}, ${roleLabel(role)}`}
-      className="inline-flex size-8 items-center justify-center rounded-full border-2 border-panel bg-accent text-[0.7rem] font-semibold text-white"
+      className="inline-flex size-8 items-center justify-center rounded-full border-2 border-panel bg-accent text-[0.7rem] font-semibold text-white transition group-hover:scale-105 group-hover:border-ink/30"
     >
       {initials || "?"}
     </span>
