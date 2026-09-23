@@ -478,6 +478,9 @@ test.describe("Invite accept and ShareBar management", () => {
 
     const people = page.getByRole("dialog", { name: "People" });
     await expect(people).toBeVisible();
+    await expect(
+      people.getByRole("button", { name: "Send an invite" }),
+    ).toBeVisible();
     await expect(people.getByText(recipientEmail)).toBeVisible();
 
     await people

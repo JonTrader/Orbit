@@ -412,7 +412,7 @@ function PeopleDialog({
               disabled={pending}
               className="text-[0.8rem] font-semibold text-ink hover:underline disabled:opacity-50"
             >
-              Invite someone
+              Send an invite
             </button>
           </div>
           {pendingInvites === null ? (
