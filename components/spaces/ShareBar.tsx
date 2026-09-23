@@ -129,7 +129,8 @@ export function ShareBar({
       {dialog?.type === "invite" ? (
         <InviteDialog
           spaceId={spaceId}
-          onClose={() => setDialog({ type: "people" })}
+          onClose={() => setDialog(null)}
+          onSent={() => setDialog({ type: "people" })}
         />
       ) : null}
 
@@ -440,9 +441,10 @@ function PeopleDialog({
 interface InviteDialogProps {
   spaceId: string;
   onClose: () => void;
+  onSent: () => void;
 }
 
-function InviteDialog({ spaceId, onClose }: InviteDialogProps) {
+function InviteDialog({ spaceId, onClose, onSent }: InviteDialogProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("read-only");
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +463,7 @@ function InviteDialog({ spaceId, onClose }: InviteDialogProps) {
         role,
       });
       if (result.ok) {
-        onClose();
+        onSent();
       } else {
         setError(result.error.message);
       }

@@ -412,6 +412,7 @@ test.describe("Invite accept and ShareBar management", () => {
     await expect(
       page.getByRole("dialog", { name: "Invite to Space" }),
     ).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "People" })).toHaveCount(0);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/spaces/${spaceId}/upcoming`);
@@ -419,5 +420,18 @@ test.describe("Invite accept and ShareBar management", () => {
     await openPeopleDialog(page);
     await expect(page.getByRole("dialog", { name: "People" })).toBeVisible();
     await expect(page.getByText("1 person")).toBeVisible();
+  });
+
+  test("Invite to Space Cancel closes without opening People", async ({
+    page,
+  }) => {
+    const spaceId = await createOwnedSpace(`Invite Cancel ${runSuffix()}`);
+    await authenticateOwner(page, spaceId);
+    await openInviteDialog(page);
+
+    const invite = page.getByRole("dialog", { name: "Invite to Space" });
+    await invite.getByRole("button", { name: "Cancel" }).click();
+    await expect(invite).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "People" })).toHaveCount(0);
   });
 });
