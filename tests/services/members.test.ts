@@ -37,7 +37,7 @@ describe("Member and Invite services", () => {
   beforeEach(async () => {
     await truncateAll();
     vi.mocked(sendEmail).mockReset();
-    vi.mocked(sendEmail).mockResolvedValue(undefined);
+    vi.mocked(sendEmail).mockResolvedValue("sent");
   });
 
   it("creates default read-only and editor Invites with seven-day expiry", async () => {
