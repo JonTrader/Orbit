@@ -24,7 +24,7 @@ todos:
     content: "Phase H: Invite accept/expiry/transfer E2E + requireMembership audit"
     status: completed
   - id: i-reminder-tests
-    content: "Phase I: Idempotent jobs, tz, prefs default N=3, prefs UI smoke"
+    content: "Phase I: Reminder templates, skipped-send log, prefs actions, prefs E2E. Scan and send stay covered by existing service tests."
     status: pending
   - id: j-ci-docs
     content: "Phase J: CI + README testing/Neon branch instructions"
@@ -44,7 +44,7 @@ Cross-cutting strategy for the MVP. Implement tests **in the same phase** as the
 | ------ | ------ |
 | **B–G** | Done. Gaps closed in the hardening pass (authz/IDOR, invite collisions, calendar/Reminder pinning, Phase G E2E, harness safety). |
 | **H** | Done. Invite accept/expiry/transfer E2E (`e2e/invite.spec.ts`), requireMembership contract audit, ShareBar management. |
-| **I** | Still pending (prefs E2E, Inngest handler tests). |
+| **I** | Still pending. Scan, send, idempotency, Space timezone, and the prefs API are covered. Still open: Reminder templates, skipped-send log, prefs actions, prefs E2E. |
 | **J** | Partially landed (CI `test`/`e2e`/`typecheck`, README Neon branch note); required-check promotion and prod smoke remain. |
 
 **Authz footguns (do not regress):** Owner-only tests need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
@@ -271,17 +271,18 @@ flowchart TB
 
 ---
 
-## Phase I — Reminders
+## Phase I - Reminders
 
-**Extend:** `tests/services/notifications`* + optional `e2e/prefs.spec.ts`; Inngest functions tested by invoking the underlying service/job handler (mock Resend; do not depend on live Inngest cloud in CI).
+**Already covered:** `tests/services/notifications.test.ts`, `tests/services/notification-preferences.test.ts`, and `tests/api/notification-preferences.test.ts`. Those hold the Monthly N-days scan in the Space timezone, Daily Tasks due today or overdue, Assignee else Owner, opt-out, per-Space prefs, default `daysBefore=3`, and `notification_log` idempotency. Keep them green. They are the job proof. The cron calls those services. CI mocks Resend and does not call Inngest Cloud.
+
+**Extend:** template and skipped-send assertions in the notifications service tests; preference action tests (`tests/setup/action-mocks.ts` imported first); `e2e/prefs.spec.ts`.
 
 **What to test:**
 
-1. Monthly job: due in N days in **Space timezone**; emails Assignee else Owner.
-2. Daily job: incomplete due today or overdue; same recipient rules.
-3. Idempotency: second run does not double-send (`notification_log` unique key).
-4. Prefs: default `daysBefore=3`; `emailEnabled=false` suppresses; prefs are per user per Space.
-5. E2E smoke: prefs UI saves and round-trips for Active Space.
+1. Reminder templates name the Space, link to Upcoming, escape the title, and omit Monthly `body`. Monthly copy includes days-before. Daily copy says the Task is due today or overdue.
+2. `sendEmail` returning `"skipped"` does not write `notification_log`. A delivered send still writes one row, and a second run does not double-send.
+3. Preference actions: a read-only Member can save their own row; days outside 0-30 fail validation; a non-member is rejected. No new REST route.
+4. E2E: the prefs UI saves days-before and email off, a reload shows those values, a second Space still shows defaults, and a read-only Member can save.
 
 ---
 
