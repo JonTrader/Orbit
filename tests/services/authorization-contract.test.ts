@@ -24,6 +24,8 @@ vi.mock("@/lib/spaces/membership", async (importOriginal) => {
 
 vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 import {
   acceptInvite,
@@ -644,6 +646,7 @@ describe("authorization contract", () => {
     await sendReminder(testDb, {
       candidate: {
         spaceId: space.id,
+        spaceName: "Fresh",
         kind: "daily_nudge",
         entityId: randomUUID(),
         period: "2026-01-01",

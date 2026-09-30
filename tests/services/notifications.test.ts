@@ -25,6 +25,8 @@ import {
 import { migrateTestDb, testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
 
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+
 describe("Reminder notification service", () => {
   beforeAll(migrateTestDb);
   beforeEach(() => {
@@ -118,6 +120,7 @@ describe("Reminder notification service", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "monthly_due",
+          spaceName: "Home",
           title: "Rent",
           recipientUserId: owner.id,
           recipientEmail: owner.email,
@@ -409,6 +412,7 @@ describe("Reminder notification service", () => {
     });
     const candidate = {
       spaceId: seeded.space.id,
+      spaceName: "Home",
       kind: "daily_nudge" as const,
       entityId: "00000000-0000-0000-0000-000000000001",
       period: "2026-08-10",
@@ -427,10 +431,13 @@ describe("Reminder notification service", () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: owner.email,
-        subject: "Orbit Reminder: Take out <recycling> is due",
+        subject: "Orbit Reminder: Take out <recycling> is overdue",
         html: expect.stringContaining("&lt;recycling&gt;"),
       }),
       { idempotencyKey: "daily_nudge:00000000-0000-0000-0000-000000000001:2026-08-10" },
+    );
+    expect(sendEmail.mock.calls[0]?.[0].html).toContain(
+      `http://localhost:3000/spaces/${seeded.space.id}/upcoming`,
     );
     await expect(
       testDb
@@ -448,6 +455,7 @@ describe("Reminder notification service", () => {
     });
     const candidate = {
       spaceId: seeded.space.id,
+      spaceName: "Home",
       kind: "daily_nudge" as const,
       entityId: "00000000-0000-0000-0000-000000000002",
       period: "2026-08-10",
@@ -502,5 +510,72 @@ describe("Reminder notification service", () => {
 
     expect(sent).toHaveLength(1);
     expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not log a Reminder when email delivery is skipped", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const seeded = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      ownerUserId: owner.id,
+    });
+    const idempotencyKey =
+      "daily_nudge:00000000-0000-0000-0000-000000000003:2026-08-10";
+    sendEmail.mockResolvedValue("skipped");
+
+    const logged = await sendReminder(testDb, {
+      candidate: {
+        spaceId: seeded.space.id,
+        spaceName: "Home",
+        kind: "daily_nudge",
+        entityId: "00000000-0000-0000-0000-000000000003",
+        period: "2026-08-10",
+        recipientUserId: owner.id,
+        recipientEmail: owner.email,
+        title: "Skipped task",
+        dueOn: "2026-08-10",
+      },
+    });
+
+    expect(logged).toBeNull();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    await expect(
+      testDb
+        .select()
+        .from(notificationLog)
+        .where(eq(notificationLog.idempotencyKey, idempotencyKey)),
+    ).resolves.toHaveLength(0);
+  });
+
+  it("sends a Monthly Reminder without its description", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const seeded = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      timezone: "UTC",
+      ownerUserId: owner.id,
+    });
+    const description = "zz-monthly-description-leak-7f3c";
+    await testDb.insert(monthly).values({
+      spaceId: seeded.space.id,
+      sectionId: seeded.sections.monthlies.id,
+      sectionKind: "monthlies",
+      title: "Rent",
+      body: description,
+      dueDayOfMonth: 13,
+      nextDueOn: "2026-08-13",
+    });
+
+    await sendReminderCandidates(testDb, {
+      now: new Date("2026-08-10T12:00:00Z"),
+    });
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const email = sendEmail.mock.calls[0]?.[0];
+    const upcomingUrl = `http://localhost:3000/spaces/${seeded.space.id}/upcoming`;
+    expect(email.html).not.toContain(description);
+    expect(email.text).not.toContain(description);
+    expect(email.html).toContain("Home");
+    expect(email.text).toContain("Home");
+    expect(email.html).toContain(upcomingUrl);
+    expect(email.text).toContain(upcomingUrl);
   });
 });

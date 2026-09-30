@@ -10,6 +10,7 @@ import {
   user,
 } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email/mailer";
+import { reminderEmail } from "@/lib/email/templates/reminders";
 
 import {
   calendarDateInTimeZone,
@@ -24,6 +25,7 @@ export type ReminderKind = "monthly_due" | "daily_nudge";
 
 export interface ReminderCandidate {
   spaceId: string;
+  spaceName: string;
   kind: ReminderKind;
   entityId: string;
   period: string;
@@ -86,6 +88,7 @@ export async function scanReminderCandidates(
 
       candidates.push({
         spaceId: currentSpace.id,
+        spaceName: currentSpace.name,
         kind: "monthly_due",
         entityId: currentMonthly.id,
         period: currentMonthly.nextDueOn.slice(0, 7),
@@ -127,6 +130,7 @@ export async function scanReminderCandidates(
 
       candidates.push({
         spaceId: currentSpace.id,
+        spaceName: currentSpace.name,
         kind: "daily_nudge",
         entityId: dailyTask.id,
         period: todayString,
@@ -141,7 +145,11 @@ export async function scanReminderCandidates(
   return candidates;
 }
 
-/** Sends one candidate and records its idempotency key after delivery. */
+/**
+ * Sends one candidate and records its idempotency key after delivery.
+ * A skipped send (no Resend credentials outside production) returns null
+ * and leaves `notification_log` unchanged, so a later run can still deliver.
+ */
 export async function sendReminder(
   db: OrbitDb,
   input: SendReminderInput,
@@ -165,7 +173,8 @@ export async function sendReminder(
     if (existing) return existing;
 
     const email = reminderEmail(candidate);
-    await sendEmail(email, { idempotencyKey });
+    const delivery = await sendEmail(email, { idempotencyKey });
+    if (delivery === "skipped") return null;
 
     const [logged] = await tx
       .insert(notificationLog)
@@ -237,21 +246,6 @@ async function findRecipient(
   return owner ?? null;
 }
 
-function reminderEmail(candidate: ReminderCandidate): {
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-} {
-  const subject =
-    candidate.kind === "monthly_due"
-      ? `Orbit Reminder: ${candidate.title} is due ${candidate.dueOn}`
-      : `Orbit Reminder: ${candidate.title} is due`;
-  const text = `${candidate.title} is due on ${candidate.dueOn}.`;
-  const html = `<p>${escapeHtml(candidate.title)} is due on ${escapeHtml(candidate.dueOn)}.</p>`;
-  return { to: candidate.recipientEmail, subject, html, text };
-}
-
 function addDays(date: CalendarDate, days: number): CalendarDate {
   const result = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
   return {
@@ -259,18 +253,4 @@ function addDays(date: CalendarDate, days: number): CalendarDate {
     month: result.getUTCMonth() + 1,
     day: result.getUTCDate(),
   };
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>'"]/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        '"': "&quot;",
-      })[character] ?? character,
-  );
 }
