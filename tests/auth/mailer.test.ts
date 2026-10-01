@@ -41,7 +41,7 @@ describe("outbound mail", () => {
   it("sends the message through Resend with the configured sender", async () => {
     const { sendEmail } = await loadMailer();
 
-    await sendEmail(MESSAGE);
+    await expect(sendEmail(MESSAGE)).resolves.toBe("sent");
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toEqual({
@@ -66,10 +66,12 @@ describe("outbound mail", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { sendEmail } = await loadMailer();
 
-    await sendEmail({
-      ...MESSAGE,
-      text: "Reset here: https://orbit.test/reset-password#token=secret-token",
-    });
+    await expect(
+      sendEmail({
+        ...MESSAGE,
+        text: "Reset here: https://orbit.test/reset-password#token=secret-token",
+      }),
+    ).resolves.toBe("skipped");
 
     const output = warn.mock.calls[0][0];
     expect(send).not.toHaveBeenCalled();
@@ -99,7 +101,7 @@ describe("outbound mail", () => {
       .mockResolvedValueOnce({ data: { id: "sent" }, error: null });
     const { sendEmail } = await loadMailer();
 
-    await sendEmail(MESSAGE);
+    await expect(sendEmail(MESSAGE)).resolves.toBe("sent");
 
     expect(send).toHaveBeenCalledTimes(2);
     // A retry Resend already accepted must not become a second live link.

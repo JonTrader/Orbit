@@ -37,18 +37,24 @@ const RETRY_BACKOFF_MS = [250, 1_000];
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** `"sent"` when Resend accepted the message; `"skipped"` when delivery was not attempted. */
+export type EmailDelivery = "sent" | "skipped";
+
 /**
  * Single seam for every outbound Orbit email (verification, password reset,
- * later Invites and Reminders). Tests mock this module rather than Resend.
+ * Invites, and Reminders). Tests mock this module rather than Resend.
  *
- * Outside production a missing `RESEND_API_KEY` / `EMAIL_FROM` logs delivery
- * metadata instead of sending it, so local sign-up still reports what happened
- * without exposing email contents.
+ * Returns `"sent"` when Resend accepts the message, including after a
+ * transient retry, and `"skipped"` when `RESEND_API_KEY` or `EMAIL_FROM` is
+ * missing outside production. That path logs delivery metadata only, so
+ * local sign-up still reports what happened without exposing email contents.
+ * Production still throws when those variables are missing, and a Resend
+ * rejection throws.
  */
 export async function sendEmail(
   email: OutboundEmail,
   options: SendEmailOptions = {},
-): Promise<void> {
+): Promise<EmailDelivery> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
 
@@ -66,7 +72,7 @@ export async function sendEmail(
       `[email] ${missing.join(" and ")} not set - email not sent\n` +
         `  to: ${email.to}\n  subject: ${email.subject}`,
     );
-    return;
+    return "skipped";
   }
 
   // Auth mail gets a key for this call; domain services can provide a stable
@@ -87,7 +93,7 @@ export async function sendEmail(
       { idempotencyKey },
     );
 
-    if (!error) return;
+    if (!error) return "sent";
 
     lastError = error;
     const backoff = RETRY_BACKOFF_MS[attempt];

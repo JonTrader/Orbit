@@ -16,6 +16,7 @@ import {
 import type { InvitePublicView } from "@/lib/services/members";
 import { SPACES_PATH } from "@/lib/spaces/paths";
 import { roleLabel } from "@/lib/spaces/role-label";
+import type { ReminderPreferencePreview } from "@/lib/spaces/viewer";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
@@ -24,6 +25,7 @@ import {
   DialogRadioPills,
   PanelDialog,
 } from "./Dialog";
+import { ReminderPrefsDialog } from "./ReminderPrefsDialog";
 import { RowMenu } from "./RowMenu";
 
 export interface ShareBarMember {
@@ -32,17 +34,22 @@ export interface ShareBarMember {
   role: "owner" | "editor" | "read-only";
 }
 
+export type ShareBarReminderPreference = ReminderPreferencePreview;
+
 interface ShareBarProps {
   spaceId: string;
   members: ShareBarMember[];
   canManageMembers: boolean;
   /** Viewer's user id for Leave and self-labeling. */
   viewerUserId: string;
+  /** Saved Reminder preference from the Active Space layout. */
+  reminder: ShareBarReminderPreference;
 }
 
 type ManageDialog =
   | { type: "people" }
   | { type: "invite" }
+  | { type: "reminders" }
   | {
       type: "remove";
       member: ShareBarMember;
@@ -68,17 +75,25 @@ type InviteRole = (typeof INVITE_ROLES)[number]["value"];
 
 /**
  * Bottom-of-panel share surface for the Active Space. Shows member avatars,
- * opens a People dialog for everyone, and gives Owners invite / role /
- * transfer / remove controls. Pending Invites load via Server Action only
- * when the Owner opens People.
+ * opens a People dialog for everyone, and gives every Member a Reminders
+ * control. Owners also get invite / role / transfer / remove controls.
+ * Pending Invites load via Server Action only when the Owner opens People.
  */
 export function ShareBar({
   spaceId,
   members,
   canManageMembers,
   viewerUserId,
+  reminder,
 }: ShareBarProps) {
   const [dialog, setDialog] = useState<ManageDialog>(null);
+  const [reminderPrefs, setReminderPrefs] = useState(reminder);
+  const reminderKey = `${spaceId}:${reminder.daysBefore}:${reminder.emailEnabled}`;
+  const [seenReminderKey, setSeenReminderKey] = useState(reminderKey);
+  if (reminderKey !== seenReminderKey) {
+    setSeenReminderKey(reminderKey);
+    setReminderPrefs(reminder);
+  }
   const count = members.length;
 
   return (
@@ -99,24 +114,33 @@ export function ShareBar({
         </span>
       </button>
 
-      {canManageMembers ? (
+      <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
-          onClick={() => setDialog({ type: "invite" })}
-          className="inline-flex items-center gap-1.5 rounded bg-ink px-3 py-1.5 text-[0.8rem] font-semibold text-white transition-colors hover:bg-ink/90"
+          onClick={() => setDialog({ type: "reminders" })}
+          className="inline-flex items-center rounded border border-line bg-page px-3 py-1.5 text-[0.8rem] font-semibold text-ink transition-colors hover:border-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-          </svg>
-          Invite
+          Reminders
         </button>
-      ) : null}
+        {canManageMembers ? (
+          <button
+            type="button"
+            onClick={() => setDialog({ type: "invite" })}
+            className="inline-flex items-center gap-1.5 rounded bg-ink px-3 py-1.5 text-[0.8rem] font-semibold text-white transition-colors hover:bg-ink/90"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="size-4"
+              aria-hidden="true"
+            >
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            Invite
+          </button>
+        ) : null}
+      </div>
 
       {dialog?.type === "people" ? (
         <PeopleDialog
@@ -216,6 +240,15 @@ export function ShareBar({
         <LeaveSpaceDialog
           spaceId={spaceId}
           onClose={() => setDialog({ type: "people" })}
+        />
+      ) : null}
+
+      {dialog?.type === "reminders" ? (
+        <ReminderPrefsDialog
+          spaceId={spaceId}
+          reminder={reminderPrefs}
+          onSaved={setReminderPrefs}
+          onClose={() => setDialog(null)}
         />
       ) : null}
     </div>

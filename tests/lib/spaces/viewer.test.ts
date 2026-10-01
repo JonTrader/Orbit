@@ -1,6 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { spaceMember, account, type SpaceRole } from "@/lib/db/schema";
+import {
+  account,
+  notificationPreference,
+  spaceMember,
+  type SpaceRole,
+} from "@/lib/db/schema";
 import { CREDENTIAL_PROVIDER_ID } from "@/lib/auth/access";
 import { createSpace } from "@/lib/services/spaces";
 
@@ -133,6 +138,32 @@ describe("Space viewer context", () => {
         ]),
       );
       expect(layoutData.members).toHaveLength(2);
+      expect(layoutData.reminder).toEqual({
+        daysBefore: 3,
+        emailEnabled: true,
+      });
+    });
+
+    it("returns the Viewer's saved Reminder preference", async () => {
+      const owner = await createUser({ email: "owner@orbit.test", name: "Owner" });
+      const created = await createSpace(testDb, {
+        userId: owner.id,
+        name: "Home",
+      });
+      await testDb.insert(notificationPreference).values({
+        userId: owner.id,
+        spaceId: created.id,
+        daysBefore: 12,
+        emailEnabled: false,
+      });
+      authenticateAs(owner.id, "Owner");
+
+      const layoutData = await getSpaceLayoutData(created.id);
+
+      expect(layoutData.reminder).toEqual({
+        daysBefore: 12,
+        emailEnabled: false,
+      });
     });
 
     it("exposes getActiveSpace members from the same layout load", async () => {
@@ -154,6 +185,10 @@ describe("Space viewer context", () => {
       ]);
       expect(active.sections.length).toBeGreaterThan(0);
       expect(active.viewer.space.id).toBe(created.id);
+      expect(active.reminder).toEqual({
+        daysBefore: 3,
+        emailEnabled: true,
+      });
     });
   });
 

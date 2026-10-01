@@ -27,7 +27,7 @@ todos:
     content: "Phase H: Invites + ownership transfer + RBAC audit"
     status: completed
   - id: I-reminders
-    content: "Phase I: Resend + Inngest Reminders + prefs UI"
+    content: "Phase I: Reminder templates, hourly Inngest send-reminders, prefs dialog"
     status: pending
   - id: J-ship
     content: "Phase J: README/env + Vercel deploy"
@@ -420,35 +420,41 @@ context on why the pages look the way they do.
 
 | | |
 | --- | --- |
-| **Goal** | Inngest scans + Resend Reminder emails + prefs UI |
+| **Goal** | Branded Reminder emails, one hourly Inngest scan, and a per-Space prefs dialog |
 | **Read** | Spec §6 |
 | **ADRs** | [0003](docs/adr/0003-space-timezone.md), [0004](docs/adr/0004-inngest-reminders.md) |
-| **Prereq** | D9, C (Resend) |
+| **Prereq** | D9 and E7 are done (scan, send, preference API). Resend mailer from C. |
+
+**Already shipped.** `scanReminderCandidates`, `sendReminder`, and `notification_log` idempotency live in `lib/services/notifications.ts`. Assignee else Owner, Space timezone, default N=3, and per-user-per-Space opt-out are tested. `GET`/`PATCH /api/v1/spaces/{spaceId}/notification-preferences` and `lib/services/notification-preferences.ts` already enforce days-before 0-30, including for read-only Members. Phase I calls that code. It does not rebuild it, and it does not rewrite the nested scan into a set-based query.
+
+**Runner.** One Inngest scheduled function, `send-reminders`, cron `0 * * * *` UTC. Each Space has its own timezone, and a Monthly matches only on the local day it is due minus N, so an hourly UTC run lands once per local day and the log makes the other hours a no-op. `step.run("scan")` calls `scanReminderCandidates`. Each candidate then gets its own `step.run`, id derived from `kind:entityId:period`, calling `sendReminder`. `sendReminderCandidates` stays for the existing batch tests. The cron does not call it as a single step. App writes do not call `inngest.send`. The route is `app/api/inngest/route.ts` (`GET`, `POST`, `PUT` from `serve`). It does not use `requireApiSession`. Node runtime, `maxDuration` 60, checkpointing `maxRuntime` about 40 seconds. Local dev uses `INNGEST_DEV=1` and `npx inngest-cli@latest dev`. Signing and event keys stay empty until Phase J.
 
 | Step | Deliverable |
 | ---- | ----------- |
-| **I1** | Templates: monthly-due, daily-nudge |
-| **I2** | Inngest client + `app/api/inngest/route.ts` |
-| **I3** | Job: Monthlies due in N days (Space tz) → email Assignee else Owner |
-| **I4** | Job: Daily Tasks due today or overdue → same recipient rules |
-| **I5** | Prefs UI: days-before + email on/off per Active Space |
+| **I1** | Shared-layout Reminder templates in `lib/email/templates/` (monthly-due and daily-nudge), including `spaceName` and an Upcoming link. `sendEmail` returns `"sent"` or `"skipped"`. A skipped dev send does not write `notification_log`. No React Email. |
+| **I2** | `inngest` client, the `send-reminders` cron above, `app/api/inngest/route.ts`, and an `INNGEST_DEV` note in `.env.example`. |
+| **I3** | Preference Server Actions (load + save) and a Reminders dialog on the Active Space share bar for every Member, including read-only. Days-before and email on/off. No new REST route. |
 
 **Acceptance**
 
-- [ ] Jobs idempotent via notification_log
-- [ ] Prefs default N=3; per user per Space
-- [ ] Times interpreted in Space timezone
+- [ ] Reminder mail uses the shared layout (Space name, Upcoming link, no Monthly description). A skipped dev send does not write `notification_log`.
+- [ ] Hourly `send-reminders` calls the existing scan and per-candidate send. Retries stay idempotent via `notification_log`.
+- [ ] Prefs dialog saves days-before and email on/off per user per Space, including for a read-only Member. Default N=3.
+- [ ] Due times stay in the Space timezone through the existing scan.
 - [ ] Tests: Phase I section of `Orbit_Test_Plan.md` green
 
-**Out of scope:** Push notifications
+**Out of scope:** Push notifications. A set-based rewrite of the scan. A second Daily cron. `inngest.send` from Task or Monthly writes. A new preference REST route. A timezone settings screen. Phase J production Inngest/Vercel sync.
 
 **Handoff prompt**
 
 ```
-Implement Orbit Phase I only (I1–I5) per Orbit_Granular_Build.md.
+Implement Orbit Phase I only (I1–I3) per Orbit_Granular_Build.md.
 Read AGENTS.md, CONTEXT.md, docs/spec.md §6, ADRs 0003 and 0004, and Phase I in Orbit_Test_Plan.md.
-Inngest + Resend Reminders; Assignee else Owner; Space timezone; idempotent log; prefs per user per space.
-Implement Phase I reminder/prefs tests from the test plan; keep prior-phase suites passing.
+The scan, send, notification_log, and preference API already exist. Call them. Do not rewrite the scan, add a preference REST route, or add a second cron.
+I1: shared-layout Reminder templates. sendEmail returns "sent" or "skipped", and a skip does not write notification_log.
+I2: one hourly UTC Inngest function send-reminders at app/api/inngest/route.ts. Steps call scanReminderCandidates and sendReminder. No inngest.send from Task or Monthly writes. No live Inngest in CI.
+I3: preference Server Actions and a Reminders dialog on the share bar for every Member, including read-only.
+Implement Phase I tests from the test plan; keep prior-phase suites passing.
 Stop at Phase I acceptance. Do not start Phase J.
 ```
 
