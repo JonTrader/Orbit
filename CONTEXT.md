@@ -81,5 +81,5 @@ _Avoid_: Inbox, Agenda (as the entity name), Due view, Shared (not an MVP nav su
 ### Notifications
 
 **Reminder**:
-An email about an upcoming Monthly (default: 3 days before due, user-configurable) or an incomplete Daily Task that is due today or overdue. Goes to the Assignee if set, otherwise the Space Owner. Preference (N days / email on-off) is per user per Space.
+An email about an upcoming Monthly (default: 3 days before due, user-configurable) or an incomplete Task in Daily or a custom Section that is due today or up to 3 days overdue. Goes to the Assignee if set, otherwise the Space Owner. Preference (N days / email on-off) is per user per Space.
 _Avoid_: Notification (as the email product term), Alert, Nudge (except as informal UI copy)
