@@ -8,6 +8,7 @@ import { requireVerifiedSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import {
   account,
+  notificationPreference,
   section,
   space,
   spaceMember,
@@ -57,10 +58,17 @@ export interface SpaceMemberPreview {
   role: SpaceRole;
 }
 
+/** Viewer's Reminder settings for this Space. Column defaults when no row exists. */
+export interface ReminderPreferencePreview {
+  daysBefore: number;
+  emailEnabled: boolean;
+}
+
 export interface SpaceLayoutData {
   viewer: SpaceViewer;
   sections: (typeof section.$inferSelect)[];
   members: SpaceMemberPreview[];
+  reminder: ReminderPreferencePreview;
 }
 
 type SectionJson = {
@@ -95,11 +103,31 @@ function parseMembers(value: unknown): SpaceMemberPreview[] {
   return value as SpaceMemberPreview[];
 }
 
+/** Matches `notification_preference` column defaults when the Viewer has no row. */
+function parseReminder(value: unknown): ReminderPreferencePreview {
+  const defaults = { daysBefore: 3, emailEnabled: true };
+  const record = typeof value === "string" ? parseJson(value) : value;
+  if (!record || typeof record !== "object") return defaults;
+  const row = record as { daysBefore?: unknown; emailEnabled?: unknown };
+  if (typeof row.daysBefore !== "number" || typeof row.emailEnabled !== "boolean") {
+    return defaults;
+  }
+  return { daysBefore: row.daysBefore, emailEnabled: row.emailEnabled };
+}
+
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * One-query Active Space layout data: space + Viewer role + credential flag +
- * Sections + ShareBar member preview. Grouped into `{ viewer, sections,
- * members }` in app code. Prefer getActiveSpace in layouts/pages; this is the
- * SQL loader behind that facade.
+ * Sections + ShareBar member preview + the Viewer's Reminder preference.
+ * Grouped into `{ viewer, sections, members, reminder }` in app code. Prefer
+ * getActiveSpace in layouts/pages; this is the SQL loader behind that facade.
  *
  * Failure modes: unknown Space → notFound(); non-member → redirect `/`;
  * unverified → session-guard redirect.
@@ -155,6 +183,15 @@ export const getSpaceLayoutData = cache(
           inner join ${user} on ${user.id} = ${spaceMember.userId}
           where ${spaceMember.spaceId} = ${space.id}
         )`,
+        reminder: sql<ReminderPreferencePreview | null>`(
+          select json_build_object(
+            'daysBefore', ${notificationPreference.daysBefore},
+            'emailEnabled', ${notificationPreference.emailEnabled}
+          )
+          from ${notificationPreference}
+          where ${notificationPreference.spaceId} = ${space.id}
+            and ${notificationPreference.userId} = ${userId}
+        )`,
       })
       .from(space)
       .innerJoin(
@@ -182,6 +219,7 @@ export const getSpaceLayoutData = cache(
       changePassword,
       sections: sectionsJson,
       members: membersJson,
+      reminder: reminderJson,
       ...spaceRow
     } = row;
 
@@ -195,6 +233,7 @@ export const getSpaceLayoutData = cache(
       },
       sections: parseSections(sectionsJson),
       members: parseMembers(membersJson),
+      reminder: parseReminder(reminderJson),
     };
   },
 );

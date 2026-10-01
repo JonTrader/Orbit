@@ -25,16 +25,19 @@ describe("ShareBarSlot", () => {
       { userId: "user-1", name: "Owner", role: "owner" as const },
     ];
 
+    const reminder = { daysBefore: 3, emailEnabled: true };
     const result = ShareBarSlot({
       spaceId: "space-1",
       members,
       canManageMembers: true,
       viewerUserId: "user-1",
+      reminder,
     }) as ReactElement<{
       spaceId: string;
       members: typeof members;
       canManageMembers: boolean;
       viewerUserId: string;
+      reminder: typeof reminder;
     }>;
 
     expect(spy).not.toHaveBeenCalled();
@@ -43,6 +46,7 @@ describe("ShareBarSlot", () => {
       members,
       canManageMembers: true,
       viewerUserId: "user-1",
+      reminder,
     });
     spy.mockRestore();
   });

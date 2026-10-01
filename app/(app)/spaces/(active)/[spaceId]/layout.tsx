@@ -13,9 +13,9 @@ interface SpaceRouteLayoutProps {
 }
 
 /**
- * Chrome for one Active Space: getActiveSpace loads Viewer, Sections, and
- * ShareBar member preview in one layout query so nested section views can trust
- * the Space scope. The parent `(active)` layout owns SpaceSidebarShell so Space
+ * Chrome for one Active Space: getActiveSpace loads Viewer, Sections,
+ * ShareBar member preview, and the Viewer's Reminder preference in one layout
+ * query so nested section views can trust the Space scope. The parent `(active)` layout owns SpaceSidebarShell so Space
  * switches do not remount the Spaces list. Credential access for the
  * change-password link is resolved there; the change-password page still
  * enforces via requireCredentialSession.
@@ -26,7 +26,7 @@ export default async function SpaceRouteLayout({
 }: SpaceRouteLayoutProps) {
   const spaceId = await resolveSpaceContext(params);
   const activeSpace = await getActiveSpace(spaceId);
-  const { viewer, sections, members } = activeSpace;
+  const { viewer, sections, members, reminder } = activeSpace;
 
   return (
     <ActiveSpaceProvider value={activeSpace}>
@@ -40,6 +40,7 @@ export default async function SpaceRouteLayout({
             members={members}
             canManageMembers={viewer.can.manageMembers}
             viewerUserId={viewer.userId}
+            reminder={reminder}
           />
         }
       >
