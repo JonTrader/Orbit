@@ -80,7 +80,7 @@ Quick-add targets the selected Section. Compose disabled (or not shown) on Upcom
 
 - Channel: email only (Resend). Runner: Inngest.
 - **Monthly**: N days before due (default **3**); preference per user per Space.
-- **Daily**: nudge for incomplete Tasks that are **due today or overdue**.
+- **Tasks**: nudge for incomplete Tasks in Daily and custom Sections that are due today or up to 3 days overdue.
 - Recipient: **Assignee if set, else Space Owner**; respect per-user-per-Space opt-out.
 - Preference updates are allowed for any Member (including read-only), because they affect only that user's own settings.
 - Idempotent via `notification_log` (no double-send on retry).

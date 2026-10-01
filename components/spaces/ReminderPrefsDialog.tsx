@@ -101,8 +101,8 @@ export function ReminderPrefsDialog({
       />
 
       <p className="text-[0.8rem] text-muted">
-        Email covers Monthlies this many days before they are due, and Daily
-        Tasks that are due today or overdue.
+        Email covers Monthlies this many days before they are due, and Tasks
+        in Daily or custom Sections that are due today or up to 3 days overdue.
       </p>
     </Dialog>
   );

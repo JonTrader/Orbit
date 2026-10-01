@@ -36,7 +36,7 @@ describe("Reminder notification service", () => {
     });
   });
 
-  it("scans default monthly candidates and due or overdue Daily Tasks", async () => {
+  it("scans default monthly candidates and due or overdue Tasks", async () => {
     const owner = await createUser({ email: "owner@orbit.test" });
     const seeded = await createSpaceWithSystemSections(testDb, {
       name: "Home",
@@ -142,15 +142,102 @@ describe("Reminder notification service", () => {
           period: "2026-08-10",
           dueOn: "2026-08-10",
         }),
+        expect.objectContaining({
+          kind: "daily_nudge",
+          title: "Custom dated Task",
+          recipientUserId: owner.id,
+          recipientEmail: owner.email,
+          period: "2026-08-10",
+          dueOn: "2026-08-10",
+        }),
       ]),
     );
-    expect(candidates).toHaveLength(3);
+    expect(candidates).toHaveLength(4);
     expect(candidates.map((c) => c.title)).not.toContain("Too soon (N-1)");
     expect(candidates.map((c) => c.title)).not.toContain("Too late (N+1)");
-    expect(candidates.map((c) => c.title)).not.toContain("Custom dated Task");
+    expect(candidates.map((c) => c.title)).not.toContain("Completed task");
     expect(
       candidates.filter((c) => c.kind === "daily_nudge").map((c) => c.title),
-    ).toEqual(expect.arrayContaining(["Overdue task", "Due today"]));
+    ).toEqual(
+      expect.arrayContaining(["Overdue task", "Due today", "Custom dated Task"]),
+    );
+  });
+
+  it("includes Tasks due within 3 local days and skips older or undated Tasks", async () => {
+    const owner = await createUser({ email: "owner@orbit.test" });
+    const seeded = await createSpaceWithSystemSections(testDb, {
+      name: "Home",
+      timezone: "UTC",
+      ownerUserId: owner.id,
+    });
+    await testDb.insert(monthly).values([
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "On the monthly day",
+        dueDayOfMonth: 13,
+        nextDueOn: "2026-08-13",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.monthlies.id,
+        sectionKind: "monthlies",
+        title: "Monthly one day off",
+        dueDayOfMonth: 12,
+        nextDueOn: "2026-08-12",
+      },
+    ]);
+    await testDb.insert(task).values([
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.daily.id,
+        sectionKind: "daily",
+        title: "Due three days ago",
+        dueOn: "2026-08-07",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.daily.id,
+        sectionKind: "daily",
+        title: "Due four days ago",
+        dueOn: "2026-08-06",
+      },
+      {
+        spaceId: seeded.space.id,
+        sectionId: seeded.sections.daily.id,
+        sectionKind: "daily",
+        title: "Undated task",
+        dueOn: null,
+      },
+    ]);
+
+    const candidates = await scanReminderCandidates(testDb, {
+      now: new Date("2026-08-10T12:00:00Z"),
+    });
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "daily_nudge",
+          title: "Due three days ago",
+          dueOn: "2026-08-07",
+          period: "2026-08-10",
+          recipientUserId: owner.id,
+        }),
+        expect.objectContaining({
+          kind: "monthly_due",
+          title: "On the monthly day",
+          dueOn: "2026-08-13",
+          period: "2026-08",
+          daysBefore: 3,
+        }),
+      ]),
+    );
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((c) => c.title)).not.toContain("Due four days ago");
+    expect(candidates.map((c) => c.title)).not.toContain("Undated task");
+    expect(candidates.map((c) => c.title)).not.toContain("Monthly one day off");
   });
 
   it("sends to the Assignee and uses that user's monthly preference", async () => {

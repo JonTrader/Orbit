@@ -200,7 +200,7 @@ flowchart TB
 
 - Recipient = Assignee if set else Owner.
 - Opt-out / prefs respected.
-- Candidate selection for monthly N-days-before and daily due/overdue (Space timezone).
+- Candidate selection for a Monthly N days before it is due, and for incomplete Tasks in Daily and custom Sections that are due today or up to 3 days overdue (Space timezone).
 - Writing `notification_log` prevents duplicate key on retry.
 
 ---
@@ -273,13 +273,13 @@ flowchart TB
 
 ## Phase I - Reminders
 
-**Already covered:** `tests/services/notifications.test.ts`, `tests/services/notification-preferences.test.ts`, and `tests/api/notification-preferences.test.ts`. Those hold the Monthly N-days scan in the Space timezone, Daily Tasks due today or overdue, Assignee else Owner, opt-out, per-Space prefs, default `daysBefore=3`, and `notification_log` idempotency. Keep them green. They are the job proof. The cron calls those services. CI mocks Resend and does not call Inngest Cloud.
+**Already covered:** `tests/services/notifications.test.ts`, `tests/services/notification-preferences.test.ts`, and `tests/api/notification-preferences.test.ts`. Those hold the Monthly N-days scan in the Space timezone, Tasks in Daily and custom Sections that are due today or up to 3 days overdue, Assignee else Owner, opt-out, per-Space prefs, default `daysBefore=3`, and `notification_log` idempotency. Keep them green. They are the job proof. The cron calls those services. CI mocks Resend and does not call Inngest Cloud.
 
 **Extend:** template and skipped-send assertions in the notifications service tests; preference action tests (`tests/setup/action-mocks.ts` imported first); `e2e/prefs.spec.ts`.
 
 **What to test:**
 
-1. Reminder templates name the Space, link to Upcoming, escape the title, and omit Monthly `body`. Monthly copy includes days-before. Daily copy says the Task is due today or overdue.
+1. Reminder templates name the Space, link to Upcoming, escape the title, and omit Monthly `body`. Monthly copy includes days-before. Task copy says the Task is due today or overdue.
 2. `sendEmail` returning `"skipped"` does not write `notification_log`. A delivered send still writes one row, and a second run does not double-send.
 3. Preference actions: a read-only Member can save their own row; days outside 0-30 fail validation; a non-member is rejected. No new REST route.
 4. E2E: the prefs UI saves days-before and email off, a reload shows those values, a second Space still shows defaults, and a read-only Member can save.

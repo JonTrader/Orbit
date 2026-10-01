@@ -1,7 +1,8 @@
-import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 
 import type { OrbitDb } from "@/lib/db/client";
 import {
+  TASK_SECTION_KINDS,
   monthly,
   notificationLog,
   space,
@@ -45,9 +46,9 @@ export interface SendReminderInput {
 }
 
 /**
- * Finds due Monthlies and overdue or due Daily Tasks. This scan is independent
- * of Inngest so a scheduled runner can call it later without owning domain
- * rules.
+ * Finds due Monthlies and incomplete Tasks due today or at most 3 local
+ * days overdue. This scan is independent of Inngest so a scheduled runner
+ * can call it later without owning domain rules.
  */
 export async function scanReminderCandidates(
   db: OrbitDb,
@@ -100,25 +101,27 @@ export async function scanReminderCandidates(
       });
     }
 
-    const dailyTasks = await db
+    const earliestDueOn = formatCalendarDate(addDays(today, -3));
+    const dueTasks = await db
       .select()
       .from(task)
       .where(
         and(
           eq(task.spaceId, currentSpace.id),
-          eq(task.sectionKind, "daily"),
+          inArray(task.sectionKind, TASK_SECTION_KINDS),
           isNull(task.completedAt),
+          gte(task.dueOn, earliestDueOn),
           lte(task.dueOn, todayString),
         ),
       )
       .orderBy(asc(task.dueOn), asc(task.sortOrder), asc(task.id));
 
-    for (const dailyTask of dailyTasks) {
-      if (!dailyTask.dueOn) continue;
+    for (const dueTask of dueTasks) {
+      if (!dueTask.dueOn) continue;
       const recipient = await findRecipient(
         db,
         currentSpace.id,
-        dailyTask.assigneeId,
+        dueTask.assigneeId,
       );
       if (!recipient) continue;
       const preference = await findPreference(
@@ -132,12 +135,12 @@ export async function scanReminderCandidates(
         spaceId: currentSpace.id,
         spaceName: currentSpace.name,
         kind: "daily_nudge",
-        entityId: dailyTask.id,
+        entityId: dueTask.id,
         period: todayString,
         recipientUserId: recipient.userId,
         recipientEmail: recipient.email,
-        title: dailyTask.title,
-        dueOn: dailyTask.dueOn,
+        title: dueTask.title,
+        dueOn: dueTask.dueOn,
       });
     }
   }
