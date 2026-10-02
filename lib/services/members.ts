@@ -8,6 +8,7 @@ import {
   buildInviteAcceptUrl,
 } from "@/lib/email/templates/invite";
 import { sendInviteEmail } from "@/lib/email/templates/invite-emails";
+import { inviteBearer } from "@/lib/invites/link";
 import {
   hashInviteToken,
   newInviteBearerToken,
@@ -117,13 +118,7 @@ export async function previewInviteByToken(
     emailMatches: null,
   };
 
-  if (
-    typeof rawToken !== "string" ||
-    rawToken.length === 0 ||
-    rawToken.length > 256
-  ) {
-    return empty;
-  }
+  if (!inviteBearer(rawToken)) return empty;
 
   const [row] = await db
     .select({

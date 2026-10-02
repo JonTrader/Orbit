@@ -3,11 +3,12 @@
 import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 
-import { spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
+import { INVITE_BEARER_MAX_LENGTH } from "@/lib/invites/link";
 import {
   clearPendingInviteCookie,
   readPendingInviteToken,
 } from "@/lib/invites/pending-cookie";
+import { spaceSectionPath, SPACES_PATH } from "@/lib/spaces/paths";
 import {
   acceptInvite as acceptInviteMember,
   inviteMember,
@@ -28,7 +29,7 @@ const sendInviteInputSchema = z
 
 const acceptInviteInputSchema = z
   .object({
-    token: z.string().min(1).max(256),
+    token: z.string().min(1).max(INVITE_BEARER_MAX_LENGTH),
   })
   .strict();
 

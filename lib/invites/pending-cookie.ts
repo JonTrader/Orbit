@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 
+import { inviteBearer } from "@/lib/invites/link";
+
 /** HttpOnly cookie that holds a pending Invite bearer after the email link lands. */
 export const PENDING_INVITE_COOKIE = "orbit_invite";
 
 const MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
-const MAX_TOKEN_LENGTH = 256;
 
 export function pendingInviteCookieOptions(): {
   httpOnly: true;
@@ -25,11 +26,7 @@ export function pendingInviteCookieOptions(): {
 /** Reads the pending Invite bearer, or null when missing / malformed. */
 export async function readPendingInviteToken(): Promise<string | null> {
   const store = await cookies();
-  const value = store.get(PENDING_INVITE_COOKIE)?.value;
-  if (!value || value.length === 0 || value.length > MAX_TOKEN_LENGTH) {
-    return null;
-  }
-  return value;
+  return inviteBearer(store.get(PENDING_INVITE_COOKIE)?.value);
 }
 
 /** Clears the pending Invite cookie after accept or abandon. */
