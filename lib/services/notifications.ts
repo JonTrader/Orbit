@@ -14,9 +14,9 @@ import { sendEmail } from "@/lib/email/mailer";
 import { reminderEmail } from "@/lib/email/templates/reminders";
 
 import {
+  addDays,
   calendarDateInTimeZone,
   formatCalendarDate,
-  type CalendarDate,
 } from "@/lib/calendar-date";
 import { findPreference } from "./notification-preferences";
 
@@ -247,13 +247,4 @@ async function findRecipient(
     )
     .limit(1);
   return owner ?? null;
-}
-
-function addDays(date: CalendarDate, days: number): CalendarDate {
-  const result = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
-  return {
-    year: result.getUTCFullYear(),
-    month: result.getUTCMonth() + 1,
-    day: result.getUTCDate(),
-  };
 }
