@@ -427,7 +427,7 @@ context on why the pages look the way they do.
 
 **Already shipped.** `scanReminderCandidates`, `sendReminder`, and `notification_log` idempotency live in `lib/services/notifications.ts`. Assignee else Owner, Space timezone, default N=3, and per-user-per-Space opt-out are tested. Task reminders cover Daily and custom Sections and stop after 3 local days overdue. `GET`/`PATCH /api/v1/spaces/{spaceId}/notification-preferences` and `lib/services/notification-preferences.ts` already enforce days-before 0-30, including for read-only Members. Phase I calls that code. It does not rebuild it, and it does not rewrite the nested scan into a set-based query.
 
-**Runner.** One Inngest scheduled function, `send-reminders`, cron `0 * * * *` UTC. Each Space has its own timezone, and a Monthly matches only on the local day it is due minus N, so an hourly UTC run lands once per local day and the log makes the other hours a no-op. `step.run("scan")` calls `scanReminderCandidates`. Each candidate then gets its own `step.run`, id derived from `kind:entityId:period`, calling `sendReminder`. `sendReminderCandidates` stays for the existing batch tests. The cron does not call it as a single step. App writes do not call `inngest.send`. The route is `app/api/inngest/route.ts` (`GET`, `POST`, `PUT` from `serve`). It does not use `requireApiSession`. Node runtime, `maxDuration` 60, checkpointing `maxRuntime` about 40 seconds. Local dev uses `INNGEST_DEV=1` and `npx inngest-cli@latest dev`. Signing and event keys stay empty until Phase J.
+**Runner.** One Inngest scheduled function, `send-reminders`, cron `0 * * * *` UTC. Each Space has its own timezone, and a Monthly matches only on the local day it is due minus N, so an hourly UTC run lands once per local day and the log makes the other hours a no-op. `step.run("scan")` calls `scanReminderCandidates`. Each candidate then gets its own `step.run`, id derived from `kind:entityId:period`, calling `sendReminder`. `sendReminderCandidates` stays for the existing batch tests. The cron does not call it as a single step. App writes do not call `inngest.send`. The route is `app/api/inngest/route.ts` (`GET`, `POST`, `PUT` from `serve`). It does not use `requireApiSession`. Node runtime, `maxDuration` 60, checkpointing `maxRuntime` about 40 seconds. Local dev uses `INNGEST_DEV=1` and `npx inngest-cli@latest dev`. Local signing and event keys stay empty. Production keys come from the Vercel Inngest integration.
 
 | Step | Deliverable |
 | ---- | ----------- |
@@ -465,27 +465,34 @@ Stop at Phase I acceptance. Do not start Phase J.
 | | |
 | --- | --- |
 | **Goal** | Another engineer can run and deploy |
-| **Read** | Spec §10 |
+| **Read** | Spec §10, `.env.example` |
 | **ADRs** | none |
 | **Prereq** | H + I (or MVP subset you choose to ship) |
 
+**Already landed.** `.env.example` lists app, OAuth, Resend, Inngest, `INNGEST_SERVE_ORIGIN`, and the dedicated test databases. README covers local setup, OAuth redirect URIs, local Inngest, Neon branches for Vitest and Playwright, and production. CI runs lint, typecheck, build, `test`, and `e2e`. Production is on Vercel. Inngest Cloud syncs `send-reminders` through the custom domain (`INNGEST_SERVE_ORIGIN`). The integration owns `INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` (Production and Preview). `INNGEST_DEV` stays unset in production. Resend is required there.
+
+**Still open.**
+
 | Step | Deliverable |
 | ---- | ----------- |
-| **J1** | `.env.example` + README (setup, OAuth redirect URIs, Inngest) |
-| **J2** | Vercel deploy + prod OAuth/Inngest/Resend config |
+| **J1** | Mark the CI jobs as required GitHub checks |
+| **J2** | Prod smoke: sign in on the custom domain and confirm one Reminder run |
 
 **Acceptance**
 
-- [ ] README alone is enough for local setup
+- [x] README covers local setup, OAuth, Inngest, and production
 - [ ] Prod sign-in and one Reminder path verified
-- [ ] Tests: Phase J section of `Orbit_Test_Plan.md` done (CI + README testing docs; full suite still green)
+- [ ] CI jobs are required checks
 
 **Handoff prompt**
 
 ```
-Implement Orbit Phase J only (J1–J2) per Orbit_Granular_Build.md.
-Read AGENTS.md, docs/spec.md §10, and Phase J in Orbit_Test_Plan.md.
-Ship docs + Vercel production config. Wire CI/README testing instructions from the test plan. Do not add features.
+Finish Orbit Phase J only (J1–J2) per Orbit_Granular_Build.md.
+Read AGENTS.md, docs/spec.md §10, .env.example, and Phase J in Orbit_Test_Plan.md.
+Docs, CI jobs, and the Vercel/Inngest deploy are already in place. Do not redo them.
+J1: mark the existing CI jobs as required GitHub checks.
+J2: prod smoke on the custom domain (sign-in + one Reminder run).
+Do not add features.
 ```
 
 ---

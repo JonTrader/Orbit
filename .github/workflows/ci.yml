@@ -1,11 +1,5 @@
-# Orbit CI. Grow this file with the test plan:
-#   Node 24 (npm 11) is required: npm 10 `npm ci` rejects npm-11 lockfiles
-#   (see AGENTS.md CI section). Keep this in sync with local dev.
-#   Phase B: done - `test` runs against repo secret DATABASE_URL_TEST (Neon ci branch)
-#   Phase G: done - `e2e` runs Playwright against a separate Neon branch
-#     (DATABASE_URL_E2E). test and e2e use different concurrency groups so they
-#     can run in parallel.
-#   Phase J: make these required checks; document secrets in README
+# Orbit CI
+
 name: CI
 
 on:
