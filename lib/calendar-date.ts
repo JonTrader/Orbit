@@ -31,6 +31,17 @@ export function formatCalendarDate(date: CalendarDate): string {
     .join("-");
 }
 
+/** Short UTC label such as "Sep 1". A non YYYY-MM-DD value is returned unchanged. */
+export function formatShortCalendarDate(iso: string): string {
+  const date = parseCalendarDate(iso);
+  if (!date) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(date.year, date.month - 1, date.day)));
+}
+
 /** A stored YYYY-MM-DD value that this module cannot read. */
 export class InvalidCalendarDateError extends Error {
   constructor() {
@@ -46,6 +57,15 @@ export function addDays(date: CalendarDate, days: number): CalendarDate {
     month: result.getUTCMonth() + 1,
     day: result.getUTCDate(),
   };
+}
+
+/** Whole calendar days from start to end (end minus start). */
+export function daysBetween(start: CalendarDate, end: CalendarDate): number {
+  return Math.round(
+    (Date.UTC(end.year, end.month - 1, end.day) -
+      Date.UTC(start.year, start.month - 1, start.day)) /
+      86_400_000,
+  );
 }
 
 export function nextDueOnForDueDay(

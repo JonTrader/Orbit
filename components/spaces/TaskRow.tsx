@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { deleteTask, updateTask } from "@/lib/actions/tasks";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
+import { formatShortCalendarDate } from "@/lib/calendar-date";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -17,16 +18,6 @@ interface TaskRowProps {
   dueOn: string | null;
   completed: boolean;
   canMutate: boolean;
-}
-
-/** Formats YYYY-MM-DD as a short UTC label such as "Sep 1". */
-function formatDueDate(dueOn: string): string {
-  const [year, month, day] = dueOn.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /**
@@ -167,7 +158,7 @@ export function TaskRow({
         </span>
         {dueOn ? (
           <span className="font-mono text-[0.72rem] uppercase tracking-[0.05em] text-muted">
-            {formatDueDate(dueOn)}
+            {formatShortCalendarDate(dueOn)}
           </span>
         ) : null}
         {canMutate && !isEditing ? (

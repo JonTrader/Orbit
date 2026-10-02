@@ -2,7 +2,9 @@ import { Suspense } from "react";
 
 import {
   calendarDateInTimeZone,
+  daysBetween,
   formatCalendarDate,
+  formatShortCalendarDate,
 } from "@/lib/calendar-date";
 import { getDb } from "@/lib/db/client";
 import type { section } from "@/lib/db/schema";
@@ -60,27 +62,13 @@ interface UpcomingGroupsProps {
   sections: (typeof section.$inferSelect)[];
 }
 
-/** Formats YYYY-MM-DD as a short UTC label such as "Aug 1". */
-function shortDate(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
 /** "In 4 days · Fri Aug 1" for future days, computed against Space today. */
 function futureLabel(
   date: string,
   today: { year: number; month: number; day: number },
 ): string {
   const [year, month, day] = date.split("-").map(Number);
-  const days = Math.round(
-    (Date.UTC(year, month - 1, day) -
-      Date.UTC(today.year, today.month - 1, today.day)) /
-      86_400_000,
-  );
+  const days = daysBetween(today, { year, month, day });
   const weekday = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -181,7 +169,7 @@ async function UpcomingGroups({
                     group.urgent ? "text-accent" : "text-muted",
                   ].join(" ")}
                 >
-                  {shortDate(entry.date)}
+                  {formatShortCalendarDate(entry.date)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[0.95rem] font-medium text-ink">

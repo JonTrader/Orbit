@@ -4,7 +4,9 @@ import {
   addDays,
   advanceNextDueOn,
   calendarDateInTimeZone,
+  daysBetween,
   formatCalendarDate,
+  formatShortCalendarDate,
   InvalidCalendarDateError,
   nextDueOnForDueDay,
 } from "@/lib/calendar-date";
@@ -82,6 +84,19 @@ describe("calendar-date", () => {
     expect(() => advanceNextDueOn("2026/01/31", 31)).toThrow(
       InvalidCalendarDateError,
     );
+  });
+
+  it("formats a short UTC label without a leading zero on the day", () => {
+    expect(formatShortCalendarDate("2026-09-01")).toBe("Sep 1");
+  });
+
+  it("counts whole calendar days from start to end", () => {
+    expect(
+      daysBetween(
+        { year: 2026, month: 9, day: 1 },
+        { year: 2026, month: 9, day: 2 },
+      ),
+    ).toBe(1);
   });
 
   it("adds days across a month boundary, including a 3-day lookback", () => {
