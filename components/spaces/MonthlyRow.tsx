@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { deleteMonthly, updateMonthly } from "@/lib/actions/monthlies";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
+import { formatShortCalendarDate } from "@/lib/calendar-date";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -20,16 +21,6 @@ interface MonthlyRowProps {
   /** Next due calendar day, YYYY-MM-DD in the Space timezone. */
   nextDueOn: string;
   canMutate: boolean;
-}
-
-/** Formats YYYY-MM-DD as a short UTC label such as "Sep 1". */
-function formatDueDate(nextDueOn: string): string {
-  const [year, month, day] = nextDueOn.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /**
@@ -166,7 +157,7 @@ export function MonthlyRow({
             done ? "text-teal" : "text-muted",
           ].join(" ")}
         >
-          due {formatDueDate(dueOn)}
+          due {formatShortCalendarDate(dueOn)}
         </span>
         {canMutate ? (
           <button

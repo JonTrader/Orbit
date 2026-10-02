@@ -30,3 +30,103 @@ export function formatCalendarDate(date: CalendarDate): string {
     )
     .join("-");
 }
+
+/** Short UTC label such as "Sep 1". A non YYYY-MM-DD value is returned unchanged. */
+export function formatShortCalendarDate(iso: string): string {
+  const date = parseCalendarDate(iso);
+  if (!date) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(date.year, date.month - 1, date.day)));
+}
+
+/** A stored YYYY-MM-DD value that this module cannot read. */
+export class InvalidCalendarDateError extends Error {
+  constructor() {
+    super("Monthly due date is invalid");
+    this.name = "InvalidCalendarDateError";
+  }
+}
+
+export function addDays(date: CalendarDate, days: number): CalendarDate {
+  const result = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return {
+    year: result.getUTCFullYear(),
+    month: result.getUTCMonth() + 1,
+    day: result.getUTCDate(),
+  };
+}
+
+/** Whole calendar days from start to end (end minus start). */
+export function daysBetween(start: CalendarDate, end: CalendarDate): number {
+  return Math.round(
+    (Date.UTC(end.year, end.month - 1, end.day) -
+      Date.UTC(start.year, start.month - 1, start.day)) /
+      86_400_000,
+  );
+}
+
+export function nextDueOnForDueDay(
+  dueDayOfMonth: number,
+  timezone: string,
+  now: Date,
+): string {
+  const today = calendarDateInTimeZone(now, timezone);
+  let year = today.year;
+  let month = today.month;
+  let day = Math.min(dueDayOfMonth, daysInMonth(year, month));
+
+  if (compareCalendarDates({ year, month, day }, today) < 0) {
+    ({ year, month } = nextMonth(year, month));
+    day = Math.min(dueDayOfMonth, daysInMonth(year, month));
+  }
+
+  return formatCalendarDate({ year, month, day });
+}
+
+export function advanceNextDueOn(
+  nextDueOn: string,
+  dueDayOfMonth: number,
+): string {
+  const current = parseCalendarDate(nextDueOn);
+  if (!current) {
+    throw new InvalidCalendarDateError();
+  }
+  const { year, month } = nextMonth(current.year, current.month);
+  return formatCalendarDate({
+    year,
+    month,
+    day: Math.min(dueDayOfMonth, daysInMonth(year, month)),
+  });
+}
+
+function parseCalendarDate(value: string): CalendarDate | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+  };
+}
+
+function compareCalendarDates(left: CalendarDate, right: CalendarDate): number {
+  return (
+    left.year - right.year || left.month - right.month || left.day - right.day
+  );
+}
+
+function nextMonth(
+  year: number,
+  month: number,
+): { year: number; month: number } {
+  return month === 12
+    ? { year: year + 1, month: 1 }
+    : { year, month: month + 1 };
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}

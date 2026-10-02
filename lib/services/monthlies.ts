@@ -3,9 +3,9 @@ import { and, eq } from "drizzle-orm";
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchMonthlies } from "@/lib/spaces/queries/fetch-monthlies";
 import {
-  calendarDateInTimeZone,
-  formatCalendarDate,
-  type CalendarDate,
+  advanceNextDueOn,
+  InvalidCalendarDateError,
+  nextDueOnForDueDay,
 } from "@/lib/calendar-date";
 import type { OrbitDb } from "@/lib/db/client";
 import { monthly, section, space } from "@/lib/db/schema";
@@ -199,14 +199,20 @@ export async function completeMonthly(
 ): Promise<MonthlyRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
   const current = await findMonthly(db, input.spaceId, input.monthlyId);
+  let nextDueOn: string;
+  try {
+    nextDueOn = advanceNextDueOn(current.nextDueOn, current.dueDayOfMonth);
+  } catch (error) {
+    if (error instanceof InvalidCalendarDateError) {
+      throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly due date is invalid");
+    }
+    throw error;
+  }
 
   const [completed] = await db
     .update(monthly)
     .set({
-      nextDueOn: advanceNextDueOn(
-        current.nextDueOn,
-        current.dueDayOfMonth,
-      ),
+      nextDueOn,
       lastCompletedAt: new Date(),
       lastCompletedBy: input.userId,
     })
@@ -299,60 +305,4 @@ function validateDueDay(dueDayOfMonth: number): number {
     );
   }
   return dueDayOfMonth;
-}
-
-function nextDueOnForDueDay(
-  dueDayOfMonth: number,
-  timezone: string,
-  now: Date,
-): string {
-  const today = calendarDateInTimeZone(now, timezone);
-  let year = today.year;
-  let month = today.month;
-  let day = Math.min(dueDayOfMonth, daysInMonth(year, month));
-
-  if (compareCalendarDates({ year, month, day }, today) < 0) {
-    ({ year, month } = nextMonth(year, month));
-    day = Math.min(dueDayOfMonth, daysInMonth(year, month));
-  }
-
-  return formatCalendarDate({ year, month, day });
-}
-
-function advanceNextDueOn(nextDueOn: string, dueDayOfMonth: number): string {
-  const current = parseCalendarDate(nextDueOn);
-  const { year, month } = nextMonth(current.year, current.month);
-  return formatCalendarDate({
-    year,
-    month,
-    day: Math.min(dueDayOfMonth, daysInMonth(year, month)),
-  });
-}
-
-function parseCalendarDate(value: string): CalendarDate {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly due date is invalid");
-  }
-  return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-  };
-}
-
-function compareCalendarDates(left: CalendarDate, right: CalendarDate): number {
-  return (
-    left.year - right.year || left.month - right.month || left.day - right.day
-  );
-}
-
-function nextMonth(year: number, month: number): { year: number; month: number } {
-  return month === 12
-    ? { year: year + 1, month: 1 }
-    : { year, month: month + 1 };
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
