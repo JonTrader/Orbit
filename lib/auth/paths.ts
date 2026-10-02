@@ -1,4 +1,10 @@
+import {
+  ACCEPT_INVITE_PATH,
+  parseLocalContinuation,
+} from "@/lib/invites/link";
 import { SPACES_PATH } from "@/lib/spaces/paths";
+
+export { ACCEPT_INVITE_PATH, parseLocalContinuation };
 
 /**
  * Auth route constants. Kept apart from `lib/auth.ts` so client components can
@@ -11,13 +17,8 @@ export const VERIFY_EMAIL_PATH = "/verify-email";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 /** Email-token landing after a forgot-password link. Usable while signed out. */
 export const RESET_PASSWORD_PATH = "/reset-password";
-/** Invite email landing. */
-export const ACCEPT_INVITE_PATH = "/accept-invite";
 /** Query key for a validated local post-auth return path. */
 export const CONTINUATION_PARAM = "continue";
-
-const MAX_CONTINUATION_LENGTH = 512;
-const MAX_INVITE_TOKEN_LENGTH = 256;
 
 /**
  * Better Auth gives the reset callback a URL with the token in its path. Move
@@ -47,41 +48,6 @@ export const CHANGE_PASSWORD_PATH = "/change-password";
 export function acceptInvitePath(token: string): string {
   const params = new URLSearchParams({ token });
   return `${ACCEPT_INVITE_PATH}?${params.toString()}`;
-}
-
-/**
- * Narrowly validates a local Invite continuation. Only bare `/accept-invite`
- * is emitted. Legacy `?token=` continue values are accepted but canonicalized
- * to the bare path so the bearer is never re-emitted into auth URLs.
- * Rejects absolute URLs, protocol-relative paths, and malformed targets.
- */
-export function parseLocalContinuation(raw: unknown): string | null {
-  if (typeof raw !== "string" || raw.length === 0) return null;
-  if (raw.length > MAX_CONTINUATION_LENGTH) return null;
-  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
-  if (raw.includes("://") || raw.includes("\\")) return null;
-  if (/%2f%2f/i.test(raw)) return null;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(raw, "http://orbit.local");
-  } catch {
-    return null;
-  }
-
-  if (parsed.username || parsed.password || parsed.host !== "orbit.local") {
-    return null;
-  }
-  if (parsed.pathname !== ACCEPT_INVITE_PATH) return null;
-
-  const token = parsed.searchParams.get("token");
-  if (token !== null) {
-    if (token.length === 0 || token.length > MAX_INVITE_TOKEN_LENGTH) {
-      return null;
-    }
-  }
-
-  return ACCEPT_INVITE_PATH;
 }
 
 /**
