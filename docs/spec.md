@@ -121,4 +121,4 @@ Push/in-app notifications; native mobile app; RRULE/complex recurrence; per-sect
 
 ## 10. Env
 
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `BETTER_AUTH_TRUSTED_ORIGINS`, `GOOGLE_CLIENT_*`, `MICROSOFT_CLIENT_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `BETTER_AUTH_TRUSTED_ORIGINS`, `GOOGLE_CLIENT_*`, `MICROSOFT_CLIENT_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`. Local only: `INNGEST_DEV=1`. Production, when the public site is a custom domain: `INNGEST_SERVE_ORIGIN` (origin only, no path). Test database variables are listed in `.env.example`.

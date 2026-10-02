@@ -44,8 +44,8 @@ Cross-cutting strategy for the MVP. Implement tests **in the same phase** as the
 | ------ | ------ |
 | **B–G** | Done. Gaps closed in the hardening pass (authz/IDOR, invite collisions, calendar/Reminder pinning, Phase G E2E, harness safety). |
 | **H** | Done. Invite accept/expiry/transfer E2E (`e2e/invite.spec.ts`), requireMembership contract audit, ShareBar management. |
-| **I** | Still pending. Scan, send, idempotency, Space timezone, and the prefs API are covered. Still open: Reminder templates, skipped-send log, prefs actions, prefs E2E. |
-| **J** | Partially landed (CI `test`/`e2e`/`typecheck`, README Neon branch note); required-check promotion and prod smoke remain. |
+| **I** | Landed in the repo (templates, skipped send, prefs actions, prefs E2E, Task window). Acceptance checkboxes in the build plan are still open. |
+| **J** | CI, Neon README notes, and production Inngest notes landed. Still open: required GitHub checks and prod smoke. |
 
 **Authz footguns (do not regress):** Owner-only tests need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case (`spaceId` A + entity id from Space B).
 
@@ -288,14 +288,12 @@ flowchart TB
 
 ## Phase J — Ship
 
-**Add:** README testing section + required checks (CI scaffold already exists: `[.github/workflows/ci.yml](../../.github/workflows/ci.yml)` lint/build; `test`/`e2e` jobs commented until B/G).
+**Already landed:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs lint, typecheck, build, `test` (`DATABASE_URL_TEST`), and `e2e` (`DATABASE_URL_E2E`). README documents the Neon branches, OAuth redirect URIs, local Inngest, and production (`INNGEST_SERVE_ORIGIN`, integration-owned keys, Resend). `.env.example` lists the test variables and `INNGEST_SERVE_ORIGIN`.
 
 **What to verify:**
 
-1. GitHub Action (or equivalent): `npm test` against Neon branch/`DATABASE_URL_TEST` secret; Playwright against `DATABASE_URL_E2E` (local server in CI) when secrets exist.
-2. README documents how to create separate Neon branches for Vitest and E2E, set `DATABASE_URL_TEST` / `DATABASE_URL_E2E`, run `test` / `test:e2e`.
-3. Prod smoke checklist (manual ok): sign-in + one Reminder path; link from README.
-4. Confirm `.env.example` lists all test-related vars.
+1. The CI jobs above are required GitHub checks.
+2. Prod smoke (manual): sign in on the production origin and complete one Reminder run. The checklist is in the README.
 
 ---
 
