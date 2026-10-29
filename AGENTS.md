@@ -37,6 +37,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 - Sidebar is Spaces-only and `position: fixed` (`SpaceSidebarShell` + `lg:pl-[var(--sidebar-w)]` on main). Sections live in `SectionTabs` inside `SpaceLayout`; Section pages render content only.
 - The `/spaces/all` directory Home link opens entry-Space Upcoming using the `resolveEntrySpace` result passed into `SpacesDirectory`; it does not return to the marketing `/`.
 - URLs: system views `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment.
+- The Assignee picker reads `useActiveSpace().members` and must not fetch Members on open. Web actions pass `assigneeId` with `z.string().min(1)`.
 
 ## Auth / Invites
 
