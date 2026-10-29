@@ -19,7 +19,10 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev",
+    // Webpack: Next 16.3 Turbopack can fail next/font/google with
+    // Module not found '@vercel/turbopack-next/internal/font/google/font'
+    // (landing Manrope/Syne). See vercel/next.js#97344.
+    command: "npm run dev:e2e",
     url: "http://localhost:3000",
     reuseExistingServer: false,
     timeout: 120_000,

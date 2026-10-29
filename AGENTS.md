@@ -48,7 +48,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 ## Testing and CI
 
 - Vitest: real Neon via `DATABASE_URL_TEST` (dedicated branch, never production). No SQLite. Suite drops/recreates `public` before migrating. `maxWorkers: 1` plus an advisory lock - do not run parallel full suites against the same branch.
-- E2E: `DATABASE_URL_E2E` + `DATABASE_URL_E2E_CONFIRMATION` (`dedicated-neon-branch`). No fallback to `DATABASE_URL` / `DATABASE_URL_TEST`. After schema changes, migrate the e2e branch too (`DRIZZLE_DATABASE_URL` = e2e URL, then `npm run db:migrate`).
+- E2E: `DATABASE_URL_E2E` + `DATABASE_URL_E2E_CONFIRMATION` (`dedicated-neon-branch`). No fallback to `DATABASE_URL` / `DATABASE_URL_TEST`. After schema changes, migrate the e2e branch too (`DRIZZLE_DATABASE_URL` = e2e URL, then `npm run db:migrate`). Playwright boots `npm run dev:e2e` (`next dev --webpack`) so CI does not hit a Next 16.3 Turbopack `next/font/google` resolution bug.
 - Prefer domain/service tests; keep Route Handlers and Actions thin.
 - Authz: Owner-only proofs need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case. `authorization-contract.test.ts` is a completeness net - it does not replace editor-actor 403s in domain tests.
 - API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers.
