@@ -8,7 +8,11 @@ import {
 } from "@/lib/calendar-date";
 import { getDb } from "@/lib/db/client";
 import type { section } from "@/lib/db/schema";
-import { getActiveSpace } from "@/lib/spaces/active-space";
+import {
+  getActiveSpace,
+  type SpaceMemberPreview,
+} from "@/lib/spaces/active-space";
+import { assigneeLabel } from "@/lib/spaces/assignee-label";
 import { resolveSpaceContext } from "@/lib/spaces/params";
 import { fetchUpcomingTimeline } from "@/lib/spaces/queries/fetch-upcoming-timeline";
 
@@ -28,7 +32,7 @@ interface UpcomingPageProps {
  */
 export default async function UpcomingPage({ params }: UpcomingPageProps) {
   const spaceId = await resolveSpaceContext(params);
-  const { viewer, sections } = await getActiveSpace(spaceId);
+  const { viewer, sections, members } = await getActiveSpace(spaceId);
 
   return (
     <Suspense fallback={<UpcomingLoading />}>
@@ -36,6 +40,7 @@ export default async function UpcomingPage({ params }: UpcomingPageProps) {
         spaceId={spaceId}
         timezone={viewer.space.timezone}
         sections={sections}
+        members={members}
       />
     </Suspense>
   );
@@ -48,6 +53,7 @@ interface UpcomingEntry {
   date: string;
   kindLabel: "Monthly" | "Task";
   sectionName: string | null;
+  assigneeName: string | null;
 }
 
 interface DayGroup {
@@ -60,6 +66,7 @@ interface UpcomingGroupsProps {
   spaceId: string;
   timezone: string;
   sections: (typeof section.$inferSelect)[];
+  members: SpaceMemberPreview[];
 }
 
 /** "In 4 days · Fri Aug 1" for future days, computed against Space today. */
@@ -87,13 +94,14 @@ async function UpcomingGroups({
   spaceId,
   timezone,
   sections,
+  members,
 }: UpcomingGroupsProps) {
   const timeline = await fetchUpcomingTimeline(getDb(), spaceId);
   const sectionNames = new Map(sections.map((s) => [s.id, s.name]));
   const today = calendarDateInTimeZone(new Date(), timezone);
   const todayIso = formatCalendarDate(today);
 
-  // Section names come from layout sections in memory - no JOIN in the UNION.
+  // Section names and Assignees come from layout data in memory - no JOIN in the UNION.
   const entries: UpcomingEntry[] = timeline.map((row) => ({
     key: `${row.kind}-${row.id}`,
     title: row.title,
@@ -101,6 +109,7 @@ async function UpcomingGroups({
     kindLabel: row.kind === "monthly" ? ("Monthly" as const) : ("Task" as const),
     sectionName:
       row.kind === "task" ? (sectionNames.get(row.sectionId) ?? null) : null,
+    assigneeName: assigneeLabel(row.assigneeId, members),
   }));
 
   const overdue = entries.filter((entry) => entry.date < todayIso);
@@ -176,8 +185,9 @@ async function UpcomingGroups({
                     {entry.title}
                   </div>
                   <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
-                    {entry.kindLabel}
-                    {entry.sectionName ? ` · ${entry.sectionName}` : ""}
+                    {[entry.kindLabel, entry.sectionName, entry.assigneeName]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 </div>
               </div>
