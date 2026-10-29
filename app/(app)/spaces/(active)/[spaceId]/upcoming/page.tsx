@@ -184,10 +184,20 @@ async function UpcomingGroups({
                   <div className="truncate text-[0.95rem] font-medium text-ink">
                     {entry.title}
                   </div>
-                  <div className="mt-0.5 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
-                    {[entry.kindLabel, entry.sectionName, entry.assigneeName]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <div className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
+                    <span className="truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted">
+                      {[entry.kindLabel, entry.sectionName]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                    {entry.assigneeName ? (
+                      <span className="min-w-0 truncate text-[0.75rem] text-muted">
+                        <span aria-hidden className="mr-1.5">
+                          ·
+                        </span>
+                        {entry.assigneeName}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>

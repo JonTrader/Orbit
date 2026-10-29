@@ -187,15 +187,6 @@ export function ComposeBar({
                 Add
               </Button>
             </div>
-            {showAssignee ? (
-              <div className="mt-[0.45rem]">
-                <AssigneePicker
-                  value={assigneeId}
-                  onChange={setAssigneeId}
-                  disabled={pending}
-                />
-              </div>
-            ) : null}
             {requiresBody ? (
               <textarea
                 value={body}
@@ -206,6 +197,16 @@ export function ComposeBar({
                 disabled={pending}
                 className="mt-[0.45rem] min-h-[2.4rem] w-full resize-y border-0 bg-transparent py-[0.1rem] text-[0.86rem] leading-[1.5] text-muted outline-none placeholder:text-muted placeholder:opacity-75 focus:text-ink disabled:opacity-60"
               />
+            ) : null}
+            {showAssignee ? (
+              <div className="mt-[0.45rem] sm:max-w-[14rem]">
+                <AssigneePicker
+                  value={assigneeId}
+                  onChange={setAssigneeId}
+                  disabled={pending}
+                  compact
+                />
+              </div>
             ) : null}
           </>
         )}

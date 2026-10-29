@@ -8,6 +8,7 @@ import { formatShortCalendarDate } from "@/lib/calendar-date";
 import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
 import { useActiveSpace } from "./ActiveSpaceProvider";
+import { AssigneeName } from "./AssigneeName";
 import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -165,11 +166,7 @@ export function MonthlyRow({
             </div>
           ) : null}
         </div>
-        {displayAssignee ? (
-          <span className="max-w-[7.5rem] shrink-0 truncate font-mono text-[0.72rem] uppercase tracking-[0.05em] text-muted">
-            {displayAssignee}
-          </span>
-        ) : null}
+        {displayAssignee ? <AssigneeName name={displayAssignee} /> : null}
         <span
           className={[
             "inline-flex shrink-0 items-center font-mono text-[0.72rem] uppercase leading-none tracking-[0.05em]",
@@ -249,13 +246,6 @@ export function MonthlyRow({
               className="w-20 shrink-0 rounded border border-line bg-panel px-3 py-2 text-center font-mono text-sm outline-none focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
             />
           </div>
-          <div className="mb-[0.45rem]">
-            <AssigneePicker
-              value={draftAssigneeId}
-              onChange={setDraftAssigneeId}
-              disabled={pending}
-            />
-          </div>
           <textarea
             id={bodyId}
             value={draftBody}
@@ -266,6 +256,13 @@ export function MonthlyRow({
             disabled={pending}
             className="mb-[0.45rem] min-h-[4.5rem] w-full resize-y rounded border border-line bg-panel px-[0.7rem] py-2 text-[0.86rem] leading-[1.55] outline-none placeholder:text-muted focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
           />
+          <div className="mb-[0.45rem]">
+            <AssigneePicker
+              value={draftAssigneeId}
+              onChange={setDraftAssigneeId}
+              disabled={pending}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-[0.4rem]">
             <Button
               type="submit"

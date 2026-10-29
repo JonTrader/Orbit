@@ -8,6 +8,7 @@ import { formatShortCalendarDate } from "@/lib/calendar-date";
 import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
 import { useActiveSpace } from "./ActiveSpaceProvider";
+import { AssigneeName } from "./AssigneeName";
 import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -170,11 +171,7 @@ export function TaskRow({
         >
           {title}
         </span>
-        {displayAssignee ? (
-          <span className="max-w-[7.5rem] shrink-0 truncate font-mono text-[0.72rem] uppercase tracking-[0.05em] text-muted">
-            {displayAssignee}
-          </span>
-        ) : null}
+        {displayAssignee ? <AssigneeName name={displayAssignee} /> : null}
         {dueOn ? (
           <span className="font-mono text-[0.72rem] uppercase tracking-[0.05em] text-muted">
             {formatShortCalendarDate(dueOn)}
