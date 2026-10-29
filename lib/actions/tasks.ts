@@ -17,11 +17,15 @@ const updateTaskInputSchema = z
     taskId: z.uuid(),
     title: z.string().trim().min(1, "Task title cannot be empty").optional(),
     dueOn: z.iso.date().nullable().optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
   })
   .strict()
   .refine(
-    (input) => input.title !== undefined || input.dueOn !== undefined,
-    "Task update must include a title or due date",
+    (input) =>
+      input.title !== undefined ||
+      input.dueOn !== undefined ||
+      input.assigneeId !== undefined,
+    "Task update must include a title, due date, or Assignee",
   );
 
 const deleteTaskInputSchema = z
@@ -37,8 +41,9 @@ export type DeleteTaskInput = z.input<typeof deleteTaskInputSchema>;
 export type DeleteTaskResult = ActionResult<typeof task.$inferSelect>;
 
 /**
- * Updates a Task's title or optional due date. Read-only Members cannot
- * edit Tasks; the owning domain service enforces that via requireMembership.
+ * Updates a Task's title, optional due date, or Assignee. Read-only Members
+ * cannot edit Tasks; the owning domain service enforces that via
+ * requireMembership.
  */
 export const updateTask = defineAction(
   updateTaskInputSchema,
@@ -49,6 +54,7 @@ export const updateTask = defineAction(
       taskId: parsed.taskId,
       title: parsed.title,
       dueOn: parsed.dueOn,
+      assigneeId: parsed.assigneeId,
     }),
 );
 

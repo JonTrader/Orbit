@@ -1,13 +1,13 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath } from "@/lib/spaces/paths";
-
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { deleteTask, updateTask } from "@/lib/actions/tasks";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { spaceMember, task } from "@/lib/db/schema";
+import { spaceLayoutPath } from "@/lib/spaces/paths";
 
 import {
   authenticateAs,
@@ -138,6 +138,131 @@ describe("updateTask action", () => {
     expect(result.data.title).toBe("Original title");
     expect(result.data.dueOn).toBeNull();
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets a Read-only Member as Assignee via an Assignee-only patch", async () => {
+    const s = await seedTask();
+    authenticateAs(s.editorId);
+
+    const result = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected the update to succeed");
+    expect(result.data.assigneeId).toBe(s.readOnlyId);
+    expect(result.data.title).toBe("Original title");
+    expect(result.data.dueOn).toBe("2026-08-12");
+    const [row] = await testDb.select().from(task);
+    expect(row.assigneeId).toBe(s.readOnlyId);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the Assignee with null, leaving the title untouched", async () => {
+    const s = await seedTask();
+    await testDb
+      .update(task)
+      .set({ assigneeId: s.readOnlyId })
+      .where(eq(task.id, s.taskId));
+    authenticateAs(s.editorId);
+
+    const result = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected the update to succeed");
+    expect(result.data.assigneeId).toBeNull();
+    expect(result.data.title).toBe("Original title");
+    const [row] = await testDb.select().from(task);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a non-string or empty Assignee as a validation error", async () => {
+    const s = await seedTask();
+    authenticateAs(s.editorId);
+
+    const numberResult = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: 1 as never,
+    });
+    const emptyResult = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: "",
+    });
+
+    expect(numberResult.ok).toBe(false);
+    if (!numberResult.ok) {
+      expect(numberResult.error.code).toBe("VALIDATION_ERROR");
+    }
+    expect(emptyResult.ok).toBe(false);
+    if (!emptyResult.ok) {
+      expect(emptyResult.error.code).toBe("VALIDATION_ERROR");
+    }
+    const [row] = await testDb.select().from(task);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("blocks read-only Members from setting an Assignee", async () => {
+    const s = await seedTask();
+    authenticateAs(s.readOnlyId);
+
+    const result = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: s.editorId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+    }
+    const [row] = await testDb.select().from(task);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("blocks outsiders from setting an Assignee", async () => {
+    const s = await seedTask();
+    authenticateAs(s.outsiderId);
+
+    const result = await updateTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NOT_MEMBER");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects setting an Assignee on a Task from another Space", async () => {
+    const s = await seedTask();
+    const otherTask = await seedTaskInOtherSpace(s.ownerId);
+    authenticateAs(s.editorId);
+
+    const result = await updateTask({
+      spaceId: s.spaceId,
+      taskId: otherTask.id,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("TASK_NOT_FOUND");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("rejects a whitespace-only title as a validation error", async () => {

@@ -1,13 +1,13 @@
 import "../setup/api-mocks";
 import "../setup/action-mocks";
 
-import { spaceLayoutPath } from "@/lib/spaces/paths";
-
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { deleteMonthly, updateMonthly } from "@/lib/actions/monthlies";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
 import { monthly, spaceMember } from "@/lib/db/schema";
+import { spaceLayoutPath } from "@/lib/spaces/paths";
 
 import {
   authenticateAs,
@@ -148,6 +148,132 @@ describe("updateMonthly action", () => {
     expect(result.data.body).toBe("");
     expect(result.data.dueDayOfMonth).toBe(15);
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets a Read-only Member as Assignee via an Assignee-only patch", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.editorId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected the update to succeed");
+    expect(result.data.assigneeId).toBe(s.readOnlyId);
+    expect(result.data.title).toBe("Original title");
+    expect(result.data.body).toBe("Original body");
+    expect(result.data.dueDayOfMonth).toBe(15);
+    const [row] = await testDb.select().from(monthly);
+    expect(row.assigneeId).toBe(s.readOnlyId);
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the Assignee with null, leaving the title untouched", async () => {
+    const s = await seedMonthly();
+    await testDb
+      .update(monthly)
+      .set({ assigneeId: s.readOnlyId })
+      .where(eq(monthly.id, s.monthlyId));
+    authenticateAs(s.editorId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: null,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected the update to succeed");
+    expect(result.data.assigneeId).toBeNull();
+    expect(result.data.title).toBe("Original title");
+    const [row] = await testDb.select().from(monthly);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a non-string or empty Assignee as a validation error", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.editorId);
+
+    const numberResult = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: 1 as never,
+    });
+    const emptyResult = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: "",
+    });
+
+    expect(numberResult.ok).toBe(false);
+    if (!numberResult.ok) {
+      expect(numberResult.error.code).toBe("VALIDATION_ERROR");
+    }
+    expect(emptyResult.ok).toBe(false);
+    if (!emptyResult.ok) {
+      expect(emptyResult.error.code).toBe("VALIDATION_ERROR");
+    }
+    const [row] = await testDb.select().from(monthly);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("blocks read-only Members from setting an Assignee", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.readOnlyId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: s.editorId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+    }
+    const [row] = await testDb.select().from(monthly);
+    expect(row.assigneeId).toBeNull();
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("blocks outsiders from setting an Assignee", async () => {
+    const s = await seedMonthly();
+    authenticateAs(s.outsiderId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: s.monthlyId,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NOT_MEMBER");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects setting an Assignee on a Monthly from another Space", async () => {
+    const s = await seedMonthly();
+    const otherMonthly = await seedMonthlyInOtherSpace(s.ownerId);
+    authenticateAs(s.editorId);
+
+    const result = await updateMonthly({
+      spaceId: s.spaceId,
+      monthlyId: otherMonthly.id,
+      assigneeId: s.readOnlyId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("MONTHLY_NOT_FOUND");
+    }
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 
   it("rejects a whitespace-only title as a validation error", async () => {
