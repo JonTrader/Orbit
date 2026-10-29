@@ -77,6 +77,7 @@ export default async function CustomSectionPage({
                 sectionId={sectionId}
                 label={`Add task to ${section.name}`}
                 allowsDueOn
+                allowsAssignee
               />
               <ComposeBar
                 spaceId={spaceId}
@@ -93,6 +94,7 @@ export default async function CustomSectionPage({
               label={`Add to ${section.name}`}
               requiresBody={kind === "notes"}
               allowsDueOn={kind === "tasks"}
+              allowsAssignee={kind === "tasks"}
             />
           )
         ) : null}
@@ -147,6 +149,7 @@ async function SectionTasks({
                 taskId={task.id}
                 title={task.title}
                 dueOn={task.dueOn}
+                assigneeId={task.assigneeId}
                 completed={false}
                 canMutate={canMutate}
               />
@@ -162,6 +165,7 @@ async function SectionTasks({
             id: task.id,
             title: task.title,
             dueOn: task.dueOn,
+            assigneeId: task.assigneeId,
           }))}
           canMutate={canMutate}
         />
@@ -285,6 +289,7 @@ async function SectionMixed({
                   taskId={item.data.id}
                   title={item.data.title}
                   dueOn={item.data.dueOn}
+                  assigneeId={item.data.assigneeId}
                   completed={false}
                   canMutate={canMutate}
                 />
@@ -310,6 +315,7 @@ async function SectionMixed({
             id: task.id,
             title: task.title,
             dueOn: task.dueOn,
+            assigneeId: task.assigneeId,
           }))}
           canMutate={canMutate}
         />
