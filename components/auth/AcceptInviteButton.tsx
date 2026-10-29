@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { acceptInvite } from "@/lib/actions/invites";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/auth/client";
 
 import { FormMessage } from "@/components/auth/kit/FormMessage";
 import { SubmitButton } from "@/components/auth/kit/AuthSubmitButton";
@@ -24,9 +26,12 @@ export function AcceptInviteButton() {
       if (result.ok) return;
       setPending(false);
       setError(result.error.message);
-    } catch {
-      // `redirect()` rejects the action promise on the client while the
-      // destination loads. Keep pending; do not treat navigation as failure.
+    } catch (error) {
+      // `redirect()` rejects with NEXT_REDIRECT; rethrow so the client
+      // navigation runs. An empty catch leaves Joining… stuck on this page.
+      if (isRedirectError(error)) throw error;
+      setPending(false);
+      setError(NETWORK_ERROR_MESSAGE);
     }
   }
 
