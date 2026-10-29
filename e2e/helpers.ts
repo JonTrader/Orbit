@@ -142,8 +142,9 @@ export interface MemberView {
 }
 
 /**
- * Direct read-only membership insert for suites that only need a Viewer.
- * Keeps older E2E specs independent of Invite email delivery.
+ * Direct membership insert for suites that need a non-Owner Member without
+ * Invite email delivery. Role defaults to read-only; pass `"editor"` when the
+ * suite needs an Editor actor.
  */
 export async function addMemberReadOnly(
   _request: APIRequestContext,
@@ -151,6 +152,7 @@ export async function addMemberReadOnly(
   spaceId: string,
   member: TestUser,
   _memberSession: string,
+  role: "editor" | "read-only" = "read-only",
 ): Promise<void> {
   const userResult = await db().query(
     'select id from "user" where email = $1',
@@ -163,9 +165,9 @@ export async function addMemberReadOnly(
 
   await db().query(
     `insert into space_member (space_id, user_id, role)
-     values ($1, $2, 'read-only')
+     values ($1, $2, $3)
      on conflict on constraint space_member_space_user_unique do nothing`,
-    [spaceId, userId],
+    [spaceId, userId, role],
   );
 }
 

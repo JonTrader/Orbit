@@ -24,14 +24,16 @@ const updateMonthlyInputSchema = z
     title: z.string().trim().min(1, "Monthly title cannot be empty").optional(),
     body: z.string().optional(),
     dueDayOfMonth: dueDayOfMonthSchema.optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
   })
   .strict()
   .refine(
     (input) =>
       input.title !== undefined ||
       input.body !== undefined ||
-      input.dueDayOfMonth !== undefined,
-    "Monthly update must include a title, description, or due day",
+      input.dueDayOfMonth !== undefined ||
+      input.assigneeId !== undefined,
+    "Monthly update must include a title, description, due day, or Assignee",
   );
 
 const deleteMonthlyInputSchema = z
@@ -47,9 +49,9 @@ export type DeleteMonthlyInput = z.input<typeof deleteMonthlyInputSchema>;
 export type DeleteMonthlyResult = ActionResult<typeof monthly.$inferSelect>;
 
 /**
- * Updates a Monthly's title, optional description, or due day. Read-only
- * Members cannot edit Monthlies; the owning domain service enforces that
- * via requireMembership.
+ * Updates a Monthly's title, optional description, due day, or Assignee.
+ * Read-only Members cannot edit Monthlies; the owning domain service
+ * enforces that via requireMembership.
  */
 export const updateMonthly = defineAction(
   updateMonthlyInputSchema,
@@ -61,6 +63,7 @@ export const updateMonthly = defineAction(
       title: parsed.title,
       body: parsed.body,
       dueDayOfMonth: parsed.dueDayOfMonth,
+      assigneeId: parsed.assigneeId,
     }),
 );
 

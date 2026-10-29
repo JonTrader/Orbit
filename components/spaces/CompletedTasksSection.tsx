@@ -8,6 +8,7 @@ interface CompletedTask {
   id: string;
   title: string;
   dueOn: string | null;
+  assigneeId: string | null;
 }
 
 interface CompletedTasksSectionProps {
@@ -47,6 +48,7 @@ export function CompletedTasksSection({
               taskId={task.id}
               title={task.title}
               dueOn={task.dueOn}
+              assigneeId={task.assigneeId}
               completed={true}
               canMutate={canMutate}
             />

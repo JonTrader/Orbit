@@ -5,7 +5,11 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { deleteMonthly, updateMonthly } from "@/lib/actions/monthlies";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 import { formatShortCalendarDate } from "@/lib/calendar-date";
+import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
+import { useActiveSpace } from "./ActiveSpaceProvider";
+import { AssigneeName } from "./AssigneeName";
+import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RowMenu } from "./RowMenu";
@@ -20,6 +24,7 @@ interface MonthlyRowProps {
   dueDayOfMonth: number;
   /** Next due calendar day, YYYY-MM-DD in the Space timezone. */
   nextDueOn: string;
+  assigneeId: string | null;
   canMutate: boolean;
 }
 
@@ -39,12 +44,14 @@ export function MonthlyRow({
   body,
   dueDayOfMonth,
   nextDueOn,
+  assigneeId,
   canMutate,
 }: MonthlyRowProps) {
   const titleId = useId();
   const dueDayId = useId();
   const bodyId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
+  const { members } = useActiveSpace();
   const [pending, startTransition] = useTransition();
   const [saveFailed, setSaveFailed] = useState(false);
   const [dueOn, setDueOn] = useState(nextDueOn);
@@ -54,7 +61,11 @@ export function MonthlyRow({
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueDay, setDraftDueDay] = useState(String(dueDayOfMonth));
   const [draftBody, setDraftBody] = useState(body);
+  const [draftAssigneeId, setDraftAssigneeId] = useState<string | null>(
+    assigneeId,
+  );
   const [editError, setEditError] = useState<string | null>(null);
+  const displayAssignee = assigneeLabel(assigneeId, members);
 
   useEffect(() => {
     if (isEditing) titleRef.current?.focus();
@@ -86,6 +97,7 @@ export function MonthlyRow({
     setDraftTitle(title);
     setDraftDueDay(String(dueDayOfMonth));
     setDraftBody(body);
+    setDraftAssigneeId(assigneeId);
     setEditError(null);
     setSaveFailed(false);
     setIsEditing(true);
@@ -118,6 +130,9 @@ export function MonthlyRow({
         title: trimmedTitle,
         body: draftBody,
         dueDayOfMonth: parsedDueDay,
+        ...(draftAssigneeId !== assigneeId
+          ? { assigneeId: draftAssigneeId }
+          : {}),
       });
       if (result.ok) {
         setDueOn(result.data.nextDueOn);
@@ -151,6 +166,7 @@ export function MonthlyRow({
             </div>
           ) : null}
         </div>
+        {displayAssignee ? <AssigneeName name={displayAssignee} /> : null}
         <span
           className={[
             "inline-flex shrink-0 items-center font-mono text-[0.72rem] uppercase leading-none tracking-[0.05em]",
@@ -240,6 +256,13 @@ export function MonthlyRow({
             disabled={pending}
             className="mb-[0.45rem] min-h-[4.5rem] w-full resize-y rounded border border-line bg-panel px-[0.7rem] py-2 text-[0.86rem] leading-[1.55] outline-none placeholder:text-muted focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
           />
+          <div className="mb-[0.45rem]">
+            <AssigneePicker
+              value={draftAssigneeId}
+              onChange={setDraftAssigneeId}
+              disabled={pending}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-[0.4rem]">
             <Button
               type="submit"

@@ -134,6 +134,94 @@ describe("quickAdd action", () => {
     expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
   });
 
+  it("stores the Assignee on a Daily quick-add Task", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.dailyId,
+      title: "Assigned chore",
+      assigneeId: s.readOnlyId,
+    });
+
+    assertCreatedTask(result, s.dailyId, "Assigned chore");
+    if (!result.ok || result.data.entity !== "task") {
+      throw new Error("Expected a created task");
+    }
+    expect(result.data.task.assigneeId).toBe(s.readOnlyId);
+    const [row] = await testDb.select().from(task);
+    expect(row.assigneeId).toBe(s.readOnlyId);
+  });
+
+  it("stores the Assignee on a Monthlies quick-add", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.monthliesId,
+      title: "Assigned rent",
+      dueDayOfMonth: 15,
+      assigneeId: s.readOnlyId,
+    });
+
+    if (!result.ok || result.data.entity !== "monthly") {
+      throw new Error("Expected a created monthly");
+    }
+    expect(result.data.monthly.assigneeId).toBe(s.readOnlyId);
+    const [row] = await testDb.select().from(monthly);
+    expect(row.assigneeId).toBe(s.readOnlyId);
+  });
+
+  it("ignores Assignee on a notes Section quick-add", async () => {
+    const s = await seedSpace();
+    const [notesSection] = await testDb
+      .insert(section)
+      .values({
+        spaceId: s.spaceId,
+        name: "Ideas",
+        kind: "notes",
+        sortOrder: 3,
+      })
+      .returning();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: notesSection.id,
+      title: "No Assignee here",
+      assigneeId: s.readOnlyId,
+    });
+
+    if (!result.ok || result.data.entity !== "note") {
+      throw new Error("Expected a created note");
+    }
+    expect(result.data.note.title).toBe("No Assignee here");
+    expect(result.data.note).not.toHaveProperty("assigneeId");
+    expect(await testDb.select().from(note)).toHaveLength(1);
+    expect(await testDb.select().from(task)).toHaveLength(0);
+  });
+
+  it("rejects a non-Member Assignee with INVALID_ASSIGNEE", async () => {
+    const s = await seedSpace();
+    authenticateAs(s.editorId);
+
+    const result = await quickAdd({
+      spaceId: s.spaceId,
+      sectionId: s.dailyId,
+      title: "Bad Assignee",
+      assigneeId: s.outsiderId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INVALID_ASSIGNEE");
+    }
+    expect(await testDb.select().from(task)).toHaveLength(0);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
   it("creates a Task in a custom tasks Section", async () => {
     const s = await seedSpace();
     authenticateAs(s.editorId);

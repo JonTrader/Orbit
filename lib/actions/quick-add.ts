@@ -26,6 +26,8 @@ const quickAddInputSchema = z
       .min(1, "Monthly due day must be between 1 and 31")
       .max(31, "Monthly due day must be between 1 and 31")
       .optional(),
+    /** Optional Assignee for Tasks and Monthlies; Notes ignore it. */
+    assigneeId: z.string().min(1).nullable().optional(),
     /**
      * For mixed Sections only: explicitly create a Note instead of the
      * default Task. Ignored for other Section kinds.
@@ -71,6 +73,7 @@ export const quickAdd = defineAction(
             title: parsed.title,
             body: parsed.body,
             dueDayOfMonth: parsed.dueDayOfMonth!,
+            assigneeId: parsed.assigneeId,
           }),
         };
       }
@@ -87,6 +90,7 @@ export const quickAdd = defineAction(
               section: target,
               title: parsed.title,
               dueOn: parsed.dueOn,
+              assigneeId: parsed.assigneeId,
             }),
           };
         }
@@ -114,6 +118,7 @@ export const quickAdd = defineAction(
             section: target,
             title: parsed.title,
             dueOn: parsed.dueOn,
+            assigneeId: parsed.assigneeId,
           }),
         };
       }

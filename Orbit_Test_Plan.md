@@ -297,6 +297,17 @@ flowchart TB
 
 ---
 
+## Assignee
+
+Playwright coverage in [`e2e/assignee.spec.ts`](./e2e/assignee.spec.ts). What to test:
+
+1. Editor (or Owner) assigns a Read-only Member from the Daily Task edit form; the row shows that Member's name after save.
+2. Editor (or Owner) clears the Assignee; the name disappears from the row.
+3. Monthlies compose sets an Assignee; the Monthly row shows the name; Upcoming shows the same name on that entry.
+4. Read-only Viewer sees the Assignee name on Daily and has no Edit control and no compose.
+
+---
+
 ## Phase exit rule
 
 A phase is not done until its **What to test** list is green (or explicitly manual for OAuth click-through in C). Later phases must keep earlier suites passing - do not delete B/D tests when adding E2E.

@@ -13,6 +13,7 @@ export interface UpcomingTimelineRow {
   /** Due calendar day YYYY-MM-DD (Monthly next_due_on or Task due_on). */
   date: string;
   sectionId: string;
+  assigneeId: string | null;
 }
 
 /**
@@ -30,6 +31,7 @@ export async function fetchUpcomingTimeline(
       title: monthly.title,
       date: sql<string>`${monthly.nextDueOn}`.as("date"),
       sectionId: monthly.sectionId,
+      assigneeId: monthly.assigneeId,
     })
     .from(monthly)
     .where(eq(monthly.spaceId, spaceId));
@@ -41,6 +43,7 @@ export async function fetchUpcomingTimeline(
       title: task.title,
       date: sql<string>`${task.dueOn}`.as("date"),
       sectionId: task.sectionId,
+      assigneeId: task.assigneeId,
     })
     .from(task)
     .where(

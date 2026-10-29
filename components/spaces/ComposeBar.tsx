@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { quickAdd } from "@/lib/actions/quick-add";
 
+import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { DatePicker } from "./DatePicker";
 
@@ -18,6 +19,8 @@ interface ComposeBarProps {
   requiresBody?: boolean;
   /** Tasks may take an optional one-time due date. */
   allowsDueOn?: boolean;
+  /** Tasks may take an optional Assignee. */
+  allowsAssignee?: boolean;
   /**
    * For mixed Sections only: create a Note instead of the default Task.
    * Ignored for other Section kinds.
@@ -38,16 +41,19 @@ export function ComposeBar({
   requiresDueDay = false,
   requiresBody = false,
   allowsDueOn = false,
+  allowsAssignee = false,
   asNote = false,
 }: ComposeBarProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [dueOn, setDueOn] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const isNoteCompose = requiresBody && !requiresDueDay;
+  const showAssignee = allowsAssignee && !isNoteCompose;
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,10 +70,12 @@ export function ComposeBar({
     const submittedBody = body;
     const submittedDueDay = dueDay;
     const submittedDueOn = dueOn;
+    const submittedAssigneeId = assigneeId;
     setTitle("");
     setBody("");
     setDueDay("");
     setDueOn("");
+    setAssigneeId(null);
     setError(null);
     startTransition(async () => {
       const result = await quickAdd({
@@ -77,6 +85,7 @@ export function ComposeBar({
         ...(requiresBody ? { body: submittedBody } : {}),
         ...(requiresDueDay ? { dueDayOfMonth: parsedDueDay } : {}),
         ...(allowsDueOn ? { dueOn: submittedDueOn === "" ? null : submittedDueOn } : {}),
+        ...(showAssignee ? { assigneeId: submittedAssigneeId } : {}),
         ...(asNote ? { asNote: true } : {}),
       });
       if (!result.ok) {
@@ -84,6 +93,7 @@ export function ComposeBar({
         setBody(submittedBody);
         setDueDay(submittedDueDay);
         setDueOn(submittedDueOn);
+        setAssigneeId(submittedAssigneeId);
         setError(result.error.message);
       }
     });
@@ -187,6 +197,16 @@ export function ComposeBar({
                 disabled={pending}
                 className="mt-[0.45rem] min-h-[2.4rem] w-full resize-y border-0 bg-transparent py-[0.1rem] text-[0.86rem] leading-[1.5] text-muted outline-none placeholder:text-muted placeholder:opacity-75 focus:text-ink disabled:opacity-60"
               />
+            ) : null}
+            {showAssignee ? (
+              <div className="mt-[0.45rem] sm:max-w-[14rem]">
+                <AssigneePicker
+                  value={assigneeId}
+                  onChange={setAssigneeId}
+                  disabled={pending}
+                  compact
+                />
+              </div>
             ) : null}
           </>
         )}

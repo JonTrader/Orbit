@@ -5,7 +5,11 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { deleteTask, updateTask } from "@/lib/actions/tasks";
 import { toggleComplete } from "@/lib/actions/toggle-complete";
 import { formatShortCalendarDate } from "@/lib/calendar-date";
+import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
+import { useActiveSpace } from "./ActiveSpaceProvider";
+import { AssigneeName } from "./AssigneeName";
+import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
@@ -16,6 +20,7 @@ interface TaskRowProps {
   taskId: string;
   title: string;
   dueOn: string | null;
+  assigneeId: string | null;
   completed: boolean;
   canMutate: boolean;
 }
@@ -33,11 +38,13 @@ export function TaskRow({
   taskId,
   title,
   dueOn,
+  assigneeId,
   completed,
   canMutate,
 }: TaskRowProps) {
   const titleId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
+  const { members } = useActiveSpace();
   const [pending, startTransition] = useTransition();
   const [saveFailed, setSaveFailed] = useState(false);
   const [shownCompleted, setShownCompleted] = useState(completed);
@@ -45,7 +52,11 @@ export function TaskRow({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueOn, setDraftDueOn] = useState(dueOn ?? "");
+  const [draftAssigneeId, setDraftAssigneeId] = useState<string | null>(
+    assigneeId,
+  );
   const [editError, setEditError] = useState<string | null>(null);
+  const displayAssignee = assigneeLabel(assigneeId, members);
 
   useEffect(() => {
     if (isEditing) titleRef.current?.focus();
@@ -76,6 +87,7 @@ export function TaskRow({
   function startEdit() {
     setDraftTitle(title);
     setDraftDueOn(dueOn ?? "");
+    setDraftAssigneeId(assigneeId);
     setEditError(null);
     setSaveFailed(false);
     setIsEditing(true);
@@ -101,6 +113,9 @@ export function TaskRow({
         taskId,
         title: trimmedTitle,
         dueOn: draftDueOn === "" ? null : draftDueOn,
+        ...(draftAssigneeId !== assigneeId
+          ? { assigneeId: draftAssigneeId }
+          : {}),
       });
       if (result.ok) {
         setIsEditing(false);
@@ -156,6 +171,7 @@ export function TaskRow({
         >
           {title}
         </span>
+        {displayAssignee ? <AssigneeName name={displayAssignee} /> : null}
         {dueOn ? (
           <span className="font-mono text-[0.72rem] uppercase tracking-[0.05em] text-muted">
             {formatShortCalendarDate(dueOn)}
@@ -210,6 +226,13 @@ export function TaskRow({
             disabled={pending}
             className="mb-[0.45rem]"
           />
+          <div className="mb-[0.45rem]">
+            <AssigneePicker
+              value={draftAssigneeId}
+              onChange={setDraftAssigneeId}
+              disabled={pending}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-[0.4rem]">
             <Button
               type="submit"

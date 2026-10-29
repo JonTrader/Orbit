@@ -44,6 +44,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
             sectionId={daily.id}
             label="Add to Daily"
             allowsDueOn
+            allowsAssignee
           />
         ) : null}
       </Suspense>
@@ -92,6 +93,7 @@ async function DailyTasks({
                 taskId={task.id}
                 title={task.title}
                 dueOn={task.dueOn}
+                assigneeId={task.assigneeId}
                 completed={false}
                 canMutate={canMutate}
               />
@@ -107,6 +109,7 @@ async function DailyTasks({
             id: task.id,
             title: task.title,
             dueOn: task.dueOn,
+            assigneeId: task.assigneeId,
           }))}
           canMutate={canMutate}
         />
