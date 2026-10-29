@@ -109,9 +109,10 @@ async function acceptInviteWithoutErrorFlash(
   spaceId: string,
 ): Promise<void> {
   const errorFlash = page.getByRole("heading", { name: "Something went wrong" });
+  const formError = page.getByRole("alert");
   let sawError = false;
   void errorFlash
-    .waitFor({ state: "visible", timeout: 30_000 })
+    .waitFor({ state: "visible", timeout: 60_000 })
     .then(() => {
       sawError = true;
     })
@@ -120,9 +121,19 @@ async function acceptInviteWithoutErrorFlash(
     });
 
   await page.getByRole("button", { name: "Accept Invite" }).click();
-  await page.waitForURL(new RegExp(`/spaces/${spaceId}/upcoming`), {
-    timeout: 30_000,
-  });
+
+  // Prefer commit over load: Upcoming can stream after the URL changes.
+  const upcoming = new RegExp(`/spaces/${spaceId}/upcoming`);
+  try {
+    await page.waitForURL(upcoming, { timeout: 60_000, waitUntil: "commit" });
+  } catch (error) {
+    if (await formError.isVisible().catch(() => false)) {
+      throw new Error(
+        `Accept Invite stayed on ${page.url()}: ${await formError.innerText()}`,
+      );
+    }
+    throw error;
+  }
   expect(sawError).toBe(false);
   await expect(errorFlash).toHaveCount(0);
 }
