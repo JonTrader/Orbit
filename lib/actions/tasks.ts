@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { task } from "@/lib/db/schema";
 import {
   deleteTask as deleteTaskService,
+  moveTask as moveTaskService,
   updateTask as updateTaskService,
 } from "@/lib/services/tasks";
 
@@ -35,10 +36,20 @@ const deleteTaskInputSchema = z
   })
   .strict();
 
+const moveTaskInputSchema = z
+  .object({
+    spaceId: z.uuid(),
+    taskId: z.uuid(),
+    targetSectionId: z.uuid(),
+  })
+  .strict();
+
 export type UpdateTaskInput = z.input<typeof updateTaskInputSchema>;
 export type UpdateTaskResult = ActionResult<typeof task.$inferSelect>;
 export type DeleteTaskInput = z.input<typeof deleteTaskInputSchema>;
 export type DeleteTaskResult = ActionResult<typeof task.$inferSelect>;
+export type MoveTaskInput = z.input<typeof moveTaskInputSchema>;
+export type MoveTaskResult = ActionResult<typeof task.$inferSelect>;
 
 /**
  * Updates a Task's title, optional due date, or Assignee. Read-only Members
@@ -70,5 +81,21 @@ export const deleteTask = defineAction(
       userId,
       spaceId: parsed.spaceId,
       taskId: parsed.taskId,
+    }),
+);
+
+/**
+ * Moves a Task to another Daily, tasks, or mixed Section of the same Space.
+ * Read-only Members cannot move Tasks; the owning domain service enforces that
+ * via requireMembership and scopes the Task and target Section to the Space.
+ */
+export const moveTask = defineAction(
+  moveTaskInputSchema,
+  async (parsed, { userId, db }) =>
+    moveTaskService(db, {
+      userId,
+      spaceId: parsed.spaceId,
+      taskId: parsed.taskId,
+      targetSectionId: parsed.targetSectionId,
     }),
 );
