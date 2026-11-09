@@ -28,6 +28,9 @@ process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
 import {
   assigneeActivityChange,
+  listActivity,
+  listEntityActivity,
+  listMonthlyCompletions,
   recordActivity,
 } from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
@@ -513,6 +516,33 @@ const MEMBERSHIP_GATED_READS: GatedEntrypoint[] = [
       getNotificationPreference(testDb, {
         userId: "user-1",
         spaceId: randomUUID(),
+      }),
+  },
+  {
+    name: "listActivity",
+    minimumRole: "read-only",
+    invoke: () =>
+      listActivity(testDb, { userId: "user-1", spaceId: randomUUID() }),
+  },
+  {
+    name: "listEntityActivity",
+    minimumRole: "read-only",
+    invoke: () =>
+      listEntityActivity(testDb, {
+        userId: "user-1",
+        spaceId: randomUUID(),
+        entityType: "task",
+        entityId: randomUUID(),
+      }),
+  },
+  {
+    name: "listMonthlyCompletions",
+    minimumRole: "read-only",
+    invoke: () =>
+      listMonthlyCompletions(testDb, {
+        userId: "user-1",
+        spaceId: randomUUID(),
+        monthlyId: randomUUID(),
       }),
   },
   {
