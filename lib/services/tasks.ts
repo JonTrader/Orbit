@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
@@ -6,12 +6,12 @@ import type { OrbitDb, OrbitExecutor } from "@/lib/db/client";
 import {
   section,
   task,
-  user,
   type ActivityAction,
   type SectionKind,
 } from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
 import {
+  assigneeActivityChange,
   recordActivity,
   type ActivityDetails,
   type ActivityFieldChange,
@@ -443,7 +443,7 @@ async function taskFieldChanges(
     supplied.assigneeId !== undefined &&
     supplied.assigneeId !== current.assigneeId
   ) {
-    changes.assigneeId = await assigneeFieldChange(
+    changes.assigneeId = await assigneeActivityChange(
       executor,
       current.assigneeId,
       supplied.assigneeId,
@@ -451,28 +451,4 @@ async function taskFieldChanges(
   }
 
   return Object.keys(changes).length > 0 ? changes : undefined;
-}
-
-/** Snapshots Assignee names from `user`. Clearing omits `toName`. */
-async function assigneeFieldChange(
-  executor: OrbitExecutor,
-  fromId: string | null,
-  toId: string | null,
-): Promise<ActivityFieldChange> {
-  const ids = [fromId, toId].filter((id): id is string => id != null);
-  const names = new Map<string, string>();
-  if (ids.length > 0) {
-    const rows = await executor
-      .select({ id: user.id, name: user.name })
-      .from(user)
-      .where(inArray(user.id, ids));
-    for (const row of rows) names.set(row.id, row.name);
-  }
-
-  const change: ActivityFieldChange = { from: fromId, to: toId };
-  const fromName = fromId == null ? undefined : names.get(fromId);
-  const toName = toId == null ? undefined : names.get(toId);
-  if (fromName !== undefined) change.fromName = fromName;
-  if (toName !== undefined) change.toName = toName;
-  return change;
 }

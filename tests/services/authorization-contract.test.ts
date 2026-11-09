@@ -26,7 +26,10 @@ vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
-import { recordActivity } from "@/lib/services/activity";
+import {
+  assigneeActivityChange,
+  recordActivity,
+} from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 import {
   acceptInvite,
@@ -539,6 +542,7 @@ const UNGATED = [
   "sendReminder",
   "sendReminderCandidates",
   "assertAssigneeIsMember",
+  "assigneeActivityChange",
   "findPreference",
   "recordActivity",
 ] as const;
@@ -665,6 +669,7 @@ describe("authorization contract", () => {
       (message) => new Error(message),
     );
     await findPreference(testDb, space.id, owner.id);
+    await assigneeActivityChange(testDb, null, owner.id);
     await recordActivity(testDb, {
       spaceId: space.id,
       actorUserId: owner.id,

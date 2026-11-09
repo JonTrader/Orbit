@@ -1,6 +1,9 @@
+import { inArray } from "drizzle-orm";
+
 import type { OrbitExecutor } from "@/lib/db/client";
 import {
   activity,
+  user,
   type ActivityAction,
   type ActivityEntityType,
 } from "@/lib/db/schema";
@@ -66,4 +69,28 @@ export async function recordActivity(
     period: input.period ?? null,
     details: input.details,
   });
+}
+
+/** Snapshots Assignee names from `user`. Clearing omits `toName`. */
+export async function assigneeActivityChange(
+  executor: OrbitExecutor,
+  fromId: string | null,
+  toId: string | null,
+): Promise<ActivityFieldChange> {
+  const ids = [fromId, toId].filter((id): id is string => id != null);
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const rows = await executor
+      .select({ id: user.id, name: user.name })
+      .from(user)
+      .where(inArray(user.id, ids));
+    for (const row of rows) names.set(row.id, row.name);
+  }
+
+  const change: ActivityFieldChange = { from: fromId, to: toId };
+  const fromName = fromId == null ? undefined : names.get(fromId);
+  const toName = toId == null ? undefined : names.get(toId);
+  if (fromName !== undefined) change.fromName = fromName;
+  if (toName !== undefined) change.toName = toName;
+  return change;
 }
