@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { section, spaceMember } from "@/lib/db/schema";
+import { activity, section, spaceMember, task } from "@/lib/db/schema";
 import {
   completeTask,
   createTask,
@@ -23,11 +23,20 @@ describe("Task services", () => {
   beforeEach(truncateAll);
 
   async function seedSpace() {
-    const owner = await createUser({ email: "owner@orbit.test" });
-    const editor = await createUser({ email: "editor@orbit.test" });
-    const readOnly = await createUser({ email: "read-only@orbit.test" });
-    const assignee = await createUser({ email: "assignee@orbit.test" });
-    const outsider = await createUser({ email: "outsider@orbit.test" });
+    const owner = await createUser({ email: "owner@orbit.test", name: "Owner" });
+    const editor = await createUser({ email: "editor@orbit.test", name: "Editor" });
+    const readOnly = await createUser({
+      email: "read-only@orbit.test",
+      name: "Reader",
+    });
+    const assignee = await createUser({
+      email: "assignee@orbit.test",
+      name: "Assignee",
+    });
+    const outsider = await createUser({
+      email: "outsider@orbit.test",
+      name: "Outsider",
+    });
     const seeded = await createSpaceWithSystemSections(testDb, {
       name: "Home",
       ownerUserId: owner.id,
@@ -76,6 +85,15 @@ describe("Task services", () => {
       mixed,
       notes,
     };
+  }
+
+  async function activityFor(entityId: string) {
+    return testDb.select().from(activity).where(eq(activity.entityId, entityId));
+  }
+
+  function addedActivity<T extends { id: string }>(before: T[], after: T[]) {
+    const seen = new Set(before.map((row) => row.id));
+    return after.filter((row) => !seen.has(row.id));
   }
 
   it("creates, lists, gets, updates, and deletes Tasks", async () => {
@@ -277,6 +295,10 @@ describe("Task services", () => {
         }),
       ).rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
     }
+
+    expect(
+      await testDb.select().from(activity).where(eq(activity.spaceId, space.id)),
+    ).toEqual([]);
   });
 
   it("accepts a prevalidated Section row and still rejects Task-incompatible ones", async () => {
@@ -371,6 +393,9 @@ describe("Task services", () => {
     await expect(
       getTask(testDb, { userId: editor.id, spaceId: space.id, taskId: created.id }),
     ).resolves.toEqual(created);
+    expect((await activityFor(created.id)).map((row) => row.action)).toEqual([
+      "created",
+    ]);
   });
 
   it("rejects moves to another Space's Section or of another Space's Task", async () => {
@@ -421,6 +446,16 @@ describe("Task services", () => {
         taskId: otherTask.id,
       }),
     ).resolves.toMatchObject({ sectionId: other.sections.daily.id });
+
+    const homeRows = await activityFor(homeTask.id);
+    expect(homeRows).toHaveLength(1);
+    expect(homeRows[0]).toMatchObject({ action: "created", spaceId: space.id });
+    const otherRows = await activityFor(otherTask.id);
+    expect(otherRows).toHaveLength(1);
+    expect(otherRows[0]).toMatchObject({
+      action: "created",
+      spaceId: other.space.id,
+    });
   });
 
   it("denies Task mutations to read-only Members and cross-Space assignees", async () => {
@@ -507,6 +542,15 @@ describe("Task services", () => {
         assigneeId: outsider.id,
       }),
     ).rejects.toMatchObject({ code: "INVALID_ASSIGNEE" });
+
+    const rows = await testDb
+      .select()
+      .from(activity)
+      .where(eq(activity.spaceId, space.id));
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.action).sort()).toEqual(["completed", "created"]);
+    expect(rows.every((row) => row.actorUserId === editor.id)).toBe(true);
+    expect(rows.every((row) => row.entityId === created.id)).toBe(true);
   });
 
   it("rejects non-member reads and cross-Space Task lookups", async () => {
@@ -660,5 +704,374 @@ describe("Task services", () => {
         status: "open",
       }),
     ).resolves.toMatchObject([{ id: datedOpen.id }]);
+  });
+
+  it("records created Activity and nothing when create is denied", async () => {
+    const { space, sections, editor, readOnly, outsider } = await seedSpace();
+
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "  Paint the door  ",
+    });
+
+    const rows = await activityFor(created.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: created.id,
+      action: "created",
+      period: null,
+      details: { title: "Paint the door" },
+    });
+
+    await expect(
+      createTask(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+        title: "Nope",
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      createTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+        title: "Assigned to a stranger",
+        assigneeId: outsider.id,
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_ASSIGNEE" });
+
+    const spaceRows = await testDb
+      .select()
+      .from(activity)
+      .where(eq(activity.spaceId, space.id));
+    expect(spaceRows).toEqual(rows);
+  });
+
+  it("records assigned or updated from the fields that actually changed", async () => {
+    const { space, sections, editor, assignee } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Chore",
+    });
+
+    const assigned = await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      assigneeId: assignee.id,
+    });
+    expect(assigned.assigneeId).toBe(assignee.id);
+
+    let rows = await activityFor(created.id);
+    expect(rows.filter((row) => row.action === "assigned")).toHaveLength(1);
+    expect(rows.find((row) => row.action === "assigned")).toMatchObject({
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: created.id,
+    });
+    expect(rows.find((row) => row.action === "assigned")?.details).toEqual({
+      title: "Chore",
+      changes: {
+        assigneeId: { from: null, to: assignee.id, toName: "Assignee" },
+      },
+    });
+
+    const cleared = await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      assigneeId: null,
+    });
+    expect(cleared.assigneeId).toBeNull();
+    rows = await activityFor(created.id);
+    const clearedRow = rows.find((row) => {
+      const details = row.details as {
+        changes?: { assigneeId?: { to: string | null } };
+      };
+      return row.action === "assigned" && details.changes?.assigneeId?.to === null;
+    });
+    expect(clearedRow?.details).toEqual({
+      title: "Chore",
+      changes: {
+        assigneeId: { from: assignee.id, to: null, fromName: "Assignee" },
+      },
+    });
+    expect(rows.filter((row) => row.action === "assigned")).toHaveLength(2);
+
+    const beforeTitle = rows;
+    const retitled = await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      title: "  Fold laundry  ",
+    });
+    expect(retitled.title).toBe("Fold laundry");
+    const titleRows = addedActivity(beforeTitle, await activityFor(created.id));
+    expect(titleRows).toHaveLength(1);
+    expect(titleRows[0]).toMatchObject({
+      action: "updated",
+      actorUserId: editor.id,
+    });
+    expect(titleRows[0]?.details).toEqual({
+      title: "Fold laundry",
+      changes: { title: { from: "Chore", to: "Fold laundry" } },
+    });
+
+    const beforeDue = await activityFor(created.id);
+    await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      dueOn: "2026-08-12",
+    });
+    const dueRows = addedActivity(beforeDue, await activityFor(created.id));
+    expect(dueRows).toHaveLength(1);
+    expect(dueRows[0]).toMatchObject({ action: "updated", actorUserId: editor.id });
+    expect(dueRows[0]?.details).toEqual({
+      title: "Fold laundry",
+      changes: { dueOn: { from: null, to: "2026-08-12" } },
+    });
+
+    const beforeBoth = await activityFor(created.id);
+    await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      title: "Fold towels",
+      assigneeId: assignee.id,
+    });
+    const bothRows = addedActivity(beforeBoth, await activityFor(created.id));
+    expect(bothRows).toHaveLength(1);
+    expect(bothRows[0]).toMatchObject({
+      action: "updated",
+      actorUserId: editor.id,
+    });
+    expect(bothRows[0]?.details).toEqual({
+      title: "Fold towels",
+      changes: {
+        title: { from: "Fold laundry", to: "Fold towels" },
+        assigneeId: {
+          from: null,
+          to: assignee.id,
+          toName: "Assignee",
+        },
+      },
+    });
+    expect(bothRows.filter((row) => row.action === "assigned")).toEqual([]);
+
+    const beforeSame = await activityFor(created.id);
+    const same = await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      title: "Fold towels",
+    });
+    const padded = await updateTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      title: "  Fold towels  ",
+    });
+    expect(same.title).toBe("Fold towels");
+    expect(padded.title).toBe("Fold towels");
+    expect(await activityFor(created.id)).toEqual(beforeSame);
+  });
+
+  it("records toggle as completed or reopened from the returned completedAt", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Toggle me",
+    });
+
+    const beforeComplete = await activityFor(created.id);
+    const completed = await toggleTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    const completedRows = addedActivity(beforeComplete, await activityFor(created.id));
+    expect(completed.completedAt).not.toBeNull();
+    expect(completedRows).toHaveLength(1);
+    expect(completedRows[0]).toMatchObject({
+      action: "completed",
+      actorUserId: editor.id,
+      details: { title: "Toggle me" },
+    });
+
+    const beforeReopen = await activityFor(created.id);
+    const reopened = await toggleTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    const reopenedRows = addedActivity(beforeReopen, await activityFor(created.id));
+    expect(reopened.completedAt).toBeNull();
+    expect(reopenedRows).toHaveLength(1);
+    expect(reopenedRows[0]).toMatchObject({
+      action: "reopened",
+      actorUserId: editor.id,
+      details: { title: "Toggle me" },
+    });
+  });
+
+  it("records completed again when a Task is already complete, and records reopened", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Stay completed",
+    });
+
+    await completeTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    const again = await completeTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    expect(again.completedAt).not.toBeNull();
+    expect(again.completedBy).toBe(editor.id);
+
+    const completedRows = (await activityFor(created.id)).filter(
+      (row) => row.action === "completed",
+    );
+    expect(completedRows).toHaveLength(2);
+    expect(completedRows.every((row) => row.actorUserId === editor.id)).toBe(true);
+    for (const row of completedRows) {
+      expect(row.details).toEqual({ title: "Stay completed" });
+    }
+
+    const reopened = await reopenTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    expect(reopened.completedAt).toBeNull();
+    const reopenedRows = (await activityFor(created.id)).filter(
+      (row) => row.action === "reopened",
+    );
+    expect(reopenedRows).toHaveLength(1);
+    expect(reopenedRows[0]).toMatchObject({
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: created.id,
+      details: { title: "Stay completed" },
+    });
+  });
+
+  it("records a move with Section ids and names, and skips a same-Section move", async () => {
+    const { space, sections, editor, customTasks, notes } = await seedSpace();
+    await testDb
+      .update(section)
+      .set({ name: "Today" })
+      .where(eq(section.id, sections.daily.id));
+    await testDb
+      .update(section)
+      .set({ name: "Shopping" })
+      .where(eq(section.id, customTasks.id));
+
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Move me",
+    });
+
+    await expect(
+      moveTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        taskId: created.id,
+        targetSectionId: notes.id,
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_SECTION" });
+    expect((await activityFor(created.id)).map((row) => row.action)).toEqual([
+      "created",
+    ]);
+
+    const moved = await moveTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      targetSectionId: customTasks.id,
+    });
+    expect(moved).toMatchObject({
+      sectionId: customTasks.id,
+      sectionKind: "tasks",
+    });
+
+    const moveRows = (await activityFor(created.id)).filter(
+      (row) => row.action === "moved",
+    );
+    expect(moveRows).toHaveLength(1);
+    expect(moveRows[0]).toMatchObject({
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: created.id,
+      spaceId: space.id,
+    });
+    expect(moveRows[0]?.details).toEqual({
+      title: "Move me",
+      fromSectionId: sections.daily.id,
+      toSectionId: customTasks.id,
+      fromSectionName: "Today",
+      toSectionName: "Shopping",
+    });
+
+    const beforeSame = await activityFor(created.id);
+    const same = await moveTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      targetSectionId: customTasks.id,
+    });
+    expect(same.sectionId).toBe(customTasks.id);
+    expect(await activityFor(created.id)).toEqual(beforeSame);
+  });
+
+  it("keeps deleted Activity after the Task row is gone", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Throw away",
+    });
+
+    const deleted = await deleteTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+    });
+    expect(deleted.id).toBe(created.id);
+    expect(
+      await testDb.select().from(task).where(eq(task.id, created.id)),
+    ).toEqual([]);
+
+    const rows = await activityFor(created.id);
+    expect(rows.map((row) => row.action).sort()).toEqual(["created", "deleted"]);
+    expect(rows.find((row) => row.action === "deleted")).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: created.id,
+      action: "deleted",
+      details: { title: "Throw away" },
+    });
   });
 });
