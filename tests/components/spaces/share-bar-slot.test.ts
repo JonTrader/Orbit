@@ -20,6 +20,17 @@ vi.mock("@/lib/actions/notification-preferences", () => ({
   updateNotificationPreference: vi.fn().mockResolvedValue({ ok: true, data: null }),
 }));
 
+vi.mock("@/lib/actions/activity", () => ({
+  listActivity: vi.fn().mockResolvedValue({
+    ok: true,
+    data: { entries: [], nextCursor: null },
+  }),
+  listEntityActivity: vi.fn().mockResolvedValue({
+    ok: true,
+    data: { entries: [], nextCursor: null },
+  }),
+}));
+
 import { ShareBarSlot } from "@/components/spaces/ShareBarSlot";
 import * as membersService from "@/lib/services/members";
 

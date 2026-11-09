@@ -18,6 +18,7 @@ import { SPACES_PATH } from "@/lib/spaces/paths";
 import { roleLabel } from "@/lib/spaces/role-label";
 import type { ReminderPreferencePreview } from "@/lib/spaces/viewer";
 
+import { SpaceActivityDialog } from "./ActivityList";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Dialog,
@@ -48,6 +49,7 @@ interface ShareBarProps {
 
 type ManageDialog =
   | { type: "people" }
+  | { type: "activity" }
   | { type: "invite" }
   | { type: "reminders" }
   | {
@@ -75,8 +77,9 @@ type InviteRole = (typeof INVITE_ROLES)[number]["value"];
 
 /**
  * Bottom-of-panel share surface for the Active Space. Shows member avatars,
- * opens a People dialog for everyone, and gives every Member a Reminders
- * control. Owners also get invite / role / transfer / remove controls.
+ * opens a People dialog for everyone, and gives every Member Reminders and
+ * Activity. Activity loads when the dialog opens and is not part of the
+ * layout query. Owners also get invite / role / transfer / remove controls.
  * Pending Invites load via Server Action only when the Owner opens People.
  */
 export function ShareBar({
@@ -114,7 +117,14 @@ export function ShareBar({
         </span>
       </button>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setDialog({ type: "activity" })}
+          className="inline-flex items-center rounded border border-line bg-page px-3 py-1.5 text-[0.8rem] font-semibold text-ink transition-colors hover:border-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          Activity
+        </button>
         <button
           type="button"
           onClick={() => setDialog({ type: "reminders" })}
@@ -248,6 +258,13 @@ export function ShareBar({
           spaceId={spaceId}
           reminder={reminderPrefs}
           onSaved={setReminderPrefs}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+
+      {dialog?.type === "activity" ? (
+        <SpaceActivityDialog
+          spaceId={spaceId}
           onClose={() => setDialog(null)}
         />
       ) : null}

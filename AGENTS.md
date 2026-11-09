@@ -40,6 +40,7 @@ Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite
 - URLs: system views `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment.
 - The Assignee picker reads `useActiveSpace().members` and must not fetch Members on open. Web actions pass `assigneeId` with `z.string().min(1)`.
 - Web Task move is the `moveTask` Server Action in `lib/actions/tasks.ts`; do not add a second REST move route (REST already has `POST .../tasks/{taskId}/move`).
+- History (Task and Monthly row menu) and Activity (share bar, beside Reminders) open a `PanelDialog` and load on open via `listEntityActivity` / `listActivity`. Every Member, including Read-only, can open them. Read-only row menus are History only; Editors keep Edit, Move (Tasks), History, Delete. The dialogs have no mutate controls. Do not put the feed on `getSpaceLayoutData`.
 
 ## Auth / Invites
 

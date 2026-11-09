@@ -7,12 +7,13 @@ import { toggleComplete } from "@/lib/actions/toggle-complete";
 import { formatShortCalendarDate } from "@/lib/calendar-date";
 import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
+import { EntityHistoryDialog } from "./ActivityList";
 import { useActiveSpace } from "./ActiveSpaceProvider";
 import { AssigneeName } from "./AssigneeName";
 import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { RowMenu } from "./RowMenu";
+import { RowMenu, type RowMenuItem } from "./RowMenu";
 
 interface MonthlyRowProps {
   spaceId: string;
@@ -32,10 +33,11 @@ interface MonthlyRowProps {
  * One Monthly obligation. Completing finishes the current period and rolls
  * the next due forward, so the button is not a toggle: it acknowledges done
  * instantly, then adopts the advanced due date from the action's returned
- * entity without waiting for a re-render. Editors open Edit / Delete from
- * the overflow menu. Edit is a form under the still-visible item (title,
- * due day, Description); Escape cancels. Delete uses a one-step confirm;
- * layout revalidation removes the row.
+ * entity without waiting for a re-render. Editors open Edit / History / Delete
+ * from the overflow menu. Read-only Members get History only. History loads
+ * in its own dialog and does not use this row's save transition. Edit is a
+ * form under the still-visible item (title, due day, Description); Escape
+ * cancels. Delete uses a one-step confirm; layout revalidation removes the row.
  */
 export function MonthlyRow({
   spaceId,
@@ -57,6 +59,7 @@ export function MonthlyRow({
   const [dueOn, setDueOn] = useState(nextDueOn);
   const [flashDone, setFlashDone] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [viewingHistory, setViewingHistory] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueDay, setDraftDueDay] = useState(String(dueDayOfMonth));
@@ -143,6 +146,22 @@ export function MonthlyRow({
     });
   }
 
+  const historyItem: RowMenuItem = {
+    label: "History",
+    onSelect: () => setViewingHistory(true),
+  };
+  const menuItems: RowMenuItem[] = canMutate
+    ? [
+        { label: "Edit", onSelect: startEdit },
+        historyItem,
+        {
+          label: "Delete",
+          tone: "danger",
+          onSelect: () => setConfirmingDelete(true),
+        },
+      ]
+    : [historyItem];
+
   const done = flashDone;
 
   return (
@@ -191,19 +210,10 @@ export function MonthlyRow({
             {done ? "✓ Done" : "Done"}
           </button>
         ) : null}
-        {canMutate && !isEditing ? (
-          <RowMenu
-            label={`Actions for ${title}`}
-            items={[
-              { label: "Edit", onSelect: startEdit },
-              {
-                label: "Delete",
-                tone: "danger",
-                onSelect: () => setConfirmingDelete(true),
-              },
-            ]}
-          />
-        ) : null}
+        <RowMenu
+          label={`Actions for ${title}`}
+          items={isEditing ? [historyItem] : menuItems}
+        />
       </div>
       {isEditing && canMutate ? (
         <form
@@ -292,6 +302,14 @@ export function MonthlyRow({
         <p role="alert" className="mt-1 pl-8 text-[0.75rem] font-medium text-accent">
           Could not save that change. Try again.
         </p>
+      ) : null}
+      {viewingHistory ? (
+        <EntityHistoryDialog
+          spaceId={spaceId}
+          entityType="monthly"
+          entityId={monthlyId}
+          onClose={() => setViewingHistory(false)}
+        />
       ) : null}
       {confirmingDelete ? (
         <ConfirmDialog

@@ -7,6 +7,7 @@ import { toggleComplete } from "@/lib/actions/toggle-complete";
 import { formatShortCalendarDate } from "@/lib/calendar-date";
 import { assigneeLabel } from "@/lib/spaces/assignee-label";
 
+import { EntityHistoryDialog } from "./ActivityList";
 import { useActiveSpace } from "./ActiveSpaceProvider";
 import { AssigneeName } from "./AssigneeName";
 import { AssigneePicker } from "./AssigneePicker";
@@ -14,7 +15,7 @@ import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
 import { MoveTaskDialog, moveDestinations } from "./MoveTaskDialog";
-import { RowMenu } from "./RowMenu";
+import { RowMenu, type RowMenuItem } from "./RowMenu";
 
 interface TaskRowProps {
   spaceId: string;
@@ -32,10 +33,12 @@ interface TaskRowProps {
  * One checklist row; the checkbox toggles completion in place. The row owns
  * its completed state: it flips instantly on click and reconciles against
  * the action's returned entity, so settling never waits for a re-render.
- * Editors open Edit / Move / Delete from the overflow menu. Edit is a form
- * under the still-visible item; Escape cancels. Move opens a Section picker
- * (hidden when no other Section accepts Tasks). Delete uses a one-step
- * confirm; layout revalidation removes the row after Move or Delete.
+ * Editors open Edit / Move / History / Delete from the overflow menu. Read-only
+ * Members get History only. History loads in its own dialog and does not use
+ * this row's save transition. Edit is a form under the still-visible item;
+ * Escape cancels. Move opens a Section picker (hidden when no other Section
+ * accepts Tasks). Delete uses a one-step confirm; layout revalidation removes
+ * the row after Move or Delete.
  */
 export function TaskRow({
   spaceId,
@@ -56,6 +59,7 @@ export function TaskRow({
   const [shownCompleted, setShownCompleted] = useState(completed);
   const [isEditing, setIsEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [viewingHistory, setViewingHistory] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueOn, setDraftDueOn] = useState(dueOn ?? "");
@@ -132,6 +136,25 @@ export function TaskRow({
     });
   }
 
+  const historyItem: RowMenuItem = {
+    label: "History",
+    onSelect: () => setViewingHistory(true),
+  };
+  const menuItems: RowMenuItem[] = canMutate
+    ? [
+        { label: "Edit", onSelect: startEdit },
+        ...(canMove
+          ? [{ label: "Move", onSelect: () => setMoving(true) }]
+          : []),
+        historyItem,
+        {
+          label: "Delete",
+          tone: "danger",
+          onSelect: () => setConfirmingDelete(true),
+        },
+      ]
+    : [historyItem];
+
   return (
     <div
       className={[
@@ -184,22 +207,10 @@ export function TaskRow({
             {formatShortCalendarDate(dueOn)}
           </span>
         ) : null}
-        {canMutate && !isEditing ? (
-          <RowMenu
-            label={`Actions for ${title}`}
-            items={[
-              { label: "Edit", onSelect: startEdit },
-              ...(canMove
-                ? [{ label: "Move", onSelect: () => setMoving(true) }]
-                : []),
-              {
-                label: "Delete",
-                tone: "danger",
-                onSelect: () => setConfirmingDelete(true),
-              },
-            ]}
-          />
-        ) : null}
+        <RowMenu
+          label={`Actions for ${title}`}
+          items={isEditing ? [historyItem] : menuItems}
+        />
       </div>
       {isEditing && canMutate ? (
         <form
@@ -279,6 +290,14 @@ export function TaskRow({
           taskId={taskId}
           sectionId={sectionId}
           onClose={() => setMoving(false)}
+        />
+      ) : null}
+      {viewingHistory ? (
+        <EntityHistoryDialog
+          spaceId={spaceId}
+          entityType="task"
+          entityId={taskId}
+          onClose={() => setViewingHistory(false)}
         />
       ) : null}
       {confirmingDelete ? (
