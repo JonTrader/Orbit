@@ -257,7 +257,11 @@ export async function moveTask(
   input: MoveTaskInput,
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  await findTask(db, input.spaceId, input.taskId);
+  const current = await findTask(db, input.spaceId, input.taskId);
+  if (input.targetSectionId === current.sectionId) {
+    return current;
+  }
+
   const targetSection = await findTaskSection(
     db,
     input.spaceId,

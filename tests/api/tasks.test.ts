@@ -46,6 +46,7 @@ interface TaskBody {
   assigneeId: string | null;
   completedAt: string | null;
   completedBy: string | null;
+  updatedAt: string;
 }
 
 const { beforeAll: setupBeforeAll, beforeEach: setupBeforeEach } =
@@ -225,11 +226,28 @@ describe("Tasks API", () => {
       taskContext(space.id, created.id),
     );
     expect(moveResponse.status).toBe(200);
-    await expect(responseJson<TaskBody>(moveResponse)).resolves.toMatchObject({
+    const moved = await responseJson<TaskBody>(moveResponse);
+    expect(moved).toMatchObject({
       id: created.id,
       sectionId: customTasks.id,
       sectionKind: "tasks",
     });
+
+    const sameSectionResponse = await moveTaskRoute(
+      jsonRequest(
+        `/api/v1/spaces/${space.id}/tasks/${created.id}/move`,
+        { targetSectionId: customTasks.id },
+      ),
+      taskContext(space.id, created.id),
+    );
+    expect(sameSectionResponse.status).toBe(200);
+    const sameSection = await responseJson<TaskBody>(sameSectionResponse);
+    expect(sameSection).toMatchObject({
+      id: created.id,
+      sectionId: customTasks.id,
+      sectionKind: "tasks",
+    });
+    expect(sameSection.updatedAt).toBe(moved.updatedAt);
 
     const deleteResponse = await deleteTaskRoute(
       new Request(`http://localhost/api/v1/spaces/${space.id}/tasks/${created.id}`, {
