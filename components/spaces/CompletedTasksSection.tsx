@@ -13,6 +13,7 @@ interface CompletedTask {
 
 interface CompletedTasksSectionProps {
   spaceId: string;
+  sectionId: string;
   tasks: CompletedTask[];
   canMutate: boolean;
 }
@@ -24,6 +25,7 @@ interface CompletedTasksSectionProps {
  */
 export function CompletedTasksSection({
   spaceId,
+  sectionId,
   tasks,
   canMutate,
 }: CompletedTasksSectionProps) {
@@ -45,6 +47,7 @@ export function CompletedTasksSection({
             <TaskRow
               key={task.id}
               spaceId={spaceId}
+              sectionId={sectionId}
               taskId={task.id}
               title={task.title}
               dueOn={task.dueOn}

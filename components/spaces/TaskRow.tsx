@@ -13,11 +13,14 @@ import { AssigneePicker } from "./AssigneePicker";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DatePicker } from "./DatePicker";
+import { MoveTaskDialog, moveDestinations } from "./MoveTaskDialog";
 import { RowMenu } from "./RowMenu";
 
 interface TaskRowProps {
   spaceId: string;
   taskId: string;
+  /** The Section this Task is listed in; Move excludes it. */
+  sectionId: string;
   title: string;
   dueOn: string | null;
   assigneeId: string | null;
@@ -29,13 +32,15 @@ interface TaskRowProps {
  * One checklist row; the checkbox toggles completion in place. The row owns
  * its completed state: it flips instantly on click and reconciles against
  * the action's returned entity, so settling never waits for a re-render.
- * Editors open Edit / Delete from the overflow menu. Edit is a form under
- * the still-visible item; Escape cancels. Delete uses a one-step confirm;
- * layout revalidation removes the row.
+ * Editors open Edit / Move / Delete from the overflow menu. Edit is a form
+ * under the still-visible item; Escape cancels. Move opens a Section picker
+ * (hidden when no other Section accepts Tasks). Delete uses a one-step
+ * confirm; layout revalidation removes the row after Move or Delete.
  */
 export function TaskRow({
   spaceId,
   taskId,
+  sectionId,
   title,
   dueOn,
   assigneeId,
@@ -44,11 +49,13 @@ export function TaskRow({
 }: TaskRowProps) {
   const titleId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
-  const { members } = useActiveSpace();
+  const { members, sections } = useActiveSpace();
+  const canMove = moveDestinations(sections, sectionId).length > 0;
   const [pending, startTransition] = useTransition();
   const [saveFailed, setSaveFailed] = useState(false);
   const [shownCompleted, setShownCompleted] = useState(completed);
   const [isEditing, setIsEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDueOn, setDraftDueOn] = useState(dueOn ?? "");
@@ -182,6 +189,9 @@ export function TaskRow({
             label={`Actions for ${title}`}
             items={[
               { label: "Edit", onSelect: startEdit },
+              ...(canMove
+                ? [{ label: "Move", onSelect: () => setMoving(true) }]
+                : []),
               {
                 label: "Delete",
                 tone: "danger",
@@ -262,6 +272,14 @@ export function TaskRow({
         <p role="alert" className="mt-1 pl-8 text-[0.75rem] font-medium text-accent">
           Could not save that change. Try again.
         </p>
+      ) : null}
+      {moving ? (
+        <MoveTaskDialog
+          spaceId={spaceId}
+          taskId={taskId}
+          sectionId={sectionId}
+          onClose={() => setMoving(false)}
+        />
       ) : null}
       {confirmingDelete ? (
         <ConfirmDialog

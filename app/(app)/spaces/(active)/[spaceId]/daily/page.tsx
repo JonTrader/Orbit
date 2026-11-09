@@ -90,6 +90,7 @@ async function DailyTasks({
               <TaskRow
                 key={task.id}
                 spaceId={spaceId}
+                sectionId={sectionId}
                 taskId={task.id}
                 title={task.title}
                 dueOn={task.dueOn}
@@ -105,6 +106,7 @@ async function DailyTasks({
       {completedTasks.length > 0 ? (
         <CompletedTasksSection
           spaceId={spaceId}
+          sectionId={sectionId}
           tasks={completedTasks.map((task) => ({
             id: task.id,
             title: task.title,
