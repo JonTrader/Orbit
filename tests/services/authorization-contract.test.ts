@@ -26,6 +26,7 @@ vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
+import { recordActivity } from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 import {
   acceptInvite,
@@ -539,6 +540,7 @@ const UNGATED = [
   "sendReminderCandidates",
   "assertAssigneeIsMember",
   "findPreference",
+  "recordActivity",
 ] as const;
 
 const SERVICES_DIR = join(process.cwd(), "lib", "services");
@@ -663,6 +665,14 @@ describe("authorization contract", () => {
       (message) => new Error(message),
     );
     await findPreference(testDb, space.id, owner.id);
+    await recordActivity(testDb, {
+      spaceId: space.id,
+      actorUserId: owner.id,
+      entityType: "task",
+      entityId: randomUUID(),
+      action: "created",
+      details: { title: "Task" },
+    });
 
     expect(membershipMocks.requireMembership).not.toHaveBeenCalled();
   });

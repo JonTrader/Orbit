@@ -10,6 +10,12 @@ import * as schema from "./schema";
 
 export type OrbitDb = ReturnType<typeof drizzle<typeof schema>>;
 
+/** Client passed to a `db.transaction` callback. Not assignable to `OrbitDb`. */
+export type OrbitTx = Parameters<Parameters<OrbitDb["transaction"]>[0]>[0];
+
+/** Pool client or an open transaction. Helpers must not start their own. */
+export type OrbitExecutor = OrbitDb | OrbitTx;
+
 export interface DbClient {
   db: OrbitDb;
   pool: Pool;

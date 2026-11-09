@@ -64,6 +64,13 @@
       "when": 1789272546783,
       "tag": "0008_volatile_surge",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794247010829,
+      "tag": "0009_activity",
+      "breakpoints": true
     }
   ]
 }
