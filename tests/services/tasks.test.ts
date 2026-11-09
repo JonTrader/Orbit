@@ -349,6 +349,80 @@ describe("Task services", () => {
     }
   });
 
+  it("treats moving a Task to its current Section as a no-op", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Stay put",
+    });
+
+    const result = await moveTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      taskId: created.id,
+      targetSectionId: sections.daily.id,
+    });
+
+    expect(result).toEqual(created);
+    expect(result.sectionId).toBe(sections.daily.id);
+    expect(result.updatedAt).toEqual(created.updatedAt);
+    await expect(
+      getTask(testDb, { userId: editor.id, spaceId: space.id, taskId: created.id }),
+    ).resolves.toEqual(created);
+  });
+
+  it("rejects moves to another Space's Section or of another Space's Task", async () => {
+    const { space, sections, editor, customTasks } = await seedSpace();
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const homeTask = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: sections.daily.id,
+      title: "Home Task",
+    });
+    const otherTask = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      sectionId: other.sections.daily.id,
+      title: "Other Space Task",
+    });
+
+    await expect(
+      moveTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        taskId: homeTask.id,
+        targetSectionId: other.sections.daily.id,
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_SECTION" });
+    await expect(
+      moveTask(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        taskId: otherTask.id,
+        targetSectionId: customTasks.id,
+      }),
+    ).rejects.toMatchObject({ code: "TASK_NOT_FOUND" });
+    await expect(
+      getTask(testDb, {
+        userId: editor.id,
+        spaceId: other.space.id,
+        taskId: otherTask.id,
+      }),
+    ).resolves.toMatchObject({ sectionId: other.sections.daily.id });
+  });
+
   it("denies Task mutations to read-only Members and cross-Space assignees", async () => {
     const { space, sections, editor, readOnly, outsider, customTasks } =
       await seedSpace();
@@ -397,6 +471,14 @@ describe("Task services", () => {
           spaceId: space.id,
           taskId: created.id,
           targetSectionId: customTasks.id,
+        }),
+      // Same-section no-op still requires editor; do not skip membership.
+      () =>
+        moveTask(testDb, {
+          userId: readOnly.id,
+          spaceId: space.id,
+          taskId: created.id,
+          targetSectionId: sections.daily.id,
         }),
       () =>
         toggleTask(testDb, {

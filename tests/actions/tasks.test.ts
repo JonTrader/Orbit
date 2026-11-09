@@ -4,9 +4,9 @@ import "../setup/action-mocks";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { deleteTask, updateTask } from "@/lib/actions/tasks";
+import { deleteTask, moveTask, updateTask } from "@/lib/actions/tasks";
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { spaceMember, task } from "@/lib/db/schema";
+import { section, spaceMember, task } from "@/lib/db/schema";
 import { spaceLayoutPath } from "@/lib/spaces/paths";
 
 import {
@@ -504,6 +504,169 @@ describe("deleteTask action", () => {
       expect(result.error.code).toBe("TASK_NOT_FOUND");
     }
     expect(await testDb.select().from(task)).toHaveLength(2);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+});
+
+async function seedTasksSection(spaceId: string) {
+  const [created] = await testDb
+    .insert(section)
+    .values({ spaceId, name: "Errands", kind: "tasks", sortOrder: 2 })
+    .returning();
+  return created;
+}
+
+async function expectTaskUnchanged(s: SeededTask) {
+  const [row] = await testDb.select().from(task).where(eq(task.id, s.taskId));
+  expect(row.sectionKind).toBe("daily");
+  const [home] = await testDb
+    .select()
+    .from(section)
+    .where(eq(section.id, row.sectionId));
+  expect(home.kind).toBe("daily");
+  expect(home.spaceId).toBe(s.spaceId);
+}
+
+describe("moveTask action", () => {
+  beforeAll(async () => {
+    setTestDatabase(testDb);
+    await migrateTestDb();
+  });
+
+  beforeEach(async () => {
+    await truncateAll();
+    getRequireVerifiedSessionMock().mockReset();
+    getRevalidatePathMock().mockReset();
+  });
+
+  it("moves a Daily Task to a custom tasks Section and revalidates the Space layout", async () => {
+    const s = await seedTask();
+    const target = await seedTasksSection(s.spaceId);
+    authenticateAs(s.editorId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      targetSectionId: target.id,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected the move to succeed");
+    expect(result.data.id).toBe(s.taskId);
+    expect(result.data.sectionId).toBe(target.id);
+    expect(result.data.sectionKind).toBe("tasks");
+
+    const [row] = await testDb.select().from(task).where(eq(task.id, s.taskId));
+    expect(row.sectionId).toBe(target.id);
+    expect(row.sectionKind).toBe("tasks");
+    expect(row.title).toBe("Original title");
+    expect(getRevalidatePathMock()).toHaveBeenCalledTimes(1);
+    expect(getRevalidatePathMock()).toHaveBeenCalledWith(
+      spaceLayoutPath(s.spaceId),
+      "layout",
+    );
+  });
+
+  it("blocks read-only Members from moving Tasks", async () => {
+    const s = await seedTask();
+    const target = await seedTasksSection(s.spaceId);
+    authenticateAs(s.readOnlyId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      targetSectionId: target.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+    }
+    await expectTaskUnchanged(s);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("blocks users who are not Members of the Space", async () => {
+    const s = await seedTask();
+    const target = await seedTasksSection(s.spaceId);
+    authenticateAs(s.outsiderId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      targetSectionId: target.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("NOT_MEMBER");
+    }
+    await expectTaskUnchanged(s);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Task that belongs to another Space", async () => {
+    const s = await seedTask();
+    const target = await seedTasksSection(s.spaceId);
+    const otherTask = await seedTaskInOtherSpace(s.ownerId);
+    authenticateAs(s.editorId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: otherTask.id,
+      targetSectionId: target.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("TASK_NOT_FOUND");
+    }
+    await expectTaskUnchanged(s);
+    const [row] = await testDb
+      .select()
+      .from(task)
+      .where(eq(task.id, otherTask.id));
+    expect(row.sectionId).toBe(otherTask.sectionId);
+    expect(row.sectionKind).toBe("daily");
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects a target Section that belongs to another Space", async () => {
+    const s = await seedTask();
+    const otherTask = await seedTaskInOtherSpace(s.ownerId);
+    authenticateAs(s.editorId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      targetSectionId: otherTask.sectionId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INVALID_SECTION");
+    }
+    await expectTaskUnchanged(s);
+    expect(getRevalidatePathMock()).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown keys as a validation error", async () => {
+    const s = await seedTask();
+    const target = await seedTasksSection(s.spaceId);
+    authenticateAs(s.editorId);
+
+    const result = await moveTask({
+      spaceId: s.spaceId,
+      taskId: s.taskId,
+      targetSectionId: target.id,
+      sectionKind: "tasks",
+    } as never);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("VALIDATION_ERROR");
+    }
+    await expectTaskUnchanged(s);
     expect(getRevalidatePathMock()).not.toHaveBeenCalled();
   });
 });

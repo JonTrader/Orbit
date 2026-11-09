@@ -306,6 +306,15 @@ Playwright coverage in [`e2e/assignee.spec.ts`](./e2e/assignee.spec.ts). What to
 3. Monthlies compose sets an Assignee; the Monthly row shows the name; Upcoming shows the same name on that entry.
 4. Read-only Viewer sees the Assignee name on Daily and has no Edit control and no compose.
 
+## Move Task
+
+Playwright coverage in [`e2e/move-task.spec.ts`](./e2e/move-task.spec.ts). What to test:
+
+1. Editor moves a Daily Task into a custom tasks Section; Task leaves Daily and appears in that Section.
+2. Move dialog lists Daily and custom tasks/mixed; does not list Monthlies, notes, or the Task's current Section.
+3. Read-only Viewer on Daily has no Move menuitem.
+4. Editor moves a completed Task from show-completed; it leaves completed on Daily and shows completed in the target Section.
+
 ---
 
 ## Phase exit rule
