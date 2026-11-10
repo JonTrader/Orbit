@@ -20,7 +20,7 @@ import {
 /**
  * Move Task E2E: an Editor moves Tasks (open and completed) from the row menu
  * into custom Sections, the dialog offers only legal destinations, and a
- * Read-only Viewer has no Move. Setup goes through the API; the behavior under
+ * Read-only Viewer has History but no Move. Setup goes through the API; the behavior under
  * test goes through the browser.
  */
 
@@ -225,10 +225,20 @@ test.describe("Move Task", () => {
 
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await expect(page.getByLabel("Add to Daily")).toHaveCount(0);
+    const actions = page.getByRole("button", { name: `Actions for ${title}` });
+    await expect(actions).toBeVisible();
+    await actions.click();
+    const menu = page.getByRole("menu", { name: `Actions for ${title}` });
+    await expect(menu).toBeVisible();
     await expect(
-      page.getByRole("button", { name: `Actions for ${title}` }),
+      menu.getByRole("menuitem", { name: "History", exact: true }),
+    ).toBeVisible();
+    await expect(
+      menu.getByRole("menuitem", { name: "Move", exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByRole("menuitem", { name: "Move" })).toHaveCount(0);
+    await expect(
+      menu.getByRole("menuitem", { name: "Edit", exact: true }),
+    ).toHaveCount(0);
   });
 
   test("Editor moves a completed Task and it stays completed", async ({

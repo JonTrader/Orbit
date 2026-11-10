@@ -1,6 +1,6 @@
 # Orbit MVP Spec
 
-Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/). Build phases: [`Orbit_Granular_Build.md`](../Orbit_Granular_Build.md).
+Build-ready requirements from the domain grilling session. Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Hard decisions: [`docs/adr/`](./adr/).
 
 ## 1. Product
 
@@ -35,7 +35,7 @@ flowchart TB
 
 - **`/api/v1` Route Handlers**: mobile-ready CRUD (spaces, sections, tasks, monthlies, notes, members/invites, reminder prefs). Zod at the boundary. Auth via Better Auth session (bearer later for mobile).
   - Invite API: `GET /api/v1/spaces/{spaceId}/invites` lists pending Invites for the Owner; `POST /api/v1/spaces/{spaceId}/invites` creates one; `POST /api/v1/invites/{inviteId}/resend` refreshes expiry; `POST /api/v1/invites/accept` accepts by token. Owner cancellation is the `cancelInvite` Server Action, which deletes a pending or expired Invite. The old link shows Invite unavailable. There is no cancel REST route.
-- **Server Actions**: web UX only (quick-add, complete, section reorder, invite + revalidate). Same `lib/services/*` - no duplicated logic ([ADR 0005](./adr/0005-dual-api-surface.md)).
+- **Server Actions**: web UX only. Same `lib/services/*` - no duplicated logic ([ADR 0005](./adr/0005-dual-api-surface.md)). Task due dates, Monthly body, and content delete use the existing Server Actions and the existing Monthly REST handlers. Do not add new REST routes for them. Web Task move uses a Server Action. REST already has `POST /api/v1/spaces/{spaceId}/tasks/{taskId}/move`, and there must not be a second move route. Activity reads are Server Actions. Do not add an Activity REST read route.
 
 ## 3. Accounts
 
@@ -76,6 +76,10 @@ Editor and Owner can permanently delete Tasks (including completed Tasks), Month
 
 Quick-add targets the selected Section. Compose disabled (or not shown) on Upcoming.
 
+### Activity
+
+Mutations of Tasks, Monthlies, Notes, and custom Sections append Activity in the same transaction as the change. Every Member may read it, including Read-only. Read-only Members still cannot mutate Tasks, Monthlies, Notes, or Sections. A Monthly completion stores the period that was completed and the previous completion fields (`nextDueOn`, `lastCompletedAt`, `lastCompletedBy`). Activity is not a nav tab. The Space-wide control is labeled Activity. A Task or Monthly row labels that entity's Activity as History.
+
 ## 6. Reminders
 
 - Channel: email only (Resend). Runner: Inngest.
@@ -92,13 +96,14 @@ As built: [`docs/data-model.md`](./data-model.md). Plus Better Auth user/session
 
 - `space` — name, timezone, …
 - `space_member` — userId, spaceId, role
-- `invite` — spaceId, email, role, token, expiresAt, …
+- `invite` - spaceId, email, role, `token_digest` (SHA-256 of the bearer; the raw bearer is never stored), expiresAt, ...
 - `section` — spaceId, name, kind (`daily`\|`monthlies`\|`tasks`\|`notes`\|`mixed`), isSystem, sortOrder
 - Checklist rows for Daily / custom: `task` (section must not be `monthlies`)
-- Monthlies rows: `monthly` **or** `task` constrained to monthlies section only - pick one approach in Phase B and enforce invariants in services (domain language stays Task vs Monthly)
+- Monthlies rows: the `monthly` table only, in a Monthlies Section. A Task cannot be stored in Monthlies, and a Monthly cannot be stored anywhere else.
 - `note` — sectionId (notes/mixed), title, body (plain text)
 - `notification_preference` — userId, spaceId, daysBefore, emailEnabled
 - `notification_log` — unique key for idempotent sends (include entity id, kind, period)
+- `activity`: who did what to a Task, Monthly, Note, or Section. The row survives deletion of that entity (`entity_id` is not a foreign key). `period` is a date set only for Monthly completion.
 
 ## 8. App layout
 
@@ -110,14 +115,14 @@ app/api/v1/…          spaces, sections, tasks, monthlies, notes, members, invi
 app/api/inngest/…
 components/spaces/…   agenda rows, nav, compose, share bar
 lib/services/…        domain logic
-lib/authz/…           requireMembership
+lib/spaces/membership.ts  requireMembership
 lib/db/…              Drizzle
 emails/…              Resend templates
 ```
 
 ## 9. Out of MVP
 
-Push/in-app notifications; native mobile app; RRULE/complex recurrence; per-section ACL; subtasks; tags; search; calendar sync; bill linking; comments; attachments; activity log; Shared nav tab; GitHub OAuth; markdown/rich Note bodies.
+Push/in-app notifications; native mobile app; RRULE/complex recurrence; per-section ACL; subtasks; tags; search; calendar sync; bill linking; comments; attachments; Shared nav tab; GitHub OAuth; markdown/rich Note bodies.
 
 ## 10. Env
 

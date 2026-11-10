@@ -586,14 +586,37 @@ test.describe("Active Space", () => {
     await expect(page.getByRole("button", { name: "Invite" })).toHaveCount(0);
     await expect(page.getByText("2 people")).toBeVisible();
     await expect(page.getByText(taskTitle, { exact: true })).toBeVisible();
+    const taskActions = page.getByRole("button", {
+      name: `Actions for ${taskTitle}`,
+    });
+    await expect(taskActions).toBeVisible();
+    await taskActions.click();
+    const taskMenu = page.getByRole("menu", {
+      name: `Actions for ${taskTitle}`,
+    });
     await expect(
-      page.getByRole("button", { name: `Actions for ${taskTitle}` }),
+      taskMenu.getByRole("menuitem", { name: "History", exact: true }),
+    ).toBeVisible();
+    await expect(
+      taskMenu.getByRole("menuitem", { name: "Edit", exact: true }),
     ).toHaveCount(0);
+    await page.keyboard.press("Escape");
 
     await page.goto(`/spaces/${spaceId}/monthlies`);
     await expect(page.getByText(monthlyTitle, { exact: true })).toBeVisible();
+    const monthlyActions = page.getByRole("button", {
+      name: `Actions for ${monthlyTitle}`,
+    });
+    await expect(monthlyActions).toBeVisible();
+    await monthlyActions.click();
+    const monthlyMenu = page.getByRole("menu", {
+      name: `Actions for ${monthlyTitle}`,
+    });
     await expect(
-      page.getByRole("button", { name: `Actions for ${monthlyTitle}` }),
+      monthlyMenu.getByRole("menuitem", { name: "History", exact: true }),
+    ).toBeVisible();
+    await expect(
+      monthlyMenu.getByRole("menuitem", { name: "Edit", exact: true }),
     ).toHaveCount(0);
 
     await page.goto(`/spaces/${spaceId}/${notesSectionId}`);

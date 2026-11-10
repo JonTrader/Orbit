@@ -83,3 +83,7 @@ _Avoid_: Inbox, Agenda (as the entity name), Due view, Shared (not an MVP nav su
 **Reminder**:
 An email about an upcoming Monthly (default: 3 days before due, user-configurable) or an incomplete Task in Daily or a custom Section that is due today or up to 3 days overdue. Goes to the Assignee if set, otherwise the Space Owner. Preference (N days / email on-off) is per user per Space.
 _Avoid_: Notification (as the email product term), Alert, Nudge (except as informal UI copy)
+
+**Activity**:
+The record of what happened to a Task, Monthly, Note, or Section in a Space: who did it, which action, and when. It survives deletion of the entity. It is not a nav view. The Space-wide control is labeled Activity. The Task and Monthly row control is labeled History and shows that entity's Activity.
+_Avoid_: audit log, event log, changelog, feed (as the product name). History is UI copy for one entity, not a second domain object.
