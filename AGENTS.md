@@ -1,64 +1,61 @@
-# Orbit - agent notes
+# Orbit
 
-## Sources of truth
+Household-first coordination app for day-to-day to-dos and recurring monthly obligations, with optional personal Spaces.
 
-1. [`CONTEXT.md`](./CONTEXT.md) - vocabulary + product overview
-2. [`docs/spec.md`](./docs/spec.md) - MVP requirements
-3. [`docs/adr/`](./docs/adr/) - hard decisions
-4. [`Orbit_Test_Plan.md`](./Orbit_Test_Plan.md) - what to test
-5. [`Orbit_Granular_Build.md`](./Orbit_Granular_Build.md) - phase status / handoffs (if still building)
+Use the terms in [CONTEXT.md](./CONTEXT.md): Space, Task, Monthly, Note, Active Space, Reminder, Activity, Invite. Do not invent synonyms.
 
-Prefer CONTEXT terms (Space, Task, Monthly, Note, Active Space, Reminder, Invite). Do not invent synonyms.
+Domain behavior is [docs/spec.md](./docs/spec.md). Hard decisions are [docs/adr/](./docs/adr/).
 
-## Marketing landing
+## Auth and entry
 
-- Public `/` is [`app/page.tsx`](./app/page.tsx) via [`components/landing/`](./components/landing/) (GSAP + Lenis in `LandingEffects`: `gsap`, `@gsap/react`, `lenis`). Guests and verified sessions both see the landing (no auto-redirect into Spaces). Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Post-auth callbacks use `/spaces`, which onboards and redirects to entry-Space Upcoming. Invite `continue` is the bare `/accept-invite` path (bearer is not in the URL); preserved on guest CTAs and `/verify-email`, and still redirects after onboarding for verified sessions. Unverified → `/verify-email`. E2E: [`e2e/landing.spec.ts`](./e2e/landing.spec.ts) (guest CTA hrefs + unverified redirect) and [`e2e/auth.spec.ts`](./e2e/auth.spec.ts) (sign-in entry-Space redirect + signed-in landing access).
-- Brand icons live in [`public/icons/`](./public/icons/) (`icon.svg`, `favicon.ico`, `apple-icon.png`); wired via `metadata.icons` in [`app/layout.tsx`](./app/layout.tsx). Do not put Next.js `app/icon.*` / `app/favicon.ico` file conventions alongside them.
+- Web RSC sessions use `lib/auth/session.ts`. API routes use `lib/rest-api/auth.ts`. Do not mix them.
+- `verification.storeIdentifier` hashes `email-verification` and `reset-password` identifiers. The reset prefix is `reset-password`. Tests that look up those rows must hash the identifier the same way.
+- Guests and verified sessions both see `/`. Do not auto-redirect either into Spaces. Verified CTAs go to entry-Space Upcoming via `resolveEntrySpace`. Post-auth callbacks use `/spaces`, which onboards and then opens entry-Space Upcoming unless returning to an Invite. Unverified sessions go to `/verify-email`.
+- `resolveEntrySpace` (`lib/onboarding.ts`) returns the first membership by creation order. It creates a Personal Space only when the user has none.
+- Invite bearers are stored only as a SHA-256 digest in `invite.token_digest`. Generate and hash them in `lib/invites/token.ts`. Email links are `/accept-invite?token=...`. `proxy.ts` stashes a legal bearer in the HttpOnly `orbit_invite` cookie and redirects to bare `/accept-invite`. An illegal bearer is stripped and is not stored. Accept reads and clears that cookie, never a client-supplied bearer.
+- Invite `continue` is the bare `/accept-invite` path. Preserve it on guest CTAs and `/verify-email`. Legacy `?token=` continue values are canonicalized to that bare path. Pages with `searchParams` use `continuationFromSearchParams`.
+- After `acceptInvite` succeeds, `redirect()` to Upcoming with the write result's `spaceId`. Do not re-read memoized membership in that request. Do not `window.location.assign` after the action. That aborts the RSC stream and flashes `app/error.tsx`.
+- Auth layout and `/` use `referrer: "no-referrer"`.
+- Brand icons live in `public/icons/` and are wired through `metadata.icons` in `app/layout.tsx`. Do not add `app/icon.*` or `app/favicon.ico`.
 
-## Architecture
+## Active Space
 
-- **Auth**: web RSC uses `lib/auth/session.ts`; API routes use `lib/rest-api/auth.ts`. Do not mix them. Better Auth production rate limits use `rate_limit` (`storage: "database"`). That Drizzle model must expose `id` (PK) plus unique `key` - the adapter inserts `id` on every bucket write, and rate limiting is on by default only when `NODE_ENV=production`. Env vars on Vercel do not apply schema changes; after `npm run db:generate`, migrate the production Neon branch (`DRIZZLE_DATABASE_URL` = that URL, then `npm run db:migrate`). `verification.storeIdentifier` hashes `email-verification` and `reset-password` identifiers (reset prefix is `reset-password`). Tests that look up those rows must hash the identifier the same way.
-- **Active Space views**: `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts` (layout data + Viewer). Do not call `requireVerifiedSession` / `requireMembership` or re-declare `[spaceId]` params in those views. Services enforce membership at the API boundary.
-- **Params**: `resolveSpaceContext` in `lib/spaces/params.ts` is the only `[spaceId]` params schema.
-- **Onboarding / entry**: `resolveEntrySpace` in `lib/onboarding.ts` returns the first membership by creation order, creating a Personal Space only when the user has none. Auth and Invite continuations enter through `/spaces`, which onboards and then opens entry-Space Upcoming unless returning to an Invite; verified landing CTAs resolve their entry Space directly. The `(app)` layout only session-guards Spaces routes. Layouts and pages render concurrently.
-- **Actions** (`lib/actions/`): web-only (ADR 0005). Thin wrappers over `lib/services` - no business logic. Always use `defineAction` from `lib/actions/framework.ts`. Alias service imports so action names do not collide with the service they wrap. Monthly `body` defaults to `""` (UI label Description). Task due dates, Monthly body, and content delete use existing Server Actions and existing Monthly REST handlers - do not add new REST routes for them.
-- **IDs**: app entities are UUIDs; Better Auth `user.id` is a 32-char alphanumeric string. Fields that hold a user ID (`assigneeId`, `completedBy`, ...) use `z.string().min(1)`, never `z.uuid()`.
-- **Reminders**: `sendReminders` in `lib/inngest/` is one hourly UTC cron, served at `app/api/inngest/route.ts` with no session check. It calls `scanReminderCandidates`, then `sendReminder` per candidate. Domain rules stay in `lib/services/notifications.ts`. Local dev sets `INNGEST_DEV=1` and runs `npx inngest-cli@latest dev`. The share-bar Reminders dialog reads the Viewer's preference from the Active Space layout (column defaults when no row exists) and does not fetch it on open.
-- **Calendar dates**: Space due-day clamp, advancing a Monthly one period, Reminder day offsets (including the 3-day Task lookback), and the short date label (`Sep 1`) live in `lib/calendar-date.ts`. Monthlies and the Reminder scan call that module.
+- Pages use `getActiveSpace(spaceId)` from `lib/spaces/active-space.ts`. Do not call `requireVerifiedSession` or `requireMembership` in those views, and do not declare a `[spaceId]` params schema. `resolveSpaceContext` in `lib/spaces/params.ts` is the only one. The `(app)` layout only session-guards. Services enforce membership.
+- Do not add `spaces/loading.tsx` or `[spaceId]/loading.tsx`. Directory loading belongs on `(directory)/all/loading.tsx`. `(active)/loading.tsx` is a main-panel spinner only, with no second sidebar. Section routes own their own `loading.tsx`.
+- System views are `/spaces/[spaceId]/{upcoming|daily|monthlies}`. Custom Sections are `/spaces/[spaceId]/[sectionId]`. Static siblings win over the dynamic segment.
+- `/spaces/all` Home opens entry-Space Upcoming, not `/`.
+- Client chrome reads `useActiveSpace()`. The Assignee picker uses `members` already on that value. The Reminders dialog reads the Viewer's preference from the layout. Do not fetch those on open. History and Activity load when their dialogs open. Do not put the Activity feed on `getSpaceLayoutData`, and do not add an Activity nav item.
 
-## Active Space UI
+## Actions, ids, and dates
 
-- `components/spaces/` owns Active Space chrome. RSC: `getActiveSpace`; client: `useActiveSpace()` from `ActiveSpaceProvider`.
-- Route groups under `app/(app)/spaces/`:
-  - `page.tsx` owns `/spaces`, which redirects to entry-Space Upcoming after onboarding.
-  - `(directory)/all/` owns `/spaces/all` and its `loading.tsx`. Never put directory loading at `spaces/loading.tsx` (it would wrap Active Space navigations).
-  - `(active)/` keeps the sidebar across `spaceId` changes. `(active)/loading.tsx` is a main-panel spinner only - no second sidebar.
-  - Section routes own their own `loading.tsx`. Do not add `[spaceId]/loading.tsx` (flashes a generic skeleton on tab switches).
-- Sidebar is Spaces-only and `position: fixed` (`SpaceSidebarShell` + `lg:pl-[var(--sidebar-w)]` on main). Sections live in `SectionTabs` inside `SpaceLayout`; Section pages render content only.
-- The `/spaces/all` directory Home link opens entry-Space Upcoming using the `resolveEntrySpace` result passed into `SpacesDirectory`; it does not return to the marketing `/`.
-- URLs: system views `/spaces/[spaceId]/{upcoming|daily|monthlies}`; custom Sections `/spaces/[spaceId]/[sectionId]` (UUID). Static siblings win over the dynamic segment.
-- The Assignee picker reads `useActiveSpace().members` and must not fetch Members on open. Web actions pass `assigneeId` with `z.string().min(1)`.
-- Web Task move is the `moveTask` Server Action in `lib/actions/tasks.ts`; do not add a second REST move route (REST already has `POST .../tasks/{taskId}/move`).
+- App entity ids are UUIDs. Better Auth `user.id` is a 32-character alphanumeric string. User id fields (`assigneeId`, `completedBy`, and the rest) use `z.string().min(1)`, never `z.uuid()`.
+- Server Actions are thin wrappers over `lib/services` with no business logic. Use `defineAction` from `lib/actions/framework.ts`. Alias service imports so the action name does not collide with the service.
+- Do not add REST routes for flows the spec keeps on existing Server Actions and existing handlers: Task due dates, Monthly body, content delete, Invite cancel, Activity reads, and a second Task move.
+- Space due-day clamp, advancing a Monthly one period, Reminder day offsets (including the 3-day Task lookback), and the short date label live in `lib/calendar-date.ts`.
 
-## Auth / Invites
+## Activity
 
-- Invite tokens: store only SHA-256 digests (`invite.token_digest`). Generate/hash via `lib/invites/token.ts` - never persist raw bearers. The Invite link policy lives in `lib/invites/link.ts` (bearer length, email-link stash, continuation canonicalization). Email links stay `/accept-invite?token=...`; `proxy.ts` stashes a legal bearer in the HttpOnly `orbit_invite` cookie (`lib/invites/pending-cookie.ts`) and redirects to bare `/accept-invite`. An illegal bearer is stripped and not stored. Accept reads/clears that cookie - never a client-supplied bearer.
-- Owner cancels a pending or expired Invite with the `cancelInvite` Server Action (`lib/actions/members.ts`). That deletes the row. The old link shows Invite unavailable on `/accept-invite`. Do not add a cancel REST route.
-- Invite continuation: validated bare `/accept-invite` only (`parseLocalContinuation` in `lib/invites/link.ts`, re-exported from `lib/auth/paths.ts`; legacy `?token=` continue is accepted but canonicalized to bare). Pages with `searchParams` use `continuationFromSearchParams`. Post-auth callbacks go through `/spaces` so onboarding runs before returning to the Invite. After a successful `acceptInvite` write, the action `redirect()`s to Upcoming with the write result's `spaceId` (do not re-read memoized membership in the same request, and do not `window.location.assign` after the action - that aborts the RSC stream and flashes `app/error.tsx`). Auth layout and `/` use `referrer: "no-referrer"`.
+- `recordActivity` in `lib/services/activity.ts` is the only writer. It does not check membership and does not open a transaction. Callers pass an `OrbitExecutor` (`OrbitDb | OrbitTx` from `lib/db/client.ts`) so the insert shares their transaction. Route handlers, Server Actions, and React components do not write Activity.
+- Same-Section `moveTask`, `reorderCustomSections`, and an update whose supplied values already match the stored row write no Activity. A Monthly due day that already matches is not an Activity change when `nextDueOn` is recomputed.
+- `deleteCustomSection` writes `deleted` Activity for each child (`cause: "section_deleted"`) and for the Section, then deletes the Section so the cascade removes the children. It does not call `deleteTask` or `deleteNote`.
+- `listActivity` and `listEntityActivity` are Server Actions with `revalidate: false`.
 
-## Testing and CI
+## Reminders
 
-- Vitest: real Neon via `DATABASE_URL_TEST` (dedicated branch, never production). No SQLite. Suite drops/recreates `public` before migrating. `maxWorkers: 1` plus an advisory lock - do not run parallel full suites against the same branch.
-- E2E: `DATABASE_URL_E2E` + `DATABASE_URL_E2E_CONFIRMATION` (`dedicated-neon-branch`). No fallback to `DATABASE_URL` / `DATABASE_URL_TEST`. After schema changes, migrate the e2e branch too (`DRIZZLE_DATABASE_URL` = e2e URL, then `npm run db:migrate`).
-- Prefer domain/service tests; keep Route Handlers and Actions thin.
-- Authz: Owner-only proofs need an **editor** actor (read-only 403 is not enough). Entity fetches need a cross-Space IDOR case. `authorization-contract.test.ts` is a completeness net - it does not replace editor-actor 403s in domain tests.
-- API / action tests: import `tests/setup/api-mocks.ts` first (then `action-mocks.ts` for actions) so mocks register before handlers.
-- E2E auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` / `http://localhost:3000`) or they fail with `MISSING_OR_NULL_ORIGIN`. Invite E2E pins a known bearer via `e2e/helpers` and flips `email_verified` in the DB (no inbox). Playwright clears Resend env; Vitest mocks `@/lib/email/mailer`.
-- Schema: edit `lib/db/schema.ts`, then `npm run db:generate` / `npm run db:migrate`.
-- CI: single workflow [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Secrets: `DATABASE_URL_TEST`, `DATABASE_URL_E2E`.
+`sendReminders` is one hourly UTC cron, served at `app/api/inngest/route.ts` with no session check. It calls `scanReminderCandidates`, then `sendReminder` per candidate. Domain rules stay in `lib/services/notifications.ts`. Local dev sets `INNGEST_DEV=1` and runs `npx inngest-cli@latest dev`.
 
-If `npm test` hangs before listing files, a killed Vitest run may still hold advisory lock `0x4f524249` on the test branch - clear leftover local Vitest processes and only idle/stuck backends holding that lock.
+## Schema
 
+- Edit `lib/db/schema.ts`, then `npm run db:generate`, and commit the migration. Migrate the e2e branch only when that task needs it (`DRIZZLE_DATABASE_URL` set to the e2e URL, then `npm run db:migrate`). Vitest migrates the test branch itself. Migrate production only when you explicitly ask.
+- The Better Auth `rate_limit` model (`storage: "database"`) must expose `id` (primary key) and a unique `key`. The adapter inserts `id` on every bucket write. Rate limiting is on by default only when `NODE_ENV=production`.
+
+## Tests and CI
+
+- Vitest uses `DATABASE_URL_TEST`, a dedicated Neon branch, never production. No SQLite. The suite drops and recreates `public`, then migrates. `maxWorkers: 1` plus an advisory lock. Do not run parallel full suites against the same branch. If `npm test` hangs before listing files, a leftover process may still hold advisory lock `0x4f524249`.
+- Owner-only proofs need an editor actor. A read-only 403 is not that proof. Entity fetches need a cross-Space IDOR case. `authorization-contract.test.ts` does not replace those tests.
+- API and action tests import `tests/setup/api-mocks.ts` first, then `action-mocks.ts` for actions. Vitest mocks `@/lib/email/mailer`.
+- Playwright uses `DATABASE_URL_E2E` and `DATABASE_URL_E2E_CONFIRMATION` only. No fallback to `DATABASE_URL` or `DATABASE_URL_TEST`. Auth POSTs need a trusted `Origin` (`BETTER_AUTH_URL` or `http://localhost:3000`). Invite E2E pins a bearer through `e2e/helpers` and flips `email_verified` in the database. Playwright clears the Resend env.
+- CI is the single workflow `.github/workflows/ci.yml`. Secrets are `DATABASE_URL_TEST` and `DATABASE_URL_E2E`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

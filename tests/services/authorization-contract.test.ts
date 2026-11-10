@@ -26,6 +26,13 @@ vi.mock("@/lib/email/mailer", () => ({ sendEmail: vi.fn() }));
 
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 
+import {
+  assigneeActivityChange,
+  listActivity,
+  listEntityActivity,
+  listMonthlyCompletions,
+  recordActivity,
+} from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 import {
   acceptInvite,
@@ -512,6 +519,33 @@ const MEMBERSHIP_GATED_READS: GatedEntrypoint[] = [
       }),
   },
   {
+    name: "listActivity",
+    minimumRole: "read-only",
+    invoke: () =>
+      listActivity(testDb, { userId: "user-1", spaceId: randomUUID() }),
+  },
+  {
+    name: "listEntityActivity",
+    minimumRole: "read-only",
+    invoke: () =>
+      listEntityActivity(testDb, {
+        userId: "user-1",
+        spaceId: randomUUID(),
+        entityType: "task",
+        entityId: randomUUID(),
+      }),
+  },
+  {
+    name: "listMonthlyCompletions",
+    minimumRole: "read-only",
+    invoke: () =>
+      listMonthlyCompletions(testDb, {
+        userId: "user-1",
+        spaceId: randomUUID(),
+        monthlyId: randomUUID(),
+      }),
+  },
+  {
     name: "listPendingInvites",
     minimumRole: "owner",
     invoke: () =>
@@ -538,7 +572,9 @@ const UNGATED = [
   "sendReminder",
   "sendReminderCandidates",
   "assertAssigneeIsMember",
+  "assigneeActivityChange",
   "findPreference",
+  "recordActivity",
 ] as const;
 
 const SERVICES_DIR = join(process.cwd(), "lib", "services");
@@ -663,6 +699,15 @@ describe("authorization contract", () => {
       (message) => new Error(message),
     );
     await findPreference(testDb, space.id, owner.id);
+    await assigneeActivityChange(testDb, null, owner.id);
+    await recordActivity(testDb, {
+      spaceId: space.id,
+      actorUserId: owner.id,
+      entityType: "task",
+      entityId: randomUUID(),
+      action: "created",
+      details: { title: "Task" },
+    });
 
     expect(membershipMocks.requireMembership).not.toHaveBeenCalled();
   });

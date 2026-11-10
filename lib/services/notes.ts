@@ -2,9 +2,19 @@ import { and, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchNotes } from "@/lib/spaces/queries/fetch-notes";
-import type { OrbitDb } from "@/lib/db/client";
-import { note, section, type SectionKind } from "@/lib/db/schema";
+import type { OrbitDb, OrbitExecutor } from "@/lib/db/client";
+import {
+  note,
+  section,
+  type ActivityAction,
+  type SectionKind,
+} from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
+import {
+  recordActivity,
+  type ActivityDetails,
+  type ActivityFieldChange,
+} from "@/lib/services/activity";
 
 export type NoteSectionKind = "notes" | "mixed";
 export type NoteErrorCode =
@@ -91,19 +101,22 @@ export async function createNote(
       ? (resolved as typeof section.$inferSelect & { kind: NoteSectionKind })
       : await findNoteSection(db, input.spaceId, input.sectionId);
 
-  const [created] = await db
-    .insert(note)
-    .values({
-      spaceId: input.spaceId,
-      sectionId: targetSection.id,
-      sectionKind: targetSection.kind,
-      title,
-      body: input.body ?? "",
-      createdBy: input.userId,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(note)
+      .values({
+        spaceId: input.spaceId,
+        sectionId: targetSection.id,
+        sectionKind: targetSection.kind,
+        title,
+        body: input.body ?? "",
+        createdBy: input.userId,
+      })
+      .returning();
 
-  return created;
+    await recordNoteActivity(tx, input, created.id, "created", { title });
+    return created;
+  });
 }
 
 /** Updates a Note's title or plain-text body without changing Sections. */
@@ -122,17 +135,28 @@ export async function updateNote(
     throw new NoteError("INVALID_UPDATE", "Note update has no changes");
   }
 
-  const [updated] = await db
-    .update(note)
-    .set(updates)
-    .where(and(eq(note.id, input.noteId), eq(note.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const current = await findNote(tx, input.spaceId, input.noteId);
+    const [updated] = await tx
+      .update(note)
+      .set(updates)
+      .where(and(eq(note.id, input.noteId), eq(note.spaceId, input.spaceId)))
+      .returning();
 
-  if (!updated) {
-    throw new NoteError("NOTE_NOT_FOUND", "Note was not found");
-  }
+    if (!updated) {
+      throw new NoteError("NOTE_NOT_FOUND", "Note was not found");
+    }
 
-  return updated;
+    const changes = noteFieldChanges(current, updates);
+    if (changes) {
+      await recordNoteActivity(tx, input, updated.id, "updated", {
+        title: updated.title,
+        changes,
+      });
+    }
+
+    return updated;
+  });
 }
 
 /** Deletes a Note from its current Section. */
@@ -142,20 +166,25 @@ export async function deleteNote(
 ): Promise<NoteRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const [deleted] = await db
-    .delete(note)
-    .where(and(eq(note.id, input.noteId), eq(note.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(note)
+      .where(and(eq(note.id, input.noteId), eq(note.spaceId, input.spaceId)))
+      .returning();
 
-  if (!deleted) {
-    throw new NoteError("NOTE_NOT_FOUND", "Note was not found");
-  }
+    if (!deleted) {
+      throw new NoteError("NOTE_NOT_FOUND", "Note was not found");
+    }
 
-  return deleted;
+    await recordNoteActivity(tx, input, deleted.id, "deleted", {
+      title: deleted.title,
+    });
+    return deleted;
+  });
 }
 
 async function findNote(
-  db: OrbitDb,
+  db: OrbitExecutor,
   spaceId: string,
   noteId: string,
 ): Promise<NoteRow> {
@@ -203,4 +232,38 @@ function normalizeNoteTitle(title: string): string {
     throw new NoteError("INVALID_TITLE", "Note title cannot be empty");
   }
   return normalized;
+}
+
+async function recordNoteActivity(
+  executor: OrbitExecutor,
+  input: { userId: string; spaceId: string },
+  noteId: string,
+  action: ActivityAction,
+  details: ActivityDetails,
+): Promise<void> {
+  await recordActivity(executor, {
+    spaceId: input.spaceId,
+    actorUserId: input.userId,
+    entityType: "note",
+    entityId: noteId,
+    action,
+    details,
+  });
+}
+
+/** Diff of supplied fields against the stored row. Unchanged fields are omitted. */
+function noteFieldChanges(
+  current: NoteRow,
+  supplied: Partial<Pick<NoteRow, "title" | "body">>,
+): Record<string, ActivityFieldChange> | undefined {
+  const changes: Record<string, ActivityFieldChange> = {};
+
+  if (supplied.title !== undefined && supplied.title !== current.title) {
+    changes.title = { from: current.title, to: supplied.title };
+  }
+  if (supplied.body !== undefined && supplied.body !== current.body) {
+    changes.body = { from: current.body, to: supplied.body };
+  }
+
+  return Object.keys(changes).length > 0 ? changes : undefined;
 }

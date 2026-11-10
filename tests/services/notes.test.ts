@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { spaceMember } from "@/lib/db/schema";
+import { activity, note, spaceMember } from "@/lib/db/schema";
 import { createCustomSection } from "@/lib/services/sections";
 import {
   createNote,
@@ -59,6 +60,26 @@ describe("Note services", () => {
       mixedSection,
       tasksSection,
     };
+  }
+
+  async function activityFor(entityId: string) {
+    return testDb
+      .select()
+      .from(activity)
+      .where(eq(activity.entityId, entityId));
+  }
+
+  function addedActivity<T extends { id: string }>(before: T[], after: T[]) {
+    const seen = new Set(before.map((row) => row.id));
+    return after.filter((row) => !seen.has(row.id));
+  }
+
+  async function activityIds(spaceId: string) {
+    const rows = await testDb
+      .select({ id: activity.id })
+      .from(activity)
+      .where(eq(activity.spaceId, spaceId));
+    return rows.map((row) => row.id).sort();
   }
 
   it("supports many Notes in notes and mixed Sections", async () => {
@@ -284,5 +305,191 @@ describe("Note services", () => {
         noteId: created.id,
       }),
     ).rejects.toMatchObject({ code: "INVALID_UPDATE" });
+  });
+
+  it("records created, updated, and deleted Note Activity and skips an identical update", async () => {
+    const { space, editor, notesSection } = await seedSpace();
+    const created = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: notesSection.id,
+      title: "  Paint colours  ",
+      body: "First draft",
+    });
+
+    const createdRows = await activityFor(created.id);
+    expect(createdRows).toHaveLength(1);
+    expect(createdRows[0]).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "note",
+      entityId: created.id,
+      action: "created",
+      period: null,
+    });
+    expect(createdRows[0]?.details).toEqual({ title: "Paint colours" });
+
+    const retitled = await updateNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      noteId: created.id,
+      title: "Revised",
+    });
+    expect(retitled.title).toBe("Revised");
+    const titleRows = addedActivity(createdRows, await activityFor(created.id));
+    expect(titleRows).toHaveLength(1);
+    expect(titleRows[0]).toMatchObject({
+      action: "updated",
+      actorUserId: editor.id,
+    });
+    expect(titleRows[0]?.details).toEqual({
+      title: "Revised",
+      changes: { title: { from: "Paint colours", to: "Revised" } },
+    });
+
+    const beforeBody = await activityFor(created.id);
+    await updateNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      noteId: created.id,
+      body: "Second draft",
+    });
+    const bodyRows = addedActivity(beforeBody, await activityFor(created.id));
+    expect(bodyRows).toHaveLength(1);
+    expect(bodyRows[0]).toMatchObject({ action: "updated", actorUserId: editor.id });
+    expect(bodyRows[0]?.details).toEqual({
+      title: "Revised",
+      changes: { body: { from: "First draft", to: "Second draft" } },
+    });
+
+    const beforeSame = await activityFor(created.id);
+    await updateNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      noteId: created.id,
+      title: "Revised",
+      body: "Second draft",
+    });
+    await updateNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      noteId: created.id,
+      title: "  Revised  ",
+    });
+    expect(await activityFor(created.id)).toEqual(beforeSame);
+
+    const deleted = await deleteNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      noteId: created.id,
+    });
+    expect(deleted.id).toBe(created.id);
+    expect(await testDb.select().from(note).where(eq(note.id, created.id))).toEqual(
+      [],
+    );
+
+    const rows = await activityFor(created.id);
+    expect(rows.map((row) => row.action).sort()).toEqual([
+      "created",
+      "deleted",
+      "updated",
+      "updated",
+    ]);
+    expect(rows.find((row) => row.action === "deleted")).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "note",
+      entityId: created.id,
+      action: "deleted",
+      details: { title: "Revised" },
+    });
+  });
+
+  it("records nothing when a read-only Member mutates Notes", async () => {
+    const { space, editor, readOnly, notesSection, sections } = await seedSpace();
+    const created = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: notesSection.id,
+      title: "Protected",
+    });
+    const before = await activityIds(space.id);
+
+    await expect(
+      createNote(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        sectionId: notesSection.id,
+        title: "Nope",
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      updateNote(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        noteId: created.id,
+        title: "Nope",
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      deleteNote(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        noteId: created.id,
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      createNote(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+        title: "Wrong section",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_SECTION" });
+
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherSection = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      name: "Other ideas",
+      kind: "notes",
+    });
+    const otherNote = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      sectionId: otherSection.id,
+      title: "Elsewhere",
+    });
+    const otherBefore = await activityFor(otherNote.id);
+
+    await expect(
+      updateNote(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        noteId: otherNote.id,
+        title: "Hijack",
+      }),
+    ).rejects.toMatchObject({ code: "NOTE_NOT_FOUND" });
+    await expect(
+      deleteNote(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        noteId: otherNote.id,
+      }),
+    ).rejects.toMatchObject({ code: "NOTE_NOT_FOUND" });
+
+    expect(await activityIds(space.id)).toEqual(before);
+    expect(await activityFor(otherNote.id)).toEqual(otherBefore);
+    expect(otherBefore.map((row) => row.action)).toEqual(["created"]);
+    expect(otherBefore[0]?.spaceId).toBe(other.space.id);
   });
 });

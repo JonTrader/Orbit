@@ -1,5 +1,5 @@
 /**
- * Base class for domain errors raised by `lib/services` and `lib/authz`.
+ * Base class for domain errors raised by `lib/services` and `lib/spaces/membership.ts`.
  *
  * The stable `code` lets the HTTP layer map domain errors to statuses
  * without a hand-maintained registry of error class names.

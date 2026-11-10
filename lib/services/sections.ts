@@ -1,10 +1,20 @@
-import { asc, and, desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchSections } from "@/lib/spaces/queries/fetch-sections";
-import type { OrbitDb } from "@/lib/db/client";
-import { section, type SectionKind } from "@/lib/db/schema";
+import type { OrbitDb, OrbitExecutor } from "@/lib/db/client";
+import {
+  note,
+  section,
+  task,
+  type ActivityAction,
+  type SectionKind,
+} from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
+import {
+  recordActivity,
+  type ActivityDetails,
+} from "@/lib/services/activity";
 
 export type CustomSectionKind = "tasks" | "notes" | "mixed";
 export type SectionErrorCode =
@@ -100,6 +110,9 @@ export async function createCustomSection(
       })
       .returning();
 
+    await recordSectionActivity(tx, input, created.id, "created", {
+      title: created.name,
+    });
     return created;
   });
 }
@@ -114,17 +127,31 @@ export async function renameSection(
   const current = await findSection(db, input.spaceId, input.sectionId);
   assertCustomSection(current);
 
-  const [updated] = await db
-    .update(section)
-    .set({ name })
-    .where(eq(section.id, input.sectionId))
-    .returning();
+  return db.transaction(async (tx) => {
+    const latest = await findSection(tx, input.spaceId, input.sectionId);
+    assertCustomSection(latest);
 
-  if (!updated) {
-    throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
-  }
+    const [updated] = await tx
+      .update(section)
+      .set({ name })
+      .where(
+        and(eq(section.id, input.sectionId), eq(section.spaceId, input.spaceId)),
+      )
+      .returning();
 
-  return updated;
+    if (!updated) {
+      throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
+    }
+
+    if (updated.name !== latest.name) {
+      await recordSectionActivity(tx, input, updated.id, "updated", {
+        title: updated.name,
+        changes: { name: { from: latest.name, to: updated.name } },
+      });
+    }
+
+    return updated;
+  });
 }
 
 /**
@@ -179,29 +206,86 @@ export async function reorderCustomSections(
   return listSections(db, input);
 }
 
-/** Deletes a custom Section and its database-cascaded content. */
+/**
+ * Deletes a custom Section. Child Tasks and Notes are removed by the database
+ * cascade after this transaction records `deleted` Activity for each of them
+ * and for the Section. Do not call `deleteTask` or `deleteNote` here.
+ */
 export async function deleteCustomSection(
   db: OrbitDb,
   input: DeleteSectionInput,
 ): Promise<SectionRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  const current = await findSection(db, input.spaceId, input.sectionId);
-  assertCustomSection(current);
+  const existing = await findSection(db, input.spaceId, input.sectionId);
+  assertCustomSection(existing);
 
-  const [deleted] = await db
-    .delete(section)
-    .where(eq(section.id, input.sectionId))
-    .returning();
+  return db.transaction(async (tx) => {
+    const current = await findSection(tx, input.spaceId, input.sectionId);
+    assertCustomSection(current);
 
-  if (!deleted) {
-    throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
-  }
+    const childTasks = await tx
+      .select({ id: task.id, title: task.title })
+      .from(task)
+      .where(
+        and(eq(task.sectionId, current.id), eq(task.spaceId, input.spaceId)),
+      );
+    const childNotes = await tx
+      .select({ id: note.id, title: note.title })
+      .from(note)
+      .where(
+        and(eq(note.sectionId, current.id), eq(note.spaceId, input.spaceId)),
+      );
 
-  return deleted;
+    for (const child of childTasks) {
+      await recordActivity(tx, {
+        spaceId: input.spaceId,
+        actorUserId: input.userId,
+        entityType: "task",
+        entityId: child.id,
+        action: "deleted",
+        details: {
+          title: child.title,
+          cause: "section_deleted",
+          sectionName: current.name,
+        },
+      });
+    }
+    for (const child of childNotes) {
+      await recordActivity(tx, {
+        spaceId: input.spaceId,
+        actorUserId: input.userId,
+        entityType: "note",
+        entityId: child.id,
+        action: "deleted",
+        details: {
+          title: child.title,
+          cause: "section_deleted",
+          sectionName: current.name,
+        },
+      });
+    }
+
+    await recordSectionActivity(tx, input, current.id, "deleted", {
+      title: current.name,
+    });
+
+    const [deleted] = await tx
+      .delete(section)
+      .where(
+        and(eq(section.id, current.id), eq(section.spaceId, input.spaceId)),
+      )
+      .returning();
+
+    if (!deleted) {
+      throw new SectionError("SECTION_NOT_FOUND", "Section was not found");
+    }
+
+    return deleted;
+  });
 }
 
 async function findSection(
-  db: OrbitDb,
+  db: OrbitExecutor,
   spaceId: string,
   sectionId: string,
 ): Promise<SectionRow> {
@@ -251,4 +335,21 @@ function normalizeSectionName(name: string): string {
     throw new SectionError("INVALID_NAME", "Section name cannot be empty");
   }
   return normalized;
+}
+
+async function recordSectionActivity(
+  executor: OrbitExecutor,
+  input: { userId: string; spaceId: string },
+  sectionId: string,
+  action: ActivityAction,
+  details: ActivityDetails,
+): Promise<void> {
+  await recordActivity(executor, {
+    spaceId: input.spaceId,
+    actorUserId: input.userId,
+    entityType: "section",
+    entityId: sectionId,
+    action,
+    details,
+  });
 }

@@ -20,7 +20,7 @@ import {
 
 /**
  * Assignee picker E2E: edit-form set/clear on Daily, Monthlies compose +
- * Upcoming label, and Read-only Viewer chrome. Owner mutates; a Read-only
+ * Upcoming label, and Read-only Viewer chrome (History only, no Edit). Owner mutates; a Read-only
  * Member is the Assignee target (and the Viewer in the last case).
  */
 
@@ -226,8 +226,16 @@ test.describe("Assignee", () => {
         .last(),
     ).toBeVisible();
     await expect(page.getByLabel("Add to Daily")).toHaveCount(0);
+    const actions = page.getByRole("button", { name: `Actions for ${title}` });
+    await expect(actions).toBeVisible();
+    await actions.click();
+    const menu = page.getByRole("menu", { name: `Actions for ${title}` });
+    await expect(menu).toBeVisible();
     await expect(
-      page.getByRole("button", { name: `Actions for ${title}` }),
+      menu.getByRole("menuitem", { name: "History", exact: true }),
+    ).toBeVisible();
+    await expect(
+      menu.getByRole("menuitem", { name: "Edit", exact: true }),
     ).toHaveCount(0);
   });
 });

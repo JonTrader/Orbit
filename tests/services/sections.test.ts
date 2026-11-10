@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSpaceWithSystemSections } from "@/lib/db/seed";
-import { section, spaceMember } from "@/lib/db/schema";
+import { activity, note, section, spaceMember, task } from "@/lib/db/schema";
+import { createNote } from "@/lib/services/notes";
 import {
   createCustomSection,
   deleteCustomSection,
@@ -11,6 +12,7 @@ import {
   renameSection,
   reorderCustomSections,
 } from "@/lib/services/sections";
+import { createTask } from "@/lib/services/tasks";
 
 import { testDb, truncateAll } from "../setup/db";
 import { createUser } from "../setup/fixtures";
@@ -32,6 +34,26 @@ describe("Section services", () => {
     ]);
 
     return { owner, editor, readOnly, ...seeded };
+  }
+
+  async function activityFor(entityId: string) {
+    return testDb
+      .select()
+      .from(activity)
+      .where(eq(activity.entityId, entityId));
+  }
+
+  function addedActivity<T extends { id: string }>(before: T[], after: T[]) {
+    const seen = new Set(before.map((row) => row.id));
+    return after.filter((row) => !seen.has(row.id));
+  }
+
+  async function activityIds(spaceId: string) {
+    const rows = await testDb
+      .select({ id: activity.id })
+      .from(activity)
+      .where(eq(activity.spaceId, spaceId));
+    return rows.map((row) => row.id).sort();
   }
 
   it("lists system Sections first and allows read-only Members to read", async () => {
@@ -316,5 +338,279 @@ describe("Section services", () => {
         }),
       ).rejects.toMatchObject({ code: "SYSTEM_SECTION" });
     }
+  });
+
+  it("records created and updated Section Activity and skips an identical rename", async () => {
+    const { space, sections, editor } = await seedSpace();
+    const created = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      name: " Errands ",
+      kind: "tasks",
+    });
+
+    const createdRows = await activityFor(created.id);
+    expect(createdRows).toHaveLength(1);
+    expect(createdRows[0]).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "section",
+      entityId: created.id,
+      action: "created",
+      period: null,
+    });
+    expect(createdRows[0]?.details).toEqual({ title: "Errands" });
+
+    const renamed = await renameSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: created.id,
+      name: " Shopping ",
+    });
+    expect(renamed.name).toBe("Shopping");
+    const renamedRows = addedActivity(createdRows, await activityFor(created.id));
+    expect(renamedRows).toHaveLength(1);
+    expect(renamedRows[0]).toMatchObject({
+      action: "updated",
+      actorUserId: editor.id,
+      entityType: "section",
+    });
+    expect(renamedRows[0]?.details).toEqual({
+      title: "Shopping",
+      changes: { name: { from: "Errands", to: "Shopping" } },
+    });
+
+    const beforeSame = await activityFor(created.id);
+    const same = await renameSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: created.id,
+      name: "Shopping",
+    });
+    const padded = await renameSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: created.id,
+      name: "  Shopping  ",
+    });
+    expect(same.name).toBe("Shopping");
+    expect(padded.name).toBe("Shopping");
+    expect(await activityFor(created.id)).toEqual(beforeSame);
+
+    const beforeDaily = await activityFor(sections.daily.id);
+    await expect(
+      renameSection(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+        name: "Changed system name",
+      }),
+    ).rejects.toMatchObject({ code: "SYSTEM_SECTION" });
+    await expect(
+      deleteCustomSection(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: sections.daily.id,
+      }),
+    ).rejects.toMatchObject({ code: "SYSTEM_SECTION" });
+    expect(await activityFor(sections.daily.id)).toEqual(beforeDaily);
+  });
+
+  it("records cascaded deletes and nothing when custom Sections are reordered", async () => {
+    const { space, editor } = await seedSpace();
+    const kitchen = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      name: "Kitchen",
+      kind: "mixed",
+    });
+    const chore = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: kitchen.id,
+      title: "Mop",
+    });
+    const recipe = await createNote(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionId: kitchen.id,
+      title: "Recipes",
+    });
+    const pantry = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      name: "Pantry",
+      kind: "notes",
+    });
+
+    const beforeReorder = await activityIds(space.id);
+    await reorderCustomSections(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      sectionIds: [pantry.id, kitchen.id],
+    });
+    expect(await activityIds(space.id)).toEqual(beforeReorder);
+    await expect(
+      listSections(testDb, { userId: editor.id, spaceId: space.id }),
+    ).resolves.toMatchObject([
+      { kind: "daily" },
+      { kind: "monthlies" },
+      { id: pantry.id, sortOrder: 2 },
+      { id: kitchen.id, sortOrder: 3 },
+    ]);
+
+    await expect(
+      deleteCustomSection(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: kitchen.id,
+      }),
+    ).resolves.toMatchObject({ id: kitchen.id, name: "Kitchen" });
+
+    expect(
+      await testDb.select().from(section).where(eq(section.id, kitchen.id)),
+    ).toEqual([]);
+    expect(await testDb.select().from(task).where(eq(task.id, chore.id))).toEqual(
+      [],
+    );
+    expect(await testDb.select().from(note).where(eq(note.id, recipe.id))).toEqual(
+      [],
+    );
+
+    const deletedRows = (await testDb
+      .select()
+      .from(activity)
+      .where(eq(activity.spaceId, space.id))
+    ).filter((row) => row.action === "deleted");
+    expect(deletedRows).toHaveLength(3);
+    const byType = new Map(deletedRows.map((row) => [row.entityType, row]));
+    expect(byType.get("task")).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "task",
+      entityId: chore.id,
+      action: "deleted",
+    });
+    expect(byType.get("task")?.details).toEqual({
+      title: "Mop",
+      cause: "section_deleted",
+      sectionName: "Kitchen",
+    });
+    expect(byType.get("note")).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "note",
+      entityId: recipe.id,
+      action: "deleted",
+    });
+    expect(byType.get("note")?.details).toEqual({
+      title: "Recipes",
+      cause: "section_deleted",
+      sectionName: "Kitchen",
+    });
+    expect(byType.get("section")).toMatchObject({
+      spaceId: space.id,
+      actorUserId: editor.id,
+      entityType: "section",
+      entityId: kitchen.id,
+      action: "deleted",
+    });
+    expect(byType.get("section")?.details).toEqual({ title: "Kitchen" });
+    expect((await activityFor(chore.id)).map((row) => row.action).sort()).toEqual([
+      "created",
+      "deleted",
+    ]);
+    expect((await activityFor(recipe.id)).map((row) => row.action).sort()).toEqual([
+      "created",
+      "deleted",
+    ]);
+
+    const otherOwner = await createUser({ email: "other-owner@orbit.test" });
+    const other = await createSpaceWithSystemSections(testDb, {
+      name: "Other",
+      ownerUserId: otherOwner.id,
+    });
+    await testDb.insert(spaceMember).values({
+      spaceId: other.space.id,
+      userId: editor.id,
+      role: "editor",
+    });
+    const otherSection = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      name: "Other kitchen",
+      kind: "mixed",
+    });
+    const otherTask = await createTask(testDb, {
+      userId: editor.id,
+      spaceId: other.space.id,
+      sectionId: otherSection.id,
+      title: "Other mop",
+    });
+    const otherBefore = await activityIds(other.space.id);
+    await expect(
+      deleteCustomSection(testDb, {
+        userId: editor.id,
+        spaceId: space.id,
+        sectionId: otherSection.id,
+      }),
+    ).rejects.toMatchObject({ code: "SECTION_NOT_FOUND" });
+    expect(await activityIds(other.space.id)).toEqual(otherBefore);
+    expect(
+      await testDb.select().from(section).where(eq(section.id, otherSection.id)),
+    ).toHaveLength(1);
+    expect(
+      await testDb.select().from(task).where(eq(task.id, otherTask.id)),
+    ).toHaveLength(1);
+    expect(
+      (await activityFor(otherTask.id)).some((row) => row.action === "deleted"),
+    ).toBe(false);
+  });
+
+  it("records nothing when a read-only Member mutates Sections", async () => {
+    const { space, editor, readOnly } = await seedSpace();
+    const custom = await createCustomSection(testDb, {
+      userId: editor.id,
+      spaceId: space.id,
+      name: "Errands",
+      kind: "tasks",
+    });
+    const before = await activityIds(space.id);
+
+    await expect(
+      createCustomSection(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        name: "Nope",
+        kind: "tasks",
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      renameSection(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        sectionId: custom.id,
+        name: "Nope",
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      reorderCustomSections(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        sectionIds: [custom.id],
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+    await expect(
+      deleteCustomSection(testDb, {
+        userId: readOnly.id,
+        spaceId: space.id,
+        sectionId: custom.id,
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_ROLE" });
+
+    expect(await activityIds(space.id)).toEqual(before);
+    expect(
+      await testDb.select().from(section).where(eq(section.id, custom.id)),
+    ).toHaveLength(1);
   });
 });

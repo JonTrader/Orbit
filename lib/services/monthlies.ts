@@ -7,9 +7,20 @@ import {
   InvalidCalendarDateError,
   nextDueOnForDueDay,
 } from "@/lib/calendar-date";
-import type { OrbitDb } from "@/lib/db/client";
-import { monthly, section, space } from "@/lib/db/schema";
+import type { OrbitDb, OrbitExecutor } from "@/lib/db/client";
+import {
+  monthly,
+  section,
+  space,
+  type ActivityAction,
+} from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
+import {
+  assigneeActivityChange,
+  recordActivity,
+  type ActivityDetails,
+  type ActivityFieldChange,
+} from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type MonthlyErrorCode =
@@ -92,26 +103,29 @@ export async function createMonthly(
     (message) => new MonthlyError("INVALID_ASSIGNEE", message),
   );
 
-  const [created] = await db
-    .insert(monthly)
-    .values({
-      spaceId: input.spaceId,
-      sectionId: monthliesSection.id,
-      sectionKind: "monthlies",
-      title,
-      body: input.body ?? "",
-      dueDayOfMonth,
-      nextDueOn: nextDueOnForDueDay(
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(monthly)
+      .values({
+        spaceId: input.spaceId,
+        sectionId: monthliesSection.id,
+        sectionKind: "monthlies",
+        title,
+        body: input.body ?? "",
         dueDayOfMonth,
-        timezone,
-        input.now ?? new Date(),
-      ),
-      assigneeId: input.assigneeId ?? null,
-      createdBy: input.userId,
-    })
-    .returning();
+        nextDueOn: nextDueOnForDueDay(
+          dueDayOfMonth,
+          timezone,
+          input.now ?? new Date(),
+        ),
+        assigneeId: input.assigneeId ?? null,
+        createdBy: input.userId,
+      })
+      .returning();
 
-  return created;
+    await recordMonthlyActivity(tx, input, created.id, "created", { title });
+    return created;
+  });
 }
 
 /** Updates Monthly fields while keeping it in Monthlies forever. */
@@ -153,19 +167,43 @@ export async function updateMonthly(
     throw new MonthlyError("INVALID_UPDATE", "Monthly update has no changes");
   }
 
-  const [updated] = await db
-    .update(monthly)
-    .set(updates)
-    .where(
-      and(eq(monthly.id, input.monthlyId), eq(monthly.spaceId, input.spaceId)),
-    )
-    .returning();
+  return db.transaction(async (tx) => {
+    const current = await findMonthly(tx, input.spaceId, input.monthlyId);
+    const [updated] = await tx
+      .update(monthly)
+      .set(updates)
+      .where(
+        and(
+          eq(monthly.id, input.monthlyId),
+          eq(monthly.spaceId, input.spaceId),
+        ),
+      )
+      .returning();
 
-  if (!updated) {
-    throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
-  }
+    if (!updated) {
+      throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
+    }
 
-  return updated;
+    const changes = await monthlyFieldChanges(tx, current, {
+      title: updates.title,
+      body: updates.body,
+      dueDayOfMonth: updates.dueDayOfMonth,
+      assigneeId: updates.assigneeId,
+    });
+    if (changes) {
+      const assigneeOnly =
+        Object.keys(changes).length === 1 && changes.assigneeId !== undefined;
+      await recordMonthlyActivity(
+        tx,
+        input,
+        updated.id,
+        assigneeOnly ? "assigned" : "updated",
+        { title: updated.title, changes },
+      );
+    }
+
+    return updated;
+  });
 }
 
 /** Deletes a Monthly from the Monthlies Section. */
@@ -175,18 +213,26 @@ export async function deleteMonthly(
 ): Promise<MonthlyRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const [deleted] = await db
-    .delete(monthly)
-    .where(
-      and(eq(monthly.id, input.monthlyId), eq(monthly.spaceId, input.spaceId)),
-    )
-    .returning();
+  return db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(monthly)
+      .where(
+        and(
+          eq(monthly.id, input.monthlyId),
+          eq(monthly.spaceId, input.spaceId),
+        ),
+      )
+      .returning();
 
-  if (!deleted) {
-    throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
-  }
+    if (!deleted) {
+      throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
+    }
 
-  return deleted;
+    await recordMonthlyActivity(tx, input, deleted.id, "deleted", {
+      title: deleted.title,
+    });
+    return deleted;
+  });
 }
 
 /**
@@ -198,38 +244,64 @@ export async function completeMonthly(
   input: GetMonthlyInput,
 ): Promise<MonthlyRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
-  const current = await findMonthly(db, input.spaceId, input.monthlyId);
-  let nextDueOn: string;
-  try {
-    nextDueOn = advanceNextDueOn(current.nextDueOn, current.dueDayOfMonth);
-  } catch (error) {
-    if (error instanceof InvalidCalendarDateError) {
-      throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly due date is invalid");
+
+  return db.transaction(async (tx) => {
+    const current = await findMonthly(tx, input.spaceId, input.monthlyId);
+    let nextDueOn: string;
+    try {
+      nextDueOn = advanceNextDueOn(current.nextDueOn, current.dueDayOfMonth);
+    } catch (error) {
+      if (error instanceof InvalidCalendarDateError) {
+        throw new MonthlyError(
+          "MONTHLY_NOT_FOUND",
+          "Monthly due date is invalid",
+        );
+      }
+      throw error;
     }
-    throw error;
-  }
 
-  const [completed] = await db
-    .update(monthly)
-    .set({
-      nextDueOn,
-      lastCompletedAt: new Date(),
-      lastCompletedBy: input.userId,
-    })
-    .where(
-      and(eq(monthly.id, input.monthlyId), eq(monthly.spaceId, input.spaceId)),
-    )
-    .returning();
+    const [completed] = await tx
+      .update(monthly)
+      .set({
+        nextDueOn,
+        lastCompletedAt: new Date(),
+        lastCompletedBy: input.userId,
+      })
+      .where(
+        and(
+          eq(monthly.id, input.monthlyId),
+          eq(monthly.spaceId, input.spaceId),
+        ),
+      )
+      .returning();
 
-  if (!completed) {
-    throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
-  }
+    if (!completed) {
+      throw new MonthlyError("MONTHLY_NOT_FOUND", "Monthly was not found");
+    }
 
-  return completed;
+    await recordMonthlyActivity(
+      tx,
+      input,
+      completed.id,
+      "completed",
+      {
+        title: completed.title,
+        dueDayOfMonth: current.dueDayOfMonth,
+        previousNextDueOn: current.nextDueOn,
+        nextDueOn,
+        previousLastCompletedAt: current.lastCompletedAt
+          ? current.lastCompletedAt.toISOString()
+          : null,
+        previousLastCompletedBy: current.lastCompletedBy,
+      },
+      current.nextDueOn,
+    );
+    return completed;
+  });
 }
 
 async function findMonthly(
-  db: OrbitDb,
+  db: OrbitExecutor,
   spaceId: string,
   monthlyId: string,
 ): Promise<MonthlyRow> {
@@ -305,4 +377,66 @@ function validateDueDay(dueDayOfMonth: number): number {
     );
   }
   return dueDayOfMonth;
+}
+
+async function recordMonthlyActivity(
+  executor: OrbitExecutor,
+  input: { userId: string; spaceId: string },
+  monthlyId: string,
+  action: ActivityAction,
+  details: ActivityDetails,
+  period?: string,
+): Promise<void> {
+  await recordActivity(executor, {
+    spaceId: input.spaceId,
+    actorUserId: input.userId,
+    entityType: "monthly",
+    entityId: monthlyId,
+    action,
+    period,
+    details,
+  });
+}
+
+/**
+ * Diff of supplied fields against the stored row. Unchanged fields are omitted.
+ * Recomputed `nextDueOn` is not a change: a due day that already matches skips
+ * Activity even when the stored next due date is rewritten.
+ */
+async function monthlyFieldChanges(
+  executor: OrbitExecutor,
+  current: MonthlyRow,
+  supplied: Partial<
+    Pick<MonthlyRow, "title" | "body" | "dueDayOfMonth" | "assigneeId">
+  >,
+): Promise<Record<string, ActivityFieldChange> | undefined> {
+  const changes: Record<string, ActivityFieldChange> = {};
+
+  if (supplied.title !== undefined && supplied.title !== current.title) {
+    changes.title = { from: current.title, to: supplied.title };
+  }
+  if (supplied.body !== undefined && supplied.body !== current.body) {
+    changes.body = { from: current.body, to: supplied.body };
+  }
+  if (
+    supplied.dueDayOfMonth !== undefined &&
+    supplied.dueDayOfMonth !== current.dueDayOfMonth
+  ) {
+    changes.dueDayOfMonth = {
+      from: current.dueDayOfMonth,
+      to: supplied.dueDayOfMonth,
+    };
+  }
+  if (
+    supplied.assigneeId !== undefined &&
+    supplied.assigneeId !== current.assigneeId
+  ) {
+    changes.assigneeId = await assigneeActivityChange(
+      executor,
+      current.assigneeId,
+      supplied.assigneeId,
+    );
+  }
+
+  return Object.keys(changes).length > 0 ? changes : undefined;
 }

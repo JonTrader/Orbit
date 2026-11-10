@@ -2,9 +2,20 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { requireMembership } from "@/lib/spaces/membership";
 import { fetchTasks } from "@/lib/spaces/queries/fetch-tasks";
-import type { OrbitDb } from "@/lib/db/client";
-import { section, task, type SectionKind } from "@/lib/db/schema";
+import type { OrbitDb, OrbitExecutor } from "@/lib/db/client";
+import {
+  section,
+  task,
+  type ActivityAction,
+  type SectionKind,
+} from "@/lib/db/schema";
 import { DomainError } from "@/lib/domain-error";
+import {
+  assigneeActivityChange,
+  recordActivity,
+  type ActivityDetails,
+  type ActivityFieldChange,
+} from "@/lib/services/activity";
 import { assertAssigneeIsMember } from "@/lib/services/assignees";
 
 export type TaskSectionKind = "daily" | "tasks" | "mixed";
@@ -114,20 +125,23 @@ export async function createTask(
     (message) => new TaskError("INVALID_ASSIGNEE", message),
   );
 
-  const [created] = await db
-    .insert(task)
-    .values({
-      spaceId: input.spaceId,
-      sectionId: targetSection.id,
-      sectionKind: targetSection.kind,
-      title,
-      dueOn: input.dueOn ?? null,
-      assigneeId: input.assigneeId ?? null,
-      createdBy: input.userId,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(task)
+      .values({
+        spaceId: input.spaceId,
+        sectionId: targetSection.id,
+        sectionKind: targetSection.kind,
+        title,
+        dueOn: input.dueOn ?? null,
+        assigneeId: input.assigneeId ?? null,
+        createdBy: input.userId,
+      })
+      .returning();
 
-  return created;
+    await recordTaskActivity(tx, input, created.id, "created", { title });
+    return created;
+  });
 }
 
 /** Updates editable Task fields without changing its Section. */
@@ -155,17 +169,33 @@ export async function updateTask(
     throw new TaskError("INVALID_UPDATE", "Task update has no changes");
   }
 
-  const [updated] = await db
-    .update(task)
-    .set(updates)
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const current = await findTask(tx, input.spaceId, input.taskId);
+    const [updated] = await tx
+      .update(task)
+      .set(updates)
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  if (!updated) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    if (!updated) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
 
-  return updated;
+    const changes = await taskFieldChanges(tx, current, updates);
+    if (changes) {
+      const assigneeOnly =
+        Object.keys(changes).length === 1 && changes.assigneeId !== undefined;
+      await recordTaskActivity(
+        tx,
+        input,
+        updated.id,
+        assigneeOnly ? "assigned" : "updated",
+        { title: updated.title, changes },
+      );
+    }
+
+    return updated;
+  });
 }
 
 /** Deletes a Task from its current Section. */
@@ -175,16 +205,21 @@ export async function deleteTask(
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const [deleted] = await db
-    .delete(task)
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(task)
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  if (!deleted) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    if (!deleted) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
 
-  return deleted;
+    await recordTaskActivity(tx, input, deleted.id, "deleted", {
+      title: deleted.title,
+    });
+    return deleted;
+  });
 }
 
 /** Completes a Task and records the Member who completed it. */
@@ -194,17 +229,22 @@ export async function completeTask(
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const [completed] = await db
-    .update(task)
-    .set({ completedAt: new Date(), completedBy: input.userId })
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [completed] = await tx
+      .update(task)
+      .set({ completedAt: new Date(), completedBy: input.userId })
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  if (!completed) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    if (!completed) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
 
-  return completed;
+    await recordTaskActivity(tx, input, completed.id, "completed", {
+      title: completed.title,
+    });
+    return completed;
+  });
 }
 
 /** Reopens a completed Task. Nothing resets automatically at midnight. */
@@ -214,17 +254,22 @@ export async function reopenTask(
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const [reopened] = await db
-    .update(task)
-    .set({ completedAt: null, completedBy: null })
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [reopened] = await tx
+      .update(task)
+      .set({ completedAt: null, completedBy: null })
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  if (!reopened) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    if (!reopened) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
 
-  return reopened;
+    await recordTaskActivity(tx, input, reopened.id, "reopened", {
+      title: reopened.title,
+    });
+    return reopened;
+  });
 }
 
 /** Atomically toggles a Task between completed and open. */
@@ -234,21 +279,30 @@ export async function toggleTask(
 ): Promise<TaskRow> {
   await requireMembership(db, { ...input, minimumRole: "editor" });
 
-  const now = new Date();
-  const [toggled] = await db
-    .update(task)
-    .set({
-      completedAt: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${now} ELSE NULL END::timestamptz`,
-      completedBy: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${input.userId} ELSE NULL END`,
-    })
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [toggled] = await tx
+      .update(task)
+      .set({
+        completedAt: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${now} ELSE NULL END::timestamptz`,
+        completedBy: sql`CASE WHEN ${task.completedAt} IS NULL THEN ${input.userId} ELSE NULL END`,
+      })
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  if (!toggled) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    if (!toggled) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
 
-  return toggled;
+    await recordTaskActivity(
+      tx,
+      input,
+      toggled.id,
+      toggled.completedAt !== null ? "completed" : "reopened",
+      { title: toggled.title },
+    );
+    return toggled;
+  });
 }
 
 /** Moves a Task only among Daily and custom tasks/mixed Sections. */
@@ -262,30 +316,49 @@ export async function moveTask(
     return current;
   }
 
-  const targetSection = await findTaskSection(
-    db,
-    input.spaceId,
-    input.targetSectionId,
-  );
+  return db.transaction(async (tx) => {
+    const latest = await findTask(tx, input.spaceId, input.taskId);
+    if (latest.sectionId === input.targetSectionId) {
+      return latest;
+    }
 
-  const [moved] = await db
-    .update(task)
-    .set({
-      sectionId: targetSection.id,
-      sectionKind: targetSection.kind,
-    })
-    .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
-    .returning();
+    const fromSection = await findTaskSection(
+      tx,
+      input.spaceId,
+      latest.sectionId,
+    );
+    const targetSection = await findTaskSection(
+      tx,
+      input.spaceId,
+      input.targetSectionId,
+    );
 
-  if (!moved) {
-    throw new TaskError("TASK_NOT_FOUND", "Task was not found");
-  }
+    const [moved] = await tx
+      .update(task)
+      .set({
+        sectionId: targetSection.id,
+        sectionKind: targetSection.kind,
+      })
+      .where(and(eq(task.id, input.taskId), eq(task.spaceId, input.spaceId)))
+      .returning();
 
-  return moved;
+    if (!moved) {
+      throw new TaskError("TASK_NOT_FOUND", "Task was not found");
+    }
+
+    await recordTaskActivity(tx, input, moved.id, "moved", {
+      title: moved.title,
+      fromSectionId: fromSection.id,
+      toSectionId: targetSection.id,
+      fromSectionName: fromSection.name,
+      toSectionName: targetSection.name,
+    });
+    return moved;
+  });
 }
 
 async function findTask(
-  db: OrbitDb,
+  db: OrbitExecutor,
   spaceId: string,
   taskId: string,
 ): Promise<TaskRow> {
@@ -303,7 +376,7 @@ async function findTask(
 }
 
 async function findTaskSection(
-  db: OrbitDb,
+  db: OrbitExecutor,
   spaceId: string,
   sectionId: string,
 ): Promise<typeof section.$inferSelect & { kind: TaskSectionKind }> {
@@ -333,4 +406,49 @@ function normalizeTaskTitle(title: string): string {
     throw new TaskError("INVALID_TITLE", "Task title cannot be empty");
   }
   return normalized;
+}
+
+async function recordTaskActivity(
+  executor: OrbitExecutor,
+  input: { userId: string; spaceId: string },
+  taskId: string,
+  action: ActivityAction,
+  details: ActivityDetails,
+): Promise<void> {
+  await recordActivity(executor, {
+    spaceId: input.spaceId,
+    actorUserId: input.userId,
+    entityType: "task",
+    entityId: taskId,
+    action,
+    details,
+  });
+}
+
+/** Diff of supplied fields against the stored row. Unchanged fields are omitted. */
+async function taskFieldChanges(
+  executor: OrbitExecutor,
+  current: TaskRow,
+  supplied: Partial<Pick<TaskRow, "title" | "dueOn" | "assigneeId">>,
+): Promise<Record<string, ActivityFieldChange> | undefined> {
+  const changes: Record<string, ActivityFieldChange> = {};
+
+  if (supplied.title !== undefined && supplied.title !== current.title) {
+    changes.title = { from: current.title, to: supplied.title };
+  }
+  if (supplied.dueOn !== undefined && supplied.dueOn !== current.dueOn) {
+    changes.dueOn = { from: current.dueOn, to: supplied.dueOn };
+  }
+  if (
+    supplied.assigneeId !== undefined &&
+    supplied.assigneeId !== current.assigneeId
+  ) {
+    changes.assigneeId = await assigneeActivityChange(
+      executor,
+      current.assigneeId,
+      supplied.assigneeId,
+    );
+  }
+
+  return Object.keys(changes).length > 0 ? changes : undefined;
 }

@@ -7,6 +7,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -125,6 +126,23 @@ export const sectionKind = pgEnum("section_kind", [
 export const notificationKind = pgEnum("notification_kind", [
   "monthly_due",
   "daily_nudge",
+]);
+
+export const activityEntityType = pgEnum("activity_entity_type", [
+  "task",
+  "monthly",
+  "note",
+  "section",
+]);
+
+export const activityAction = pgEnum("activity_action", [
+  "created",
+  "updated",
+  "completed",
+  "reopened",
+  "moved",
+  "assigned",
+  "deleted",
 ]);
 
 /** Section kinds a Task may live in. Monthlies is deliberately absent (ADR 0001). */
@@ -440,6 +458,46 @@ export const notificationLog = pgTable(
   (t) => [index("notification_log_space_idx").on(t.spaceId)],
 );
 
+/* --------------------------------------------------------------- Activity */
+
+export const activity = pgTable(
+  "activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => space.id, { onDelete: "cascade" }),
+    /** Better Auth user id. Null after that user is deleted. */
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    entityType: activityEntityType("entity_type").notNull(),
+    /** Task, Monthly, Note, or Section id; not an FK so the row outlives the entity. */
+    entityId: uuid("entity_id").notNull(),
+    action: activityAction("action").notNull(),
+    /** Calendar date set only for Monthly completion (the due date just finished). */
+    period: date("period"),
+    /** Insert-only snapshot. No check constraint; the service owns the shape. */
+    details: jsonb("details").notNull().default({}),
+    createdAt,
+  },
+  (t) => [
+    // `id` breaks timestamp ties. NULLS FIRST matches `ORDER BY col DESC`.
+    index("activity_space_created_idx").on(
+      t.spaceId,
+      t.createdAt.desc().nullsFirst(),
+      t.id.desc().nullsFirst(),
+    ),
+    index("activity_entity_created_idx").on(
+      t.entityId,
+      t.createdAt.desc().nullsFirst(),
+      t.id.desc().nullsFirst(),
+    ),
+  ],
+);
+
 export type SpaceRole = (typeof spaceRole.enumValues)[number];
 export type SectionKind = (typeof sectionKind.enumValues)[number];
 export type NotificationKind = (typeof notificationKind.enumValues)[number];
+export type ActivityEntityType = (typeof activityEntityType.enumValues)[number];
+export type ActivityAction = (typeof activityAction.enumValues)[number];

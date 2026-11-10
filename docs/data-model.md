@@ -1,10 +1,10 @@
 # Orbit data model
 
-Physical schema as built in Phase B. Source of truth is [`lib/db/schema.ts`](../lib/db/schema.ts); migrations live in [`drizzle/`](../drizzle/). Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Logical model: [`docs/spec.md`](./spec.md) §7.
+Physical schema. Source of truth is [`lib/db/schema.ts`](../lib/db/schema.ts); migrations live in [`drizzle/`](../drizzle/). Vocabulary: [`CONTEXT.md`](../CONTEXT.md). Logical model: [`docs/spec.md`](./spec.md) §7.
 
 ## Map
 
-Four clusters. Everything below `space` is deleted with it.
+Five clusters. Everything below `space` is deleted with it. Activity is included: deleting a Space removes its Activity, and deleting a Task, Monthly, Note, or Section does not.
 
 ```mermaid
 flowchart TB
@@ -38,6 +38,11 @@ flowchart TB
     NL["notification_log<br/><i>idempotency key</i>"]
   end
 
+  subgraph ACTIVITY["Activity"]
+    direction TB
+    ACT["activity<br/><i>append-only · entity_id is not an FK</i>"]
+  end
+
   U --> SE
   U --> AC
   U --> SM
@@ -50,28 +55,33 @@ flowchart TB
   U --> NP
   SP --> NP
   SP --> NL
+  SP --> ACT
+  U -.-> ACT
 
   classDef auth fill:#eef2ff,stroke:#1d4ed8,stroke-width:1px,color:#1c1917
   classDef access fill:#fdeee4,stroke:#c2410c,stroke-width:1px,color:#1c1917
   classDef content fill:#e6f2f0,stroke:#0f766e,stroke-width:1px,color:#1c1917
   classDef notify fill:#f3ece0,stroke:#78716c,stroke-width:1px,color:#1c1917
+  classDef activity fill:#f7f0e4,stroke:#a16207,stroke-width:1px,color:#1c1917
 
   class U,SE,AC,VE,RL auth
   class SP,SM,IN access
   class SC,TK,MO,NO content
   class NP,NL notify
+  class ACT activity
 
   style AUTH fill:#faf6ef,stroke:#e7e0d4,color:#78716c
   style ACCESS fill:#faf6ef,stroke:#e7e0d4,color:#78716c
   style CONTENT fill:#faf6ef,stroke:#e7e0d4,color:#78716c
   style NOTIFY fill:#faf6ef,stroke:#e7e0d4,color:#78716c
+  style ACTIVITY fill:#faf6ef,stroke:#e7e0d4,color:#78716c
 ```
 
 `verification` stands alone - Better Auth keys it by email/token, not by `user.id`. `rate_limit` is Better Auth's serverless rate-limit bucket (`id` primary key; `key` unique). The Drizzle adapter writes `id` on every insert.
 
 ## Entities and columns
 
-Every table carries `created_at` / `updated_at` (`timestamptz`, defaulted); they are omitted below for legibility.
+Every table carries `created_at` (`timestamptz`, defaulted). All except `activity` also carry `updated_at`. Both are omitted below for legibility. `activity` is insert-only, so it has no `updated_at`.
 
 ```mermaid
 erDiagram
@@ -85,6 +95,8 @@ erDiagram
   space ||--|{ section : "partitions"
   space ||--o{ notification_preference : "scopes"
   space ||--o{ notification_log : "records"
+  space ||--o{ activity : "records"
+  user |o--o{ activity : "may act"
 
   section ||--o{ task : "holds"
   section ||--o{ monthly : "holds"
@@ -221,6 +233,17 @@ erDiagram
     text idempotency_key UK
     timestamptz sent_at
   }
+
+  activity {
+    uuid id PK
+    uuid space_id FK
+    text actor_user_id FK "Better Auth id; null after that user is deleted"
+    activity_entity_type entity_type "task | monthly | note | section"
+    uuid entity_id "not an FK; the row outlives the entity"
+    activity_action action "created | updated | completed | reopened | moved | assigned | deleted"
+    date period "set only for Monthly completion"
+    jsonb details "insert-only snapshot, default {}"
+  }
 ```
 
 `task`, `monthly`, and `note` also point at `user` through `assignee_id`, `created_by`, and the completion columns. Those edges are left off the diagram above so the Section relationships stay readable; all of them are `ON DELETE SET NULL`, so removing a Member never deletes content.
@@ -232,6 +255,8 @@ erDiagram
 | `space_role` | `owner`, `editor`, `read-only` |
 | `section_kind` | `daily`, `monthlies`, `tasks`, `notes`, `mixed` |
 | `notification_kind` | `monthly_due`, `daily_nudge` |
+| `activity_entity_type` | `task`, `monthly`, `note`, `section` |
+| `activity_action` | `created`, `updated`, `completed`, `reopened`, `moved`, `assigned`, `deleted` |
 
 ## How Task vs Monthly is enforced
 
@@ -275,23 +300,26 @@ The pair closes both escape routes. Claiming `section_kind = 'monthlies'` on a T
 | `notification_preference_days_before_range` | `days_before between 0 and 30` |
 | `monthly_due_day_range` | `due_day_of_month between 1 and 31` |
 | `notification_log_idempotency_key_unique` | An Inngest retry cannot double-send |
+| `activity_space_created_idx` | Space reads, newest first: `(space_id, created_at desc, id desc)` |
+| `activity_entity_created_idx` | One entity's History, newest first: `(entity_id, created_at desc, id desc)`. Queries still filter `space_id` |
 
 ## Delete behaviour
 
 | Deleting | Effect |
 | --- | --- |
-| `space` | Cascades to members, invites, sections, tasks, monthlies, notes, preferences, and its notification log |
-| `section` | Cascades to its tasks, monthlies, and notes |
-| `user` | Cascades to sessions, accounts, memberships, and preferences; **nulls** assignee / creator / completer columns and `space.created_by`, so content and history survive |
+| `space` | Cascades to members, invites, sections, tasks, monthlies, notes, preferences, its notification log, and Activity |
+| `section` | Cascades to its tasks, monthlies, and notes. Does not delete Activity for the Section or those children |
+| `user` | Cascades to sessions, accounts, memberships, and preferences; **nulls** assignee / creator / completer columns, `space.created_by`, and `activity.actor_user_id`, so content and Activity survive |
+| Task, Monthly, Note, or Section | Does not delete Activity. `activity.entity_id` is not a foreign key |
 
-`notification_log.entity_id` is intentionally not a foreign key: the send record outlives the Task or Monthly it was about.
+`notification_log.entity_id` is intentionally not a foreign key: the send record outlives the Task or Monthly it was about. `activity.entity_id` is the same kind of reference for a Task, Monthly, Note, or Section. `activity.period` is a date and is set only for Monthly completion (the due date just finished).
 
 ## Vocabulary to table
 
 | CONTEXT term | Where it lives |
 | --- | --- |
 | Space, Personal Space | `space` (`is_personal`) |
-| Active Space | Not stored in Phase B — a client/session concern |
+| Active Space | Not stored. It is the Space the client is viewing. |
 | Member, Owner / Editor / Read-only | `space_member.role` |
 | Invite | `invite` |
 | Section, Daily, Monthlies | `section` (`kind`, `is_system`) |
@@ -301,3 +329,4 @@ The pair closes both escape routes. Claiming `section_kind = 'monthlies'` on a T
 | Assignee | `task.assignee_id`, `monthly.assignee_id` |
 | Upcoming | Not a table — a read-only view over `monthly.next_due_on` and `task.due_on` |
 | Reminder | `notification_preference` + `notification_log` |
+| Activity | `activity` (`entity_id` is not a foreign key; History is the Task or Monthly row label for that entity's rows) |
