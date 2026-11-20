@@ -2,7 +2,7 @@
 
 A household-first coordination app for day-to-day to-dos and recurring monthly obligations, with optional personal Spaces.
 
-## Product spine (MVP)
+## Product spine
 
 Household-first coordination: Daily Tasks vs Monthlies as separate domains, Space-level sharing/RBAC, Upcoming as a read-only view, email Reminders via Inngest + Resend. Dual API: `/api/v1` Route Handlers + web Server Actions over shared domain services. Full requirements: [`docs/spec.md`](./docs/spec.md).
 
@@ -11,7 +11,7 @@ Household-first coordination: Daily Tasks vs Monthlies as separate domains, Spac
 ### Containers and access
 
 **Space**:
-The container that owns members, sections, and permissions. The only share and permission boundary in MVP. Has a single timezone that defines due calendar days and Reminder timing for everyone in that Space. New Spaces default to the creator's timezone at creation; Owner can change it later. Owner may rename or delete a non-Personal Space (subject to the last-Space guard: a user may not delete or leave their last remaining Space without another Space to keep).
+The container that owns members, sections, and permissions. The only share and permission boundary. Has a single timezone that defines due calendar days and Reminder timing for everyone in that Space. New Spaces default to the creator's timezone at creation; Owner can change it later. Owner may rename or delete a non-Personal Space (subject to the last-Space guard: a user may not delete or leave their last remaining Space without another Space to keep).
 _Avoid_: Household (as the container name), Workspace, Project, Account
 
 **Personal Space**:
@@ -28,7 +28,7 @@ _Avoid_: Collaborator, participant, guest
 
 **Invite**:
 A pending offer to join a Space at a given role, addressed by email. Becomes a Member when accepted; not a Member beforehand. Default role when inviting is read-only; Owner can choose editor instead. Expires after 7 days if not accepted; Owner can resend or cancel. Cancelling deletes the Invite, and the link no longer exists.
-_Avoid_: Pending member, guest, share link (MVP uses email invites, not link membership)
+_Avoid_: Pending member, guest, share link (email invites only, not link membership)
 
 **Owner** / **Editor** / **Read-only**:
 Space-level roles. All sections in a Space inherit the member's role. Read-only is view-only (no complete/reopen/create/edit/delete). Editor mutates content and custom Sections, including permanently deleting Tasks, Monthlies, and Notes after a one-step confirmation. Owner alone invites, changes roles, removes Members, and transfers ownership. A Space has a single Owner at a time.
@@ -57,7 +57,7 @@ _Avoid_: Today, Inbox
 
 **Monthlies**:
 The system section for recurring monthly obligations only. Always present in a Space; cannot be renamed, deleted, or retyped. A different kind of commitment from Daily - not a filter on the same list.
-_Avoid_: Recurring, Bills (unless a future bills feature is named)
+_Avoid_: Recurring, Bills
 
 **Task**:
 A checklist item in Daily or in a custom tasks/mixed Section. Optional one-shot due date (set, change, or clear; past dates remain valid; completion preserves the date). Not a monthly recurring obligation. Distinct from a Monthly. May move among Daily and custom task/mixed Sections; cannot be reclassified into Monthlies by moving - that requires delete and recreate as a Monthly. Completing a Daily Task keeps it completed until someone reopens or deletes it (no automatic midnight reset). Completed Daily Tasks are hidden by default, with an optional show-completed control.
@@ -69,13 +69,13 @@ A recurring monthly obligation that lives only in the Monthlies section. Complet
 _Avoid_: Recurring task, monthly task (as the entity name), Bill
 
 **Note**:
-A freeform writing entity (title + plain-text body) that belongs to a notes or mixed Section. Not a Task: no completion, assignee, or reminder behavior in MVP. A mixed Section may contain many Notes and many Tasks.
-_Avoid_: Document, page, memo, task-with-body, rich text / markdown (as MVP body format)
+A freeform writing entity (title + plain-text body) that belongs to a notes or mixed Section. Not a Task: no completion, assignee, or reminder behavior. A mixed Section may contain many Notes and many Tasks.
+_Avoid_: Document, page, memo, task-with-body, rich text / markdown (body is plain text)
 
 
 **Upcoming**:
 A read-only aggregate view of Monthlies (by next due) and Tasks with due dates across Sections in the Space currently being viewed. Not a Section; users do not add items "into" Upcoming.
-_Avoid_: Inbox, Agenda (as the entity name), Due view, Shared (not an MVP nav surface; use Space switcher and share bar)
+_Avoid_: Inbox, Agenda (as the entity name), Due view, Shared (not a nav surface; use Space switcher and share bar)
 
 
 ### Notifications

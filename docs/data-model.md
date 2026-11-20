@@ -141,7 +141,7 @@ erDiagram
   space {
     uuid id PK
     text name
-    text timezone "IANA zone; one per Space (ADR 0003)"
+    text timezone "IANA zone; one per Space"
     boolean is_personal
     text created_by FK
   }
@@ -209,7 +209,7 @@ erDiagram
     uuid section_id FK
     section_kind section_kind "mirror of section.kind; notes|mixed"
     text title
-    text body "plain text in MVP"
+    text body "plain text"
     integer sort_order
     text created_by FK
   }
@@ -260,7 +260,7 @@ erDiagram
 
 ## How Task vs Monthly is enforced
 
-ADR 0001 says the two are separate domains forever. Rather than trust the services, the schema makes the illegal row unrepresentable.
+Daily and Monthlies are separate domains forever. Rather than trust the services, the schema makes the illegal row unrepresentable.
 
 `section` exposes a three-column unique key, and each content table stores a **mirror** of the Section's kind that is pinned to it by a composite foreign key and narrowed by a `CHECK`:
 
